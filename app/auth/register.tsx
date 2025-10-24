@@ -35,6 +35,8 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
 
   const { loginWithGoogle, register } = useAuthStore();
   const { promptAsync } = useGoogleAuth();
@@ -71,6 +73,14 @@ export default function RegisterScreen() {
       return false;
     }
 
+    if (!acceptTerms || !acceptPrivacy) {
+      Alert.alert(
+        "Erro",
+        "Você deve aceitar os Termos de Uso e a Política de Privacidade para continuar"
+      );
+      return false;
+    }
+
     return true;
   };
 
@@ -88,6 +98,29 @@ export default function RegisterScreen() {
         crn: selectedType === "nutritionist" ? crn : undefined,
       });
 
+      // Get the access token from the store after successful registration
+      const currentTokens = useAuthStore.getState().tokens;
+
+      // Register legal acceptance after successful registration
+      if (currentTokens?.accessToken) {
+        try {
+          await fetch("http://localhost:3000/legal/accept", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${currentTokens.accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              acceptTerms: true,
+              acceptPrivacy: true,
+            }),
+          });
+        } catch (legalError) {
+          console.error("Failed to register legal acceptance:", legalError);
+          // Don't block the user from continuing even if this fails
+        }
+      }
+
       router.replace("/(tabs)");
     } catch (error: any) {
       console.error("Registration error:", error);
@@ -101,6 +134,15 @@ export default function RegisterScreen() {
   };
 
   const handleGoogleRegister = async () => {
+    // Verify terms acceptance before Google login
+    if (!acceptTerms || !acceptPrivacy) {
+      Alert.alert(
+        "Erro",
+        "Você deve aceitar os Termos de Uso e a Política de Privacidade para continuar"
+      );
+      return;
+    }
+
     setIsLoading(true);
     try {
       const response = await promptAsync();
@@ -108,6 +150,30 @@ export default function RegisterScreen() {
 
       if (googleAuthResult?.idToken) {
         await loginWithGoogle(googleAuthResult.idToken);
+
+        // Get the access token from the store after successful login
+        const currentTokens = useAuthStore.getState().tokens;
+
+        // Register legal acceptance after successful Google login
+        if (currentTokens?.accessToken) {
+          try {
+            await fetch("http://localhost:3000/legal/accept", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${currentTokens.accessToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                acceptTerms: true,
+                acceptPrivacy: true,
+              }),
+            });
+          } catch (legalError) {
+            console.error("Failed to register legal acceptance:", legalError);
+            // Don't block the user from continuing even if this fails
+          }
+        }
+
         router.replace("/(tabs)");
       }
     } catch (error) {
@@ -196,6 +262,73 @@ export default function RegisterScreen() {
                 <View className="flex-1 h-px bg-gray-300" />
               </View>
 
+              {/* Terms and Privacy Checkboxes */}
+              <View className="gap-3 mb-6">
+                <TouchableOpacity
+                  onPress={() => setAcceptTerms(!acceptTerms)}
+                  className="flex-row items-start"
+                  activeOpacity={0.7}
+                >
+                  <View
+                    className={`w-5 h-5 rounded border-2 mr-3 mt-0.5 items-center justify-center ${
+                      acceptTerms
+                        ? "bg-[#572363] border-[#572363]"
+                        : "border-gray-300"
+                    }`}
+                  >
+                    {acceptTerms && (
+                      <Ionicons name="checkmark" size={14} color="white" />
+                    )}
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm text-gray-700">
+                      Eu li e aceito os{" "}
+                      <Text
+                        className="text-[#572363] font-semibold"
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          router.push("../terms" as any);
+                        }}
+                      >
+                        Termos de Uso
+                      </Text>
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setAcceptPrivacy(!acceptPrivacy)}
+                  className="flex-row items-start"
+                  activeOpacity={0.7}
+                >
+                  <View
+                    className={`w-5 h-5 rounded border-2 mr-3 mt-0.5 items-center justify-center ${
+                      acceptPrivacy
+                        ? "bg-[#572363] border-[#572363]"
+                        : "border-gray-300"
+                    }`}
+                  >
+                    {acceptPrivacy && (
+                      <Ionicons name="checkmark" size={14} color="white" />
+                    )}
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm text-gray-700">
+                      Eu li e aceito a{" "}
+                      <Text
+                        className="text-[#572363] font-semibold"
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          router.push("../privacy" as any);
+                        }}
+                      >
+                        Política de Privacidade
+                      </Text>
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
               {/* Google Sign Up */}
               <Button
                 title="Continuar com Google"
@@ -214,6 +347,22 @@ export default function RegisterScreen() {
                 <TouchableOpacity onPress={() => router.back()}>
                   <Text className="text-[#572363] font-semibold">
                     Fazer login
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Invitation Link */}
+              <View className="flex-row justify-center items-center mt-3">
+                <Text className="text-gray-600">
+                  Tem um código de convite?{" "}
+                </Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    router.push("../auth/accept-invitation" as any)
+                  }
+                >
+                  <Text className="text-[#572363] font-semibold">
+                    Aceitar convite
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -352,25 +501,79 @@ export default function RegisterScreen() {
               />
             </View>
 
+            {/* Terms and Privacy Checkboxes */}
+            <View className="gap-3 mb-6">
+              <TouchableOpacity
+                onPress={() => setAcceptTerms(!acceptTerms)}
+                className="flex-row items-start"
+                activeOpacity={0.7}
+              >
+                <View
+                  className={`w-5 h-5 rounded border-2 mr-3 mt-0.5 items-center justify-center ${
+                    acceptTerms
+                      ? "bg-[#572363] border-[#572363]"
+                      : "border-gray-300"
+                  }`}
+                >
+                  {acceptTerms && (
+                    <Ionicons name="checkmark" size={14} color="white" />
+                  )}
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm text-gray-700">
+                    Eu li e aceito os{" "}
+                    <Text
+                      className="text-[#572363] font-semibold"
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        router.push("../terms" as any);
+                      }}
+                    >
+                      Termos de Uso
+                    </Text>
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setAcceptPrivacy(!acceptPrivacy)}
+                className="flex-row items-start"
+                activeOpacity={0.7}
+              >
+                <View
+                  className={`w-5 h-5 rounded border-2 mr-3 mt-0.5 items-center justify-center ${
+                    acceptPrivacy
+                      ? "bg-[#572363] border-[#572363]"
+                      : "border-gray-300"
+                  }`}
+                >
+                  {acceptPrivacy && (
+                    <Ionicons name="checkmark" size={14} color="white" />
+                  )}
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm text-gray-700">
+                    Eu li e aceito a{" "}
+                    <Text
+                      className="text-[#572363] font-semibold"
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        router.push("../privacy" as any);
+                      }}
+                    >
+                      Política de Privacidade
+                    </Text>
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
             {/* Register Button */}
             <Button
               title="Criar conta"
               onPress={handleRegister}
               isLoading={isLoading}
-              className="mb-4"
             />
-
-            {/* Terms */}
-            <Text className="text-xs text-gray-500 text-center leading-5">
-              Ao criar uma conta, você concorda com nossos{" "}
-              <Text className="text-[#572363] font-semibold">
-                Termos de Uso
-              </Text>{" "}
-              e{" "}
-              <Text className="text-[#572363] font-semibold">
-                Política de Privacidade
-              </Text>
-            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
