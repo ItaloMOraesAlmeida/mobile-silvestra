@@ -33,11 +33,23 @@ interface AuthState {
   isLoading: boolean;
 
   // Actions
+  login: (email: string, password: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<void>;
   setUser: (user: User) => void;
   setTokens: (tokens: AuthTokens) => void;
+}
+
+interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+  role: "patient" | "nutritionist";
+  phone?: string;
+  crn?: string;
+  invitationCode?: string;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -54,6 +66,49 @@ export const useAuthStore = create<AuthState>()(
 
       setTokens: (tokens: AuthTokens) => {
         set({ tokens });
+      },
+
+      login: async (email: string, password: string) => {
+        set({ isLoading: true });
+
+        try {
+          const response = await api.post(`${API_URL}/auth/login`, {
+            email,
+            password,
+          });
+
+          const { user, tokens } = response.data;
+
+          set({
+            user,
+            tokens,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } catch (error) {
+          set({ isLoading: false });
+          throw error;
+        }
+      },
+
+      register: async (data: RegisterData) => {
+        set({ isLoading: true });
+
+        try {
+          const response = await api.post(`${API_URL}/auth/register`, data);
+
+          const { user, tokens } = response.data;
+
+          set({
+            user,
+            tokens,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } catch (error) {
+          set({ isLoading: false });
+          throw error;
+        }
       },
 
       loginWithGoogle: async (idToken: string) => {
