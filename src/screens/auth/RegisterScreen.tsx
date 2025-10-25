@@ -30,6 +30,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuthStore } from "../../stores/auth.store";
+import { EmailExistsModal } from "../../components/EmailExistsModal";
 
 const registerSchema = z
   .object({
@@ -96,6 +97,8 @@ export function RegisterScreen() {
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [showEmailExistsModal, setShowEmailExistsModal] = useState(false);
+  const [existingEmail, setExistingEmail] = useState("");
 
   const {
     control,
@@ -219,23 +222,63 @@ export function RegisterScreen() {
         navigation.replace("Login");
       }, 1500);
     } catch (error: any) {
-      Toast.show({
-        type: "error",
-        text1: "Erro no Cadastro",
-        text2:
-          error.message || "Não foi possível criar sua conta. Tente novamente.",
-        position: "top",
-        visibilityTime: 4000,
-        topOffset: 60,
-      });
+      // Verifica se o erro é de email já cadastrado
+      const errorMessage = error.message || "";
+      const isEmailExists =
+        errorMessage.toLowerCase().includes("já cadastrado") ||
+        errorMessage.toLowerCase().includes("já existe") ||
+        errorMessage.toLowerCase().includes("already exists") ||
+        errorMessage.toLowerCase().includes("duplicate");
+
+      if (isEmailExists) {
+        // Mostra o modal customizado
+        setExistingEmail(data.email);
+        setShowEmailExistsModal(true);
+      } else {
+        // Mostra toast de erro genérico
+        Toast.show({
+          type: "error",
+          text1: "Erro no Cadastro",
+          text2:
+            error.message ||
+            "Não foi possível criar sua conta. Tente novamente.",
+          position: "top",
+          visibilityTime: 4000,
+          topOffset: 60,
+        });
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleGoToLogin = () => {
+    setShowEmailExistsModal(false);
+    // Navega para login passando o email
+    navigation.navigate("Login", { email: existingEmail } as any);
+  };
+
+  const handleRecoverPassword = () => {
+    setShowEmailExistsModal(false);
+    // Navega para recuperar senha passando o email
+    navigation.navigate("ForgotPassword", { email: existingEmail } as any);
+  };
+
+  const handleCloseModal = () => {
+    setShowEmailExistsModal(false);
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
+
+      <EmailExistsModal
+        visible={showEmailExistsModal}
+        email={existingEmail}
+        onClose={handleCloseModal}
+        onGoToLogin={handleGoToLogin}
+        onRecoverPassword={handleRecoverPassword}
+      />
 
       <LinearGradient
         colors={["#8b5a9f", "#572363", "#3d1a4a"]}

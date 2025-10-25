@@ -16,7 +16,12 @@ import {
 import Toast from "react-native-toast-message";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import {
+  useNavigation,
+  useFocusEffect,
+  useRoute,
+  RouteProp,
+} from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { AuthStackParamList } from "../../navigation/AuthNavigator";
 import {
@@ -86,6 +91,7 @@ type LoginScreenNavigationProp = StackNavigationProp<
 
 export function LoginScreen() {
   const navigation = useNavigation<LoginScreenNavigationProp>();
+  const route = useRoute<RouteProp<AuthStackParamList, "Login">>();
   const scrollViewRef = useRef<ScrollView>(null);
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
@@ -108,6 +114,7 @@ export function LoginScreen() {
     handleSubmit,
     formState: { errors },
     watch,
+    setValue,
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     mode: "onSubmit",
@@ -135,6 +142,13 @@ export function LoginScreen() {
     Poppins_700Bold,
     Poppins_800ExtraBold,
   });
+
+  // Preenche o email se vier dos parâmetros da navegação
+  useEffect(() => {
+    if (route.params?.email) {
+      setValue("email", route.params.email);
+    }
+  }, [route.params?.email, setValue]);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(

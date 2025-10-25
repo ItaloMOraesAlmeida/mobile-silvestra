@@ -15,7 +15,7 @@ import {
 import Toast from "react-native-toast-message";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { AuthStackParamList } from "../../navigation/AuthNavigator";
 import { api } from "../../services/api.service";
@@ -54,6 +54,7 @@ type ForgotPasswordScreenNavigationProp = StackNavigationProp<
 
 export function ForgotPasswordScreen() {
   const navigation = useNavigation<ForgotPasswordScreenNavigationProp>();
+  const route = useRoute<RouteProp<AuthStackParamList, "ForgotPassword">>();
   const [focusedInput, setFocusedInput] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -61,6 +62,7 @@ export function ForgotPasswordScreen() {
     control,
     handleSubmit,
     formState: { errors },
+    setValue,
   } = useForm<ForgotPasswordFormData>({
     resolver: zodResolver(forgotPasswordSchema),
     mode: "onSubmit",
@@ -75,6 +77,13 @@ export function ForgotPasswordScreen() {
     Poppins_700Bold,
     Poppins_800ExtraBold,
   });
+
+  // Preenche o email se vier dos parâmetros da navegação
+  React.useEffect(() => {
+    if (route.params?.email) {
+      setValue("identifier", route.params.email);
+    }
+  }, [route.params?.email, setValue]);
 
   if (!fontsLoaded) {
     return null;

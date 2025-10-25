@@ -15,9 +15,9 @@ import { StorageService } from "../services/storage";
 
 export type AuthStackParamList = {
   Onboarding: undefined;
-  Login: undefined;
+  Login: { email?: string } | undefined;
   Register: undefined;
-  ForgotPassword: undefined;
+  ForgotPassword: { email?: string } | undefined;
   VerifyCode: { identifier: string };
   ResetPassword: { code: string };
   TermsOfService: undefined;
