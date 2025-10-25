@@ -24,6 +24,54 @@ import {
   Poppins_700Bold,
   Poppins_800ExtraBold,
 } from "@expo-google-fonts/poppins";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+const loginSchema = z
+  .object({
+    email: z.string().optional().or(z.literal("")),
+    password: z.string().optional().or(z.literal("")),
+    accessCode: z.string().optional().or(z.literal("")),
+  })
+  .superRefine((data, ctx) => {
+    // Se código de acesso foi fornecido, valida apenas ele
+    if (data.accessCode && data.accessCode.length > 0) {
+      if (!/^\d{6}$/.test(data.accessCode)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Código deve ter 6 dígitos",
+          path: ["accessCode"],
+        });
+      }
+      return;
+    }
+
+    // Caso contrário, email e senha são obrigatórios
+    if (!data.email || data.email.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Email é obrigatório",
+        path: ["email"],
+      });
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Email inválido",
+        path: ["email"],
+      });
+    }
+
+    if (!data.password || data.password.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Senha é obrigatória",
+        path: ["password"],
+      });
+    }
+  });
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 type LoginScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -37,12 +85,35 @@ export function LoginScreen() {
   const passwordInputRef = useRef<TextInput>(null);
   const accessCodeInputRef = useRef<TextInput>(null);
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [accessCode, setAccessCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+    watch,
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    mode: "onSubmit",
+    defaultValues: {
+      email: "",
+      password: "",
+      accessCode: "",
+    },
+  });
+
+  const emailValue = watch("email");
+  const passwordValue = watch("password");
+  const accessCodeValue = watch("accessCode");
+
+  // Desabilita email/senha se accessCode preenchido
+  const isEmailPasswordDisabled = accessCodeValue && accessCodeValue.length > 0;
+  // Desabilita accessCode se email ou senha preenchidos
+  const isAccessCodeDisabled =
+    (emailValue && emailValue.length > 0) ||
+    (passwordValue && passwordValue.length > 0);
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -108,9 +179,9 @@ export function LoginScreen() {
     }, 100);
   };
 
-  const handleLogin = () => {
+  const onSubmit = (data: LoginFormData) => {
     // TODO: Implementar lógica de login
-    console.log("Login:", { email, password, accessCode });
+    console.log("Login:", data);
   };
 
   const handleGoogleLogin = () => {
@@ -164,34 +235,48 @@ export function LoginScreen() {
                   style={[
                     styles.inputContainer,
                     focusedInput === "email" && styles.inputFocused,
+                    errors.email && styles.inputError,
+                    isEmailPasswordDisabled && styles.inputDisabled,
                   ]}
                 >
                   <Ionicons
                     name="mail-outline"
                     size={20}
                     color={
-                      focusedInput === "email"
+                      isEmailPasswordDisabled
+                        ? "rgba(255, 255, 255, 0.3)"
+                        : focusedInput === "email"
                         ? "#FFFFFF"
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
-                  <TextInput
-                    ref={emailInputRef}
-                    style={styles.input}
-                    placeholder="Email"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    onFocus={() => {
-                      setFocusedInput("email");
-                      handleInputFocus(emailInputRef);
-                    }}
-                    onBlur={() => setFocusedInput(null)}
+                  <Controller
+                    control={control}
+                    name="email"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        ref={emailInputRef}
+                        style={styles.input}
+                        placeholder="Email"
+                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                        value={value}
+                        onChangeText={onChange}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoComplete="email"
+                        editable={!isEmailPasswordDisabled}
+                        onFocus={() => {
+                          setFocusedInput("email");
+                          handleInputFocus(emailInputRef);
+                        }}
+                        onBlur={() => setFocusedInput(null)}
+                      />
+                    )}
                   />
                 </View>
+                {errors.email && (
+                  <Text style={styles.errorText}>{errors.email.message}</Text>
+                )}
               </View>
 
               {/* Password Input */}
@@ -200,32 +285,43 @@ export function LoginScreen() {
                   style={[
                     styles.inputContainer,
                     focusedInput === "password" && styles.inputFocused,
+                    errors.password && styles.inputError,
+                    isEmailPasswordDisabled && styles.inputDisabled,
                   ]}
                 >
                   <Ionicons
                     name="lock-closed-outline"
                     size={20}
                     color={
-                      focusedInput === "password"
+                      isEmailPasswordDisabled
+                        ? "rgba(255, 255, 255, 0.3)"
+                        : focusedInput === "password"
                         ? "#FFFFFF"
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
-                  <TextInput
-                    ref={passwordInputRef}
-                    style={styles.input}
-                    placeholder="Senha"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    autoComplete="password"
-                    onFocus={() => {
-                      setFocusedInput("password");
-                      handleInputFocus(passwordInputRef);
-                    }}
-                    onBlur={() => setFocusedInput(null)}
+                  <Controller
+                    control={control}
+                    name="password"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        ref={passwordInputRef}
+                        style={styles.input}
+                        placeholder="Senha"
+                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                        value={value}
+                        onChangeText={onChange}
+                        secureTextEntry={!showPassword}
+                        autoCapitalize="none"
+                        autoComplete="password"
+                        editable={!isEmailPasswordDisabled}
+                        onFocus={() => {
+                          setFocusedInput("password");
+                          handleInputFocus(passwordInputRef);
+                        }}
+                        onBlur={() => setFocusedInput(null)}
+                      />
+                    )}
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}
@@ -238,6 +334,11 @@ export function LoginScreen() {
                     />
                   </TouchableOpacity>
                 </View>
+                {errors.password && (
+                  <Text style={styles.errorText}>
+                    {errors.password.message}
+                  </Text>
+                )}
               </View>
 
               {/* Forgot Password */}
@@ -256,42 +357,60 @@ export function LoginScreen() {
                   style={[
                     styles.inputContainer,
                     focusedInput === "accessCode" && styles.inputFocused,
+                    errors.accessCode && styles.inputError,
+                    isAccessCodeDisabled && styles.inputDisabled,
                   ]}
                 >
                   <Ionicons
                     name="key-outline"
                     size={20}
                     color={
-                      focusedInput === "accessCode"
+                      isAccessCodeDisabled
+                        ? "rgba(255, 255, 255, 0.3)"
+                        : focusedInput === "accessCode"
                         ? "#FFFFFF"
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
-                  <TextInput
-                    ref={accessCodeInputRef}
-                    style={styles.input}
-                    placeholder="Código de acesso (opcional)"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    value={accessCode}
-                    onChangeText={setAccessCode}
-                    keyboardType="numeric"
-                    autoCapitalize="none"
-                    onFocus={() => {
-                      setFocusedInput("accessCode");
-                      handleInputFocus(accessCodeInputRef);
-                    }}
-                    onBlur={() => setFocusedInput(null)}
+                  <Controller
+                    control={control}
+                    name="accessCode"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        ref={accessCodeInputRef}
+                        style={styles.input}
+                        placeholder="Código de acesso (opcional)"
+                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                        value={value}
+                        onChangeText={onChange}
+                        keyboardType="numeric"
+                        maxLength={6}
+                        autoCapitalize="none"
+                        editable={!isAccessCodeDisabled}
+                        onFocus={() => {
+                          setFocusedInput("accessCode");
+                          handleInputFocus(accessCodeInputRef);
+                        }}
+                        onBlur={() => setFocusedInput(null)}
+                      />
+                    )}
                   />
                 </View>
-                <Text style={styles.accessCodeHint}>
-                  Use o código fornecido pelo seu nutricionista
-                </Text>
+                {errors.accessCode ? (
+                  <Text style={styles.errorText}>
+                    {errors.accessCode.message}
+                  </Text>
+                ) : (
+                  <Text style={styles.accessCodeHint}>
+                    Use o código fornecido pelo seu nutricionista
+                  </Text>
+                )}
               </View>
 
               {/* Login Button */}
               <TouchableOpacity
                 style={styles.loginButton}
-                onPress={handleLogin}
+                onPress={handleSubmit(onSubmit)}
                 activeOpacity={0.8}
               >
                 <LinearGradient
@@ -505,5 +624,20 @@ const styles = StyleSheet.create({
     color: "#e6a4f0",
     fontSize: 14,
     fontFamily: "Poppins_700Bold",
+  },
+  inputError: {
+    borderColor: "#ff4444",
+    borderWidth: 2,
+  },
+  inputDisabled: {
+    opacity: 0.5,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  errorText: {
+    color: "#ff4444",
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+    marginTop: 4,
+    marginLeft: 4,
   },
 });

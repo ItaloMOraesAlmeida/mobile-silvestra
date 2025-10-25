@@ -24,6 +24,51 @@ import {
   Poppins_700Bold,
   Poppins_800ExtraBold,
 } from "@expo-google-fonts/poppins";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+const registerSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1, "Nome é obrigatório")
+      .min(3, "Nome deve ter pelo menos 3 caracteres"),
+    email: z.string().min(1, "Email é obrigatório").email("Email inválido"),
+    password: z
+      .string()
+      .min(1, "Senha é obrigatória")
+      .min(8, "Senha deve ter pelo menos 8 caracteres")
+      .regex(/[A-Z]/, "Senha deve conter pelo menos uma letra maiúscula")
+      .regex(/[a-z]/, "Senha deve conter pelo menos uma letra minúscula")
+      .regex(/[0-9]/, "Senha deve conter pelo menos um número"),
+    confirmPassword: z.string().min(1, "Confirmação de senha é obrigatória"),
+    crn: z.string().optional(),
+    isNutritionist: z.boolean(),
+  })
+  .superRefine((data, ctx) => {
+    // Valida se as senhas coincidem
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "As senhas não coincidem",
+        path: ["confirmPassword"],
+      });
+    }
+
+    // Se for nutricionista, CRN é obrigatório
+    if (data.isNutritionist) {
+      if (!data.crn || data.crn.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "CRN é obrigatório para nutricionistas",
+          path: ["crn"],
+        });
+      }
+    }
+  });
+
+type RegisterFormData = z.infer<typeof registerSchema>;
 
 type RegisterScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -39,16 +84,31 @@ export function RegisterScreen() {
   const confirmPasswordInputRef = useRef<TextInput>(null);
   const crnInputRef = useRef<TextInput>(null);
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [crn, setCrn] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isNutritionist, setIsNutritionist] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+    watch,
+    setValue,
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    mode: "onSubmit",
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      crn: "",
+      isNutritionist: false,
+    },
+  });
+
+  const isNutritionist = watch("isNutritionist");
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -115,9 +175,9 @@ export function RegisterScreen() {
     }, 100);
   };
 
-  const handleRegister = () => {
+  const onSubmit = (data: RegisterFormData) => {
     // TODO: Implementar lógica de cadastro
-    console.log("Cadastro:", { name, email, password, isNutritionist, crn });
+    console.log("Cadastro:", data);
   };
 
   return (
@@ -171,6 +231,7 @@ export function RegisterScreen() {
                   style={[
                     styles.inputContainer,
                     focusedInput === "name" && styles.inputFocused,
+                    errors.name && styles.inputError,
                   ]}
                 >
                   <Ionicons
@@ -182,22 +243,31 @@ export function RegisterScreen() {
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
-                  <TextInput
-                    ref={nameInputRef}
-                    style={styles.input}
-                    placeholder="Nome completo"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    value={name}
-                    onChangeText={setName}
-                    autoCapitalize="words"
-                    autoComplete="name"
-                    onFocus={() => {
-                      setFocusedInput("name");
-                      handleInputFocus(nameInputRef);
-                    }}
-                    onBlur={() => setFocusedInput(null)}
+                  <Controller
+                    control={control}
+                    name="name"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        ref={nameInputRef}
+                        style={styles.input}
+                        placeholder="Nome completo"
+                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                        value={value}
+                        onChangeText={onChange}
+                        autoCapitalize="words"
+                        autoComplete="name"
+                        onFocus={() => {
+                          setFocusedInput("name");
+                          handleInputFocus(nameInputRef);
+                        }}
+                        onBlur={() => setFocusedInput(null)}
+                      />
+                    )}
                   />
                 </View>
+                {errors.name && (
+                  <Text style={styles.errorText}>{errors.name.message}</Text>
+                )}
               </View>
 
               {/* Email Input */}
@@ -206,6 +276,7 @@ export function RegisterScreen() {
                   style={[
                     styles.inputContainer,
                     focusedInput === "email" && styles.inputFocused,
+                    errors.email && styles.inputError,
                   ]}
                 >
                   <Ionicons
@@ -217,23 +288,32 @@ export function RegisterScreen() {
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
-                  <TextInput
-                    ref={emailInputRef}
-                    style={styles.input}
-                    placeholder="Email"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    onFocus={() => {
-                      setFocusedInput("email");
-                      handleInputFocus(emailInputRef);
-                    }}
-                    onBlur={() => setFocusedInput(null)}
+                  <Controller
+                    control={control}
+                    name="email"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        ref={emailInputRef}
+                        style={styles.input}
+                        placeholder="Email"
+                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                        value={value}
+                        onChangeText={onChange}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoComplete="email"
+                        onFocus={() => {
+                          setFocusedInput("email");
+                          handleInputFocus(emailInputRef);
+                        }}
+                        onBlur={() => setFocusedInput(null)}
+                      />
+                    )}
                   />
                 </View>
+                {errors.email && (
+                  <Text style={styles.errorText}>{errors.email.message}</Text>
+                )}
               </View>
 
               {/* Password Input */}
@@ -242,6 +322,7 @@ export function RegisterScreen() {
                   style={[
                     styles.inputContainer,
                     focusedInput === "password" && styles.inputFocused,
+                    errors.password && styles.inputError,
                   ]}
                 >
                   <Ionicons
@@ -253,21 +334,27 @@ export function RegisterScreen() {
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
-                  <TextInput
-                    ref={passwordInputRef}
-                    style={styles.input}
-                    placeholder="Senha"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    autoComplete="password"
-                    onFocus={() => {
-                      setFocusedInput("password");
-                      handleInputFocus(passwordInputRef);
-                    }}
-                    onBlur={() => setFocusedInput(null)}
+                  <Controller
+                    control={control}
+                    name="password"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        ref={passwordInputRef}
+                        style={styles.input}
+                        placeholder="Senha"
+                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                        value={value}
+                        onChangeText={onChange}
+                        secureTextEntry={!showPassword}
+                        autoCapitalize="none"
+                        autoComplete="password"
+                        onFocus={() => {
+                          setFocusedInput("password");
+                          handleInputFocus(passwordInputRef);
+                        }}
+                        onBlur={() => setFocusedInput(null)}
+                      />
+                    )}
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}
@@ -280,6 +367,11 @@ export function RegisterScreen() {
                     />
                   </TouchableOpacity>
                 </View>
+                {errors.password && (
+                  <Text style={styles.errorText}>
+                    {errors.password.message}
+                  </Text>
+                )}
               </View>
 
               {/* Confirm Password Input */}
@@ -288,6 +380,7 @@ export function RegisterScreen() {
                   style={[
                     styles.inputContainer,
                     focusedInput === "confirmPassword" && styles.inputFocused,
+                    errors.confirmPassword && styles.inputError,
                   ]}
                 >
                   <Ionicons
@@ -299,21 +392,27 @@ export function RegisterScreen() {
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
-                  <TextInput
-                    ref={confirmPasswordInputRef}
-                    style={styles.input}
-                    placeholder="Confirmar senha"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                    autoCapitalize="none"
-                    autoComplete="password"
-                    onFocus={() => {
-                      setFocusedInput("confirmPassword");
-                      handleInputFocus(confirmPasswordInputRef);
-                    }}
-                    onBlur={() => setFocusedInput(null)}
+                  <Controller
+                    control={control}
+                    name="confirmPassword"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        ref={confirmPasswordInputRef}
+                        style={styles.input}
+                        placeholder="Confirmar senha"
+                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                        value={value}
+                        onChangeText={onChange}
+                        secureTextEntry={!showConfirmPassword}
+                        autoCapitalize="none"
+                        autoComplete="password"
+                        onFocus={() => {
+                          setFocusedInput("confirmPassword");
+                          handleInputFocus(confirmPasswordInputRef);
+                        }}
+                        onBlur={() => setFocusedInput(null)}
+                      />
+                    )}
                   />
                   <TouchableOpacity
                     onPress={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -328,6 +427,11 @@ export function RegisterScreen() {
                     />
                   </TouchableOpacity>
                 </View>
+                {errors.confirmPassword && (
+                  <Text style={styles.errorText}>
+                    {errors.confirmPassword.message}
+                  </Text>
+                )}
               </View>
 
               {/* Nutritionist Toggle */}
@@ -344,7 +448,7 @@ export function RegisterScreen() {
                   </Text>
                   <Switch
                     value={isNutritionist}
-                    onValueChange={setIsNutritionist}
+                    onValueChange={(value) => setValue("isNutritionist", value)}
                     trackColor={{
                       false: "rgba(255, 255, 255, 0.2)",
                       true: "#e6a4f0",
@@ -362,6 +466,7 @@ export function RegisterScreen() {
                     style={[
                       styles.inputContainer,
                       focusedInput === "crn" && styles.inputFocused,
+                      errors.crn && styles.inputError,
                     ]}
                   >
                     <Ionicons
@@ -373,31 +478,37 @@ export function RegisterScreen() {
                           : "rgba(255, 255, 255, 0.6)"
                       }
                     />
-                    <TextInput
-                      ref={crnInputRef}
-                      style={styles.input}
-                      placeholder="CRN (Ex: 12345/SP)"
-                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                      value={crn}
-                      onChangeText={setCrn}
-                      autoCapitalize="characters"
-                      onFocus={() => {
-                        setFocusedInput("crn");
-                        handleInputFocus(crnInputRef);
-                      }}
-                      onBlur={() => setFocusedInput(null)}
+                    <Controller
+                      control={control}
+                      name="crn"
+                      render={({ field: { onChange, value } }) => (
+                        <TextInput
+                          ref={crnInputRef}
+                          style={styles.input}
+                          placeholder="CRN (Ex: 12345/SP)"
+                          placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                          value={value}
+                          onChangeText={onChange}
+                          autoCapitalize="characters"
+                          onFocus={() => {
+                            setFocusedInput("crn");
+                            handleInputFocus(crnInputRef);
+                          }}
+                          onBlur={() => setFocusedInput(null)}
+                        />
+                      )}
                     />
                   </View>
-                  <Text style={styles.crnHint}>
-                    Informe seu número de registro profissional
-                  </Text>
+                  {errors.crn && (
+                    <Text style={styles.errorText}>{errors.crn.message}</Text>
+                  )}
                 </View>
               )}
 
               {/* Register Button */}
               <TouchableOpacity
                 style={styles.registerButton}
-                onPress={handleRegister}
+                onPress={handleSubmit(onSubmit)}
                 activeOpacity={0.8}
               >
                 <LinearGradient
@@ -565,5 +676,16 @@ const styles = StyleSheet.create({
     color: "#e6a4f0",
     fontSize: 14,
     fontFamily: "Poppins_700Bold",
+  },
+  inputError: {
+    borderColor: "#ff4444",
+    borderWidth: 2,
+  },
+  errorText: {
+    color: "#ff4444",
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+    marginTop: 4,
+    marginLeft: 4,
   },
 });

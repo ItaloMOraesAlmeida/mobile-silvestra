@@ -25,6 +25,26 @@ import {
   Poppins_700Bold,
   Poppins_800ExtraBold,
 } from "@expo-google-fonts/poppins";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+const forgotPasswordSchema = z.object({
+  identifier: z
+    .string()
+    .min(1, "Email ou CPF é obrigatório")
+    .refine(
+      (value) => {
+        // Valida email OU CPF (11 dígitos ou formatado)
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const cpfRegex = /^(\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$/;
+        return emailRegex.test(value) || cpfRegex.test(value);
+      },
+      { message: "Informe um email ou CPF válido" }
+    ),
+});
+
+type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 
 type ForgotPasswordScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -33,9 +53,20 @@ type ForgotPasswordScreenNavigationProp = StackNavigationProp<
 
 export function ForgotPasswordScreen() {
   const navigation = useNavigation<ForgotPasswordScreenNavigationProp>();
-  const [identifier, setIdentifier] = useState("");
   const [focusedInput, setFocusedInput] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ForgotPasswordFormData>({
+    resolver: zodResolver(forgotPasswordSchema),
+    mode: "onSubmit",
+    defaultValues: {
+      identifier: "",
+    },
+  });
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -48,12 +79,7 @@ export function ForgotPasswordScreen() {
     return null;
   }
 
-  const handleSendCode = async () => {
-    if (!identifier.trim()) {
-      Alert.alert("Atenção", "Por favor, informe seu email ou CPF");
-      return;
-    }
-
+  const onSubmit = async (data: ForgotPasswordFormData) => {
     setLoading(true);
     try {
       const response = await fetch(
@@ -63,11 +89,11 @@ export function ForgotPasswordScreen() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ identifier }),
+          body: JSON.stringify({ identifier: data.identifier }),
         }
       );
 
-      const data = await response.json();
+      const responseData = await response.json();
 
       if (response.ok) {
         Alert.alert(
@@ -76,12 +102,15 @@ export function ForgotPasswordScreen() {
           [
             {
               text: "OK",
-              onPress: () => navigation.navigate("VerifyCode", { identifier }),
+              onPress: () =>
+                navigation.navigate("VerifyCode", {
+                  identifier: data.identifier,
+                }),
             },
           ]
         );
       } else {
-        Alert.alert("Erro", data.message || "Erro ao enviar código");
+        Alert.alert("Erro", responseData.message || "Erro ao enviar código");
       }
     } catch {
       Alert.alert("Erro", "Não foi possível conectar ao servidor");
@@ -145,6 +174,7 @@ export function ForgotPasswordScreen() {
                   style={[
                     styles.inputContainer,
                     focusedInput && styles.inputFocused,
+                    errors.identifier && styles.inputError,
                   ]}
                 >
                   <Ionicons
@@ -154,18 +184,29 @@ export function ForgotPasswordScreen() {
                       focusedInput ? "#FFFFFF" : "rgba(255, 255, 255, 0.6)"
                     }
                   />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Email ou CPF"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    value={identifier}
-                    onChangeText={setIdentifier}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    onFocus={() => setFocusedInput(true)}
-                    onBlur={() => setFocusedInput(false)}
+                  <Controller
+                    control={control}
+                    name="identifier"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Email ou CPF"
+                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                        value={value}
+                        onChangeText={onChange}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        onFocus={() => setFocusedInput(true)}
+                        onBlur={() => setFocusedInput(false)}
+                      />
+                    )}
                   />
                 </View>
+                {errors.identifier && (
+                  <Text style={styles.errorText}>
+                    {errors.identifier.message}
+                  </Text>
+                )}
               </View>
 
               {/* Send Button */}
@@ -174,7 +215,7 @@ export function ForgotPasswordScreen() {
                   styles.sendButton,
                   loading && styles.sendButtonDisabled,
                 ]}
-                onPress={handleSendCode}
+                onPress={handleSubmit(onSubmit)}
                 activeOpacity={0.8}
                 disabled={loading}
               >
@@ -334,5 +375,16 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.7)",
     fontSize: 14,
     fontFamily: "Poppins_400Regular",
+  },
+  inputError: {
+    borderColor: "#ff4444",
+    borderWidth: 2,
+  },
+  errorText: {
+    color: "#ff4444",
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+    marginTop: 4,
+    marginLeft: 4,
   },
 });

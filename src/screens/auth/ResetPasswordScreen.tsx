@@ -25,6 +25,27 @@ import {
   Poppins_700Bold,
   Poppins_800ExtraBold,
 } from "@expo-google-fonts/poppins";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+
+const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(1, "Senha é obrigatória")
+      .min(8, "Senha deve ter pelo menos 8 caracteres")
+      .regex(/[A-Z]/, "Senha deve conter pelo menos uma letra maiúscula")
+      .regex(/[a-z]/, "Senha deve conter pelo menos uma letra minúscula")
+      .regex(/[0-9]/, "Senha deve conter pelo menos um número"),
+    confirmPassword: z.string().min(1, "Confirmação de senha é obrigatória"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
+
+type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
 type ResetPasswordScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -41,12 +62,26 @@ export function ResetPasswordScreen() {
   const route = useRoute<ResetPasswordScreenRouteProp>();
   const { code } = route.params;
 
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+    watch,
+  } = useForm<ResetPasswordFormData>({
+    resolver: zodResolver(resetPasswordSchema),
+    mode: "onChange",
+    defaultValues: {
+      password: "",
+      confirmPassword: "",
+    },
+  });
+
+  const password = watch("password");
 
   const scrollViewRef = useRef<ScrollView>(null);
   const confirmPasswordRef = useRef<TextInput>(null);
@@ -69,40 +104,6 @@ export function ResetPasswordScreen() {
   if (!fontsLoaded) {
     return null;
   }
-
-  const validatePassword = () => {
-    if (!password) {
-      Alert.alert("Atenção", "Por favor, informe a nova senha");
-      return false;
-    }
-    if (password.length < 8) {
-      Alert.alert("Senha Fraca", "A senha deve ter no mínimo 8 caracteres");
-      return false;
-    }
-    if (!/[A-Z]/.test(password)) {
-      Alert.alert(
-        "Senha Fraca",
-        "A senha deve conter pelo menos uma letra maiúscula"
-      );
-      return false;
-    }
-    if (!/[a-z]/.test(password)) {
-      Alert.alert(
-        "Senha Fraca",
-        "A senha deve conter pelo menos uma letra minúscula"
-      );
-      return false;
-    }
-    if (!/[0-9]/.test(password)) {
-      Alert.alert("Senha Fraca", "A senha deve conter pelo menos um número");
-      return false;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert("Senhas Diferentes", "As senhas não coincidem");
-      return false;
-    }
-    return true;
-  };
 
   const getPasswordStrength = () => {
     let strength = 0;
@@ -129,11 +130,7 @@ export function ResetPasswordScreen() {
     return "Forte";
   };
 
-  const handleResetPassword = async () => {
-    if (!validatePassword()) {
-      return;
-    }
-
+  const onSubmit = async (data: ResetPasswordFormData) => {
     setLoading(true);
     try {
       const response = await fetch(
@@ -145,13 +142,13 @@ export function ResetPasswordScreen() {
           },
           body: JSON.stringify({
             code,
-            newPassword: password,
-            confirmPassword,
+            newPassword: data.password,
+            confirmPassword: data.confirmPassword,
           }),
         }
       );
 
-      const data = await response.json();
+      const responseData = await response.json();
 
       if (response.ok) {
         Alert.alert(
@@ -165,7 +162,7 @@ export function ResetPasswordScreen() {
           ]
         );
       } else {
-        Alert.alert("Erro", data.message || "Erro ao redefinir senha");
+        Alert.alert("Erro", responseData.message || "Erro ao redefinir senha");
       }
     } catch {
       Alert.alert("Erro", "Não foi possível conectar ao servidor");
@@ -230,6 +227,7 @@ export function ResetPasswordScreen() {
                   style={[
                     styles.inputContainer,
                     focusedInput === "password" && styles.inputFocused,
+                    errors.password && styles.inputError,
                   ]}
                 >
                   <Ionicons
@@ -241,18 +239,26 @@ export function ResetPasswordScreen() {
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Nova senha"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    onFocus={() => handleInputFocus("password")}
-                    onBlur={handleInputBlur}
-                    returnKeyType="next"
-                    onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                  <Controller
+                    control={control}
+                    name="password"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Nova senha"
+                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                        value={value}
+                        onChangeText={onChange}
+                        secureTextEntry={!showPassword}
+                        autoCapitalize="none"
+                        onFocus={() => handleInputFocus("password")}
+                        onBlur={handleInputBlur}
+                        returnKeyType="next"
+                        onSubmitEditing={() =>
+                          confirmPasswordRef.current?.focus()
+                        }
+                      />
+                    )}
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}
@@ -265,6 +271,11 @@ export function ResetPasswordScreen() {
                     />
                   </TouchableOpacity>
                 </View>
+                {errors.password && (
+                  <Text style={styles.errorText}>
+                    {errors.password.message}
+                  </Text>
+                )}
               </View>
 
               {/* Password Strength */}
@@ -295,6 +306,7 @@ export function ResetPasswordScreen() {
                   style={[
                     styles.inputContainer,
                     focusedInput === "confirmPassword" && styles.inputFocused,
+                    errors.confirmPassword && styles.inputError,
                   ]}
                 >
                   <Ionicons
@@ -306,19 +318,25 @@ export function ResetPasswordScreen() {
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
-                  <TextInput
-                    ref={confirmPasswordRef}
-                    style={styles.input}
-                    placeholder="Confirmar nova senha"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                    autoCapitalize="none"
-                    onFocus={() => handleInputFocus("confirmPassword")}
-                    onBlur={handleInputBlur}
-                    returnKeyType="done"
-                    onSubmitEditing={handleResetPassword}
+                  <Controller
+                    control={control}
+                    name="confirmPassword"
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        ref={confirmPasswordRef}
+                        style={styles.input}
+                        placeholder="Confirmar nova senha"
+                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                        value={value}
+                        onChangeText={onChange}
+                        secureTextEntry={!showConfirmPassword}
+                        autoCapitalize="none"
+                        onFocus={() => handleInputFocus("confirmPassword")}
+                        onBlur={handleInputBlur}
+                        returnKeyType="done"
+                        onSubmitEditing={handleSubmit(onSubmit)}
+                      />
+                    )}
                   />
                   <TouchableOpacity
                     onPress={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -333,6 +351,11 @@ export function ResetPasswordScreen() {
                     />
                   </TouchableOpacity>
                 </View>
+                {errors.confirmPassword && (
+                  <Text style={styles.errorText}>
+                    {errors.confirmPassword.message}
+                  </Text>
+                )}
               </View>
 
               {/* Password Requirements */}
@@ -418,7 +441,7 @@ export function ResetPasswordScreen() {
                   styles.resetButton,
                   loading && styles.resetButtonDisabled,
                 ]}
-                onPress={handleResetPassword}
+                onPress={handleSubmit(onSubmit)}
                 activeOpacity={0.8}
                 disabled={loading}
               >
@@ -592,5 +615,16 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontFamily: "Poppins_600SemiBold",
+  },
+  inputError: {
+    borderColor: "#ff4444",
+    borderWidth: 2,
+  },
+  errorText: {
+    color: "#ff4444",
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+    marginTop: 4,
+    marginLeft: 4,
   },
 });
