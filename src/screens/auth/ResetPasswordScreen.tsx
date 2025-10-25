@@ -9,10 +9,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Image,
 } from "react-native";
+import Toast from "react-native-toast-message";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -151,21 +151,37 @@ export function ResetPasswordScreen() {
       const responseData = await response.json();
 
       if (response.ok) {
-        Alert.alert(
-          "Senha Alterada",
-          "Sua senha foi alterada com sucesso! Faça login com a nova senha.",
-          [
-            {
-              text: "OK",
-              onPress: () => navigation.navigate("Login"),
-            },
-          ]
-        );
+        Toast.show({
+          type: "success",
+          text1: "Senha Redefinida!",
+          text2: "Sua senha foi alterada com sucesso. Faça login novamente.",
+          position: "top",
+          visibilityTime: 3000,
+          topOffset: 60,
+        });
+
+        navigation.navigate("Login");
       } else {
-        Alert.alert("Erro", responseData.message || "Erro ao redefinir senha");
+        Toast.show({
+          type: "error",
+          text1: "Erro ao Redefinir Senha",
+          text2:
+            responseData.message ||
+            "Não foi possível alterar sua senha. Tente novamente.",
+          position: "top",
+          visibilityTime: 4000,
+          topOffset: 60,
+        });
       }
     } catch {
-      Alert.alert("Erro", "Não foi possível conectar ao servidor");
+      Toast.show({
+        type: "error",
+        text1: "Erro de Conexão",
+        text2: "Não foi possível conectar ao servidor. Verifique sua internet.",
+        position: "top",
+        visibilityTime: 4000,
+        topOffset: 60,
+      });
     } finally {
       setLoading(false);
     }

@@ -9,10 +9,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Image,
 } from "react-native";
+import Toast from "react-native-toast-message";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -96,24 +96,39 @@ export function ForgotPasswordScreen() {
       const responseData = await response.json();
 
       if (response.ok) {
-        Alert.alert(
-          "Código Enviado",
-          "Se o email/CPF estiver cadastrado, você receberá um código de recuperação.",
-          [
-            {
-              text: "OK",
-              onPress: () =>
-                navigation.navigate("VerifyCode", {
-                  identifier: data.identifier,
-                }),
-            },
-          ]
-        );
+        Toast.show({
+          type: "success",
+          text1: "Código Enviado!",
+          text2: "Verifique seu email ou SMS para o código de recuperação.",
+          position: "top",
+          visibilityTime: 3000,
+          topOffset: 60,
+        });
+
+        navigation.navigate("VerifyCode", {
+          identifier: data.identifier,
+        });
       } else {
-        Alert.alert("Erro", responseData.message || "Erro ao enviar código");
+        Toast.show({
+          type: "error",
+          text1: "Erro ao Enviar Código",
+          text2:
+            responseData.message ||
+            "Não foi possível enviar o código. Tente novamente.",
+          position: "top",
+          visibilityTime: 4000,
+          topOffset: 60,
+        });
       }
     } catch {
-      Alert.alert("Erro", "Não foi possível conectar ao servidor");
+      Toast.show({
+        type: "error",
+        text1: "Erro de Conexão",
+        text2: "Não foi possível conectar ao servidor. Verifique sua internet.",
+        position: "top",
+        visibilityTime: 4000,
+        topOffset: 60,
+      });
     } finally {
       setLoading(false);
     }

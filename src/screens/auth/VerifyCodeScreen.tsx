@@ -9,10 +9,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Image,
 } from "react-native";
+import Toast from "react-native-toast-message";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -54,7 +54,14 @@ export function VerifyCodeScreen() {
 
   const handleVerifyCode = async (fullCode: string) => {
     if (fullCode.length !== 6) {
-      Alert.alert("Atenção", "Por favor, informe o código completo");
+      Toast.show({
+        type: "warning",
+        text1: "Atenção",
+        text2: "Por favor, informe o código completo de 6 dígitos.",
+        position: "top",
+        visibilityTime: 3000,
+        topOffset: 60,
+      });
       return;
     }
 
@@ -74,17 +81,38 @@ export function VerifyCodeScreen() {
       const data = await response.json();
 
       if (response.ok && data.valid) {
+        Toast.show({
+          type: "success",
+          text1: "Código Válido!",
+          text2: "Redirecionando para redefinir sua senha...",
+          position: "top",
+          visibilityTime: 2000,
+          topOffset: 60,
+        });
+
         navigation.navigate("ResetPassword", { code: fullCode });
       } else {
-        Alert.alert(
-          "Código Inválido",
-          data.message || "Código incorreto ou expirado"
-        );
+        Toast.show({
+          type: "error",
+          text1: "Código Inválido",
+          text2:
+            data.message || "Código incorreto ou expirado. Tente novamente.",
+          position: "top",
+          visibilityTime: 4000,
+          topOffset: 60,
+        });
         setCode(["", "", "", "", "", ""]);
         inputRefs.current[0]?.focus();
       }
     } catch {
-      Alert.alert("Erro", "Não foi possível conectar ao servidor");
+      Toast.show({
+        type: "error",
+        text1: "Erro de Conexão",
+        text2: "Não foi possível conectar ao servidor. Verifique sua internet.",
+        position: "top",
+        visibilityTime: 4000,
+        topOffset: 60,
+      });
     } finally {
       setLoading(false);
     }
@@ -164,18 +192,36 @@ export function VerifyCodeScreen() {
       );
 
       if (response.ok) {
-        Alert.alert(
-          "Código Reenviado",
-          "Um novo código foi enviado para seu email"
-        );
+        Toast.show({
+          type: "success",
+          text1: "Código Reenviado!",
+          text2: "Um novo código foi enviado para seu email ou SMS.",
+          position: "top",
+          visibilityTime: 3000,
+          topOffset: 60,
+        });
         setTimeLeft(15 * 60);
         setCode(["", "", "", "", "", ""]);
         inputRefs.current[0]?.focus();
       } else {
-        Alert.alert("Erro", "Não foi possível reenviar o código");
+        Toast.show({
+          type: "error",
+          text1: "Erro ao Reenviar",
+          text2: "Não foi possível reenviar o código. Tente novamente.",
+          position: "top",
+          visibilityTime: 4000,
+          topOffset: 60,
+        });
       }
     } catch {
-      Alert.alert("Erro", "Não foi possível conectar ao servidor");
+      Toast.show({
+        type: "error",
+        text1: "Erro de Conexão",
+        text2: "Não foi possível conectar ao servidor. Verifique sua internet.",
+        position: "top",
+        visibilityTime: 4000,
+        topOffset: 60,
+      });
     } finally {
       setLoading(false);
     }

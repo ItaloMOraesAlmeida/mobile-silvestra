@@ -11,8 +11,8 @@ import {
   ScrollView,
   Image,
   Keyboard,
-  Alert,
 } from "react-native";
+import Toast from "react-native-toast-message";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -172,11 +172,14 @@ export function LoginScreen() {
           } else {
             // Trata os diferentes tipos de falha
             if (result.reason === "token_expired") {
-              Alert.alert(
-                "Sessão Expirada",
-                "Sua sessão expirou. Por favor, faça login novamente.",
-                [{ text: "OK" }]
-              );
+              Toast.show({
+                type: "warning",
+                text1: "Sessão Expirada",
+                text2: "Sua sessão expirou. Por favor, faça login novamente.",
+                position: "top",
+                visibilityTime: 5000,
+                topOffset: 60,
+              });
             } else if (result.reason === "biometric_failed") {
               console.log("Autenticação biométrica falhou ou foi cancelada.");
             }
@@ -256,13 +259,29 @@ export function LoginScreen() {
         setShowBiometricPrompt(true);
       } else {
         // Se biometria não está disponível, navega direto para o app
+        Toast.show({
+          type: "success",
+          text1: "Login Realizado!",
+          text2: "Bem-vindo de volta!",
+          position: "top",
+          visibilityTime: 3000,
+          topOffset: 60,
+        });
         // TODO: Navegar para a tela principal
-        console.log("Navegando para o app sem biometria");
         // navigation.replace("MainApp"); // ou o nome da sua tela principal
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro no login:", error);
-      // TODO: Mostrar mensagem de erro para o usuário
+      Toast.show({
+        type: "error",
+        text1: "Erro no Login",
+        text2:
+          error.response?.data?.message ||
+          "Credenciais inválidas. Verifique seus dados e tente novamente.",
+        position: "top",
+        visibilityTime: 4000,
+        topOffset: 60,
+      });
     }
   };
 
@@ -281,11 +300,27 @@ export function LoginScreen() {
       setShowBiometricPrompt(false);
       setPendingAuth(null);
 
+      Toast.show({
+        type: "success",
+        text1: "Biometria Habilitada!",
+        text2: "Agora você pode entrar usando sua biometria.",
+        position: "top",
+        visibilityTime: 3000,
+        topOffset: 60,
+      });
+
       // TODO: Navegar para a tela principal
-      console.log("Biometria habilitada! Navegando para o app");
       // navigation.replace("MainApp"); // ou o nome da sua tela principal
     } catch (error) {
       console.error("Erro ao habilitar biometria:", error);
+      Toast.show({
+        type: "error",
+        text1: "Erro ao Habilitar Biometria",
+        text2: "Não foi possível configurar a biometria. Tente novamente.",
+        position: "top",
+        visibilityTime: 4000,
+        topOffset: 60,
+      });
     }
   };
 
@@ -294,8 +329,17 @@ export function LoginScreen() {
     setShowBiometricPrompt(false);
     setPendingAuth(null);
 
+    Toast.show({
+      type: "info",
+      text1: "Login Realizado!",
+      text2: "Você pode habilitar a biometria depois nas configurações.",
+      position: "top",
+      visibilityTime: 3000,
+      topOffset: 60,
+    });
+
     // TODO: Navegar para a tela principal
-    console.log("Usuário recusou biometria. Navegando para o app");
+    // navigation.replace("MainApp"); // ou o nome da sua tela principal
   };
 
   const handleGoogleLogin = () => {

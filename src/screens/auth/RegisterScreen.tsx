@@ -12,6 +12,7 @@ import {
   Switch,
   Keyboard,
 } from "react-native";
+import Toast from "react-native-toast-message";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -176,8 +177,29 @@ export function RegisterScreen() {
   };
 
   const onSubmit = (data: RegisterFormData) => {
-    // TODO: Implementar lógica de cadastro
-    console.log("Cadastro:", data);
+    try {
+      // TODO: Implementar lógica de cadastro
+      console.log("Cadastro:", data);
+
+      Toast.show({
+        type: "success",
+        text1: "Cadastro Realizado!",
+        text2: "Sua conta foi criada com sucesso. Bem-vindo!",
+        position: "top",
+        visibilityTime: 3000,
+        topOffset: 60,
+      });
+    } catch (error: any) {
+      Toast.show({
+        type: "error",
+        text1: "Erro no Cadastro",
+        text2:
+          error.message || "Não foi possível criar sua conta. Tente novamente.",
+        position: "top",
+        visibilityTime: 4000,
+        topOffset: 60,
+      });
+    }
   };
 
   return (
