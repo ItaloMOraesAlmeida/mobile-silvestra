@@ -178,8 +178,8 @@ export function OnboardingScreen() {
   const handleContinue = async () => {
     try {
       await StorageService.setOnboardingCompleted(true);
-    } catch (error) {
-      console.error("Error saving onboarding status:", error);
+    } catch {
+      // Erro silencioso ao salvar status do onboarding
     }
     navigation.replace("Login");
   };

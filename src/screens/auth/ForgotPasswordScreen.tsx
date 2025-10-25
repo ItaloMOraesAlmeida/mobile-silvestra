@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { AuthStackParamList } from "../../navigation/AuthNavigator";
+import { api } from "../../services/api.service";
 import {
   useFonts,
   Poppins_400Regular,
@@ -82,20 +83,11 @@ export function ForgotPasswordScreen() {
   const onSubmit = async (data: ForgotPasswordFormData) => {
     setLoading(true);
     try {
-      const response = await fetch(
-        "http://localhost:3000/auth/forgot-password",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ identifier: data.identifier }),
-        }
-      );
+      const response = await api.post("/auth/forgot-password", {
+        identifier: data.identifier,
+      });
 
-      const responseData = await response.json();
-
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         Toast.show({
           type: "success",
           text1: "Código Enviado!",
@@ -113,18 +105,20 @@ export function ForgotPasswordScreen() {
           type: "error",
           text1: "Erro ao Enviar Código",
           text2:
-            responseData.message ||
+            response.data?.message ||
             "Não foi possível enviar o código. Tente novamente.",
           position: "top",
           visibilityTime: 4000,
           topOffset: 60,
         });
       }
-    } catch {
+    } catch (error: any) {
       Toast.show({
         type: "error",
         text1: "Erro de Conexão",
-        text2: "Não foi possível conectar ao servidor. Verifique sua internet.",
+        text2:
+          error.message ||
+          "Não foi possível conectar ao servidor. Verifique sua internet.",
         position: "top",
         visibilityTime: 4000,
         topOffset: 60,

@@ -4,8 +4,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api, registerAuthCallbacks } from "../services/api.service";
 import { tokenService } from "../services/token.service";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
-
 interface User {
   id: string;
   email: string;
@@ -75,7 +73,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
 
         try {
-          const response = await api.post(`${API_URL}/auth/login`, {
+          const response = await api.post("/auth/login", {
             email,
             password,
           });
@@ -101,7 +99,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
 
         try {
-          const response = await api.post(`${API_URL}/auth/register`, data);
+          const response = await api.post("/auth/register", data);
 
           const { user, tokens } = response.data;
 
@@ -124,7 +122,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
 
         try {
-          const response = await api.post(`${API_URL}/auth/google`, {
+          const response = await api.post("/auth/google", {
             idToken,
           });
 
@@ -151,7 +149,7 @@ export const useAuthStore = create<AuthState>()(
         if (tokens?.refreshToken && tokens?.accessToken) {
           try {
             await api.post(
-              `${API_URL}/auth/logout`,
+              "/auth/logout",
               { refreshToken: tokens.refreshToken },
               {
                 headers: {
@@ -182,7 +180,7 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const response = await api.post(`${API_URL}/auth/refresh`, {
+          const response = await api.post("/auth/refresh", {
             refreshToken: tokens.refreshToken,
           });
 

@@ -179,7 +179,6 @@ export function RegisterScreen() {
   const onSubmit = (data: RegisterFormData) => {
     try {
       // TODO: Implementar lógica de cadastro
-      console.log("Cadastro:", data);
 
       Toast.show({
         type: "success",

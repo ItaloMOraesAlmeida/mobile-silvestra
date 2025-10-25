@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { AuthStackParamList } from "../../navigation/AuthNavigator";
+import { api } from "../../services/api.service";
 import {
   useFonts,
   Poppins_400Regular,
@@ -67,20 +68,13 @@ export function VerifyCodeScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(
-        "http://localhost:3000/auth/verify-reset-code",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ code: fullCode }),
-        }
-      );
+      const response = await api.post("/auth/verify-reset-code", {
+        code: fullCode,
+      });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (response.ok && data.valid) {
+      if (response.status === 200 && data.valid) {
         Toast.show({
           type: "success",
           text1: "Código Válido!",
@@ -104,11 +98,13 @@ export function VerifyCodeScreen() {
         setCode(["", "", "", "", "", ""]);
         inputRefs.current[0]?.focus();
       }
-    } catch {
+    } catch (error: any) {
       Toast.show({
         type: "error",
         text1: "Erro de Conexão",
-        text2: "Não foi possível conectar ao servidor. Verifique sua internet.",
+        text2:
+          error.message ||
+          "Não foi possível conectar ao servidor. Verifique sua internet.",
         position: "top",
         visibilityTime: 4000,
         topOffset: 60,
@@ -180,18 +176,11 @@ export function VerifyCodeScreen() {
   const handleResendCode = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        "http://localhost:3000/auth/forgot-password",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ identifier }),
-        }
-      );
+      const response = await api.post("/auth/forgot-password", {
+        identifier,
+      });
 
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         Toast.show({
           type: "success",
           text1: "Código Reenviado!",
@@ -213,11 +202,13 @@ export function VerifyCodeScreen() {
           topOffset: 60,
         });
       }
-    } catch {
+    } catch (error: any) {
       Toast.show({
         type: "error",
         text1: "Erro de Conexão",
-        text2: "Não foi possível conectar ao servidor. Verifique sua internet.",
+        text2:
+          error.message ||
+          "Não foi possível conectar ao servidor. Verifique sua internet.",
         position: "top",
         visibilityTime: 4000,
         topOffset: 60,

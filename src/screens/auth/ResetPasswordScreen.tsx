@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { AuthStackParamList } from "../../navigation/AuthNavigator";
+import { api } from "../../services/api.service";
 import {
   useFonts,
   Poppins_400Regular,
@@ -133,24 +134,13 @@ export function ResetPasswordScreen() {
   const onSubmit = async (data: ResetPasswordFormData) => {
     setLoading(true);
     try {
-      const response = await fetch(
-        "http://localhost:3000/auth/reset-password",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            code,
-            newPassword: data.password,
-            confirmPassword: data.confirmPassword,
-          }),
-        }
-      );
+      const response = await api.post("/auth/reset-password", {
+        code,
+        newPassword: data.password,
+        confirmPassword: data.confirmPassword,
+      });
 
-      const responseData = await response.json();
-
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         Toast.show({
           type: "success",
           text1: "Senha Redefinida!",
@@ -166,18 +156,20 @@ export function ResetPasswordScreen() {
           type: "error",
           text1: "Erro ao Redefinir Senha",
           text2:
-            responseData.message ||
+            response.data?.message ||
             "Não foi possível alterar sua senha. Tente novamente.",
           position: "top",
           visibilityTime: 4000,
           topOffset: 60,
         });
       }
-    } catch {
+    } catch (error: any) {
       Toast.show({
         type: "error",
         text1: "Erro de Conexão",
-        text2: "Não foi possível conectar ao servidor. Verifique sua internet.",
+        text2:
+          error.message ||
+          "Não foi possível conectar ao servidor. Verifique sua internet.",
         position: "top",
         visibilityTime: 4000,
         topOffset: 60,

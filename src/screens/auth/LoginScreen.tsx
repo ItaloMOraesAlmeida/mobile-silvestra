@@ -167,7 +167,6 @@ export function LoginScreen() {
           if (result.success) {
             // Autenticação bem-sucedida, tokens atualizados
             // TODO: Navegar para a tela principal
-            console.log("Auto-login com biometria bem-sucedido!");
             // navigation.replace("MainApp"); // ou o nome da sua tela principal
           } else {
             // Trata os diferentes tipos de falha
@@ -181,11 +180,11 @@ export function LoginScreen() {
                 topOffset: 60,
               });
             } else if (result.reason === "biometric_failed") {
-              console.log("Autenticação biométrica falhou ou foi cancelada.");
+              // Autenticação biométrica falhou ou foi cancelada
             }
           }
-        } catch (error) {
-          console.error("Erro ao verificar biometria:", error);
+        } catch {
+          // Erro silencioso - biometria não disponível
         }
       };
 
@@ -271,12 +270,11 @@ export function LoginScreen() {
         // navigation.replace("MainApp"); // ou o nome da sua tela principal
       }
     } catch (error: any) {
-      console.error("Erro no login:", error);
       Toast.show({
         type: "error",
         text1: "Erro no Login",
         text2:
-          error.response?.data?.message ||
+          error.message ||
           "Credenciais inválidas. Verifique seus dados e tente novamente.",
         position: "top",
         visibilityTime: 4000,
@@ -311,8 +309,7 @@ export function LoginScreen() {
 
       // TODO: Navegar para a tela principal
       // navigation.replace("MainApp"); // ou o nome da sua tela principal
-    } catch (error) {
-      console.error("Erro ao habilitar biometria:", error);
+    } catch {
       Toast.show({
         type: "error",
         text1: "Erro ao Habilitar Biometria",
@@ -344,7 +341,6 @@ export function LoginScreen() {
 
   const handleGoogleLogin = () => {
     // TODO: Implementar login com Google
-    console.log("Login com Google");
   };
 
   return (
@@ -742,6 +738,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontFamily: "Poppins_700Bold",
+    marginTop: 4,
   },
   divider: {
     flexDirection: "row",
@@ -775,6 +772,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 15,
     fontFamily: "Poppins_600SemiBold",
+    marginTop: 4,
   },
   createAccountContainer: {
     flexDirection: "row",
