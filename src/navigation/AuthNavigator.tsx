@@ -1,6 +1,5 @@
 import { createStackNavigator } from "@react-navigation/stack";
 import { OnboardingScreen } from "../screens/auth/OnboardingScreen";
-import { WelcomeScreen } from "../screens/auth/WelcomeScreen";
 import { LoginScreen } from "../screens/auth/LoginScreen";
 import { RegisterScreen } from "../screens/auth/RegisterScreen";
 import { ForgotPasswordScreen } from "../screens/auth/ForgotPasswordScreen";
@@ -9,7 +8,6 @@ import { ResetPasswordScreen } from "../screens/auth/ResetPasswordScreen";
 
 export type AuthStackParamList = {
   Onboarding: undefined;
-  Welcome: undefined;
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;
@@ -29,7 +27,6 @@ export function AuthNavigator() {
       initialRouteName="Onboarding"
     >
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-      <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />

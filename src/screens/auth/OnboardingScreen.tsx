@@ -17,6 +17,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { AuthStackParamList } from "../../navigation/AuthNavigator";
+import {
+  useFonts,
+  Poppins_400Regular,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+  Poppins_800ExtraBold,
+} from "@expo-google-fonts/poppins";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -94,6 +101,30 @@ export function OnboardingScreen() {
     slides.map(() => new Animated.Value(0.3))
   ).current;
 
+  const onViewableItemsChanged = useRef(
+    ({
+      viewableItems,
+    }: {
+      viewableItems: ViewToken[];
+      changed: ViewToken[];
+    }) => {
+      if (viewableItems.length > 0) {
+        setCurrentIndex(viewableItems[0].index ?? 0);
+      }
+    }
+  ).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+  }).current;
+
+  const [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+    Poppins_800ExtraBold,
+  });
+
   React.useEffect(() => {
     // Reset e animar a imagem com timing suave
     scaleAnim.setValue(0.85);
@@ -140,13 +171,17 @@ export function OnboardingScreen() {
     });
   }, [currentIndex, scaleAnim, dotAnimations, dotOpacities]);
 
+  if (!fontsLoaded) {
+    return null;
+  }
+
   const handleContinue = async () => {
     try {
       await AsyncStorage.setItem("hasSeenOnboarding", "true");
     } catch {
       // ignore
     }
-    navigation.replace("Welcome");
+    navigation.replace("Login");
   };
 
   const handleNext = () => {
@@ -164,23 +199,6 @@ export function OnboardingScreen() {
   const handleSkip = () => {
     handleContinue();
   };
-
-  const onViewableItemsChanged = useRef(
-    ({
-      viewableItems,
-    }: {
-      viewableItems: ViewToken[];
-      changed: ViewToken[];
-    }) => {
-      if (viewableItems.length > 0) {
-        setCurrentIndex(viewableItems[0].index ?? 0);
-      }
-    }
-  ).current;
-
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current;
 
   const renderSlide = ({
     item,
@@ -355,7 +373,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 26,
-    fontWeight: "bold",
+    fontFamily: "Poppins_700Bold",
     color: "#FFFFFF",
     textAlign: "center",
     marginBottom: 8,
@@ -366,6 +384,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 14,
+    fontFamily: "Poppins_400Regular",
     color: "rgba(255, 255, 255, 0.95)",
     textAlign: "center",
     lineHeight: 20,
