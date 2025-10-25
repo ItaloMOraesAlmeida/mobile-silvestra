@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { createStackNavigator } from "@react-navigation/stack";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../store/authStore";
 import { AuthNavigator } from "./AuthNavigator";
+import { TabsNavigator } from "./TabsNavigator";
 import { PatientNavigator } from "./PatientNavigator";
 import { NutritionistNavigator } from "./NutritionistNavigator";
 import { Loading } from "../components/ui/Loading";
-import { View } from "react-native";
+import { View, ActivityIndicator } from "react-native";
 
 export type RootStackParamList = {
   Auth: undefined;
+  Tabs: undefined;
   Patient: undefined;
   Nutritionist: undefined;
 };
@@ -18,13 +21,19 @@ const Stack = createStackNavigator<RootStackParamList>();
 export function RootNavigator() {
   const { isAuthenticated, user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
 
   useEffect(() => {
-    // Simular verificação de autenticação persistida
+    // Verificar se já viu onboarding e verificar autenticação
     const checkAuth = async () => {
-      // Aqui você pode verificar AsyncStorage para token persistido
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setIsLoading(false);
+      try {
+        const seen = await AsyncStorage.getItem("hasSeenOnboarding");
+        setHasSeenOnboarding(seen === "true");
+      } catch (error) {
+        console.error("Error checking onboarding:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     checkAuth();
@@ -33,7 +42,7 @@ export function RootNavigator() {
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Loading text="Carregando..." />
+        <ActivityIndicator size="large" color="#572363" />
       </View>
     );
   }
@@ -44,8 +53,10 @@ export function RootNavigator() {
         <Stack.Screen name="Auth" component={AuthNavigator} />
       ) : user?.role === "nutritionist" ? (
         <Stack.Screen name="Nutritionist" component={NutritionistNavigator} />
-      ) : (
+      ) : user?.role === "patient" ? (
         <Stack.Screen name="Patient" component={PatientNavigator} />
+      ) : (
+        <Stack.Screen name="Tabs" component={TabsNavigator} />
       )}
     </Stack.Navigator>
   );

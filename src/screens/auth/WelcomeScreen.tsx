@@ -1,9 +1,16 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
+import { StackNavigationProp } from "@react-navigation/stack";
+import { AuthStackParamList } from "../../navigation/AuthNavigator";
 
-export default function WelcomeScreen() {
-  const router = useRouter();
+type WelcomeScreenNavigationProp = StackNavigationProp<
+  AuthStackParamList,
+  "Welcome"
+>;
+
+export function WelcomeScreen() {
+  const navigation = useNavigation<WelcomeScreenNavigationProp>();
 
   return (
     <View style={styles.container}>
@@ -17,17 +24,14 @@ export default function WelcomeScreen() {
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[styles.button, styles.primaryButton]}
-          onPress={() => router.push("/(tabs)" as any)}
+          onPress={() => navigation.navigate("Login")}
         >
           <Text style={styles.primaryButtonText}>Entrar</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, styles.secondaryButton]}
-          onPress={() => {
-            // Navegar para registro - rota não existe ainda
-            console.log("Navegar para registro");
-          }}
+          onPress={() => navigation.navigate("Register")}
         >
           <Text style={styles.secondaryButtonText}>Criar Conta</Text>
         </TouchableOpacity>
@@ -46,7 +50,7 @@ export default function WelcomeScreen() {
       {/* Link para Esqueci Senha */}
       <TouchableOpacity
         style={styles.forgotPasswordLink}
-        onPress={() => router.push("/forgot-password" as any)}
+        onPress={() => navigation.navigate("ForgotPassword")}
       >
         <Text style={styles.forgotPasswordText}>Esqueci minha senha</Text>
       </TouchableOpacity>
@@ -98,7 +102,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
   },
   secondaryButton: {
@@ -108,21 +112,21 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: "#572363",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
   },
   googleButton: {
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#DDDDDD",
+    borderColor: "#E0E0E0",
   },
   googleButtonText: {
     color: "#333333",
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   forgotPasswordLink: {
-    marginTop: 32,
+    marginTop: 24,
   },
   forgotPasswordText: {
     color: "#572363",
