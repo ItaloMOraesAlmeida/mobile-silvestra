@@ -3,13 +3,11 @@ import {
   createStackNavigator,
   CardStyleInterpolators,
 } from "@react-navigation/stack";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../store/authStore";
 import { AuthNavigator } from "./AuthNavigator";
 import { TabsNavigator } from "./TabsNavigator";
 import { PatientNavigator } from "./PatientNavigator";
 import { NutritionistNavigator } from "./NutritionistNavigator";
-import { Loading } from "../components/ui/Loading";
 import { View, ActivityIndicator } from "react-native";
 
 export type RootStackParamList = {
@@ -24,22 +22,12 @@ const Stack = createStackNavigator<RootStackParamList>();
 export function RootNavigator() {
   const { isAuthenticated, user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
-  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(false);
 
   useEffect(() => {
-    // Verificar se já viu onboarding e verificar autenticação
-    const checkAuth = async () => {
-      try {
-        const seen = await AsyncStorage.getItem("hasSeenOnboarding");
-        setHasSeenOnboarding(seen === "true");
-      } catch (error) {
-        console.error("Error checking onboarding:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
+    // Pequeno delay para garantir que o app carregou
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
   }, []);
 
   if (isLoading) {

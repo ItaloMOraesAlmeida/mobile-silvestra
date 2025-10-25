@@ -13,10 +13,10 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { AuthStackParamList } from "../../navigation/AuthNavigator";
+import { StorageService } from "../../services/storage";
 import {
   useFonts,
   Poppins_400Regular,
@@ -177,9 +177,9 @@ export function OnboardingScreen() {
 
   const handleContinue = async () => {
     try {
-      await AsyncStorage.setItem("hasSeenOnboarding", "true");
-    } catch {
-      // ignore
+      await StorageService.setOnboardingCompleted(true);
+    } catch (error) {
+      console.error("Error saving onboarding status:", error);
     }
     navigation.replace("Login");
   };

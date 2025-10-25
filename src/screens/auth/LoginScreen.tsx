@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,10 +11,11 @@ import {
   ScrollView,
   Image,
   Keyboard,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { AuthStackParamList } from "../../navigation/AuthNavigator";
 import {
@@ -27,6 +28,10 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { BiometricService } from "../../services/biometric";
+import { BiometricPromptModal } from "../../components/BiometricPromptModal";
+import { BiometricAuthService } from "../../services/biometric-auth";
+import { useAuthStore } from "../../stores/auth.store";
 
 const loginSchema = z
   .object({
@@ -88,6 +93,13 @@ export function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
+  const [biometricType, setBiometricType] = useState("");
+  const [pendingAuth, setPendingAuth] = useState<{
+    email: string;
+    accessToken: string;
+    refreshToken: string;
+  } | null>(null);
 
   const {
     control,
@@ -144,6 +156,40 @@ export function LoginScreen() {
     };
   }, []);
 
+  // Verifica se biometria está habilitada e tenta autenticar automaticamente
+  // Verifica se biometria está habilitada e tenta autenticar automaticamente
+  useFocusEffect(
+    useCallback(() => {
+      const checkBiometric = async () => {
+        try {
+          const result = await BiometricAuthService.authenticateWithBiometric();
+
+          if (result.success) {
+            // Autenticação bem-sucedida, tokens atualizados
+            // TODO: Navegar para a tela principal
+            console.log("Auto-login com biometria bem-sucedido!");
+            // navigation.replace("MainApp"); // ou o nome da sua tela principal
+          } else {
+            // Trata os diferentes tipos de falha
+            if (result.reason === "token_expired") {
+              Alert.alert(
+                "Sessão Expirada",
+                "Sua sessão expirou. Por favor, faça login novamente.",
+                [{ text: "OK" }]
+              );
+            } else if (result.reason === "biometric_failed") {
+              console.log("Autenticação biométrica falhou ou foi cancelada.");
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao verificar biometria:", error);
+        }
+      };
+
+      checkBiometric();
+    }, [])
+  );
+
   if (!fontsLoaded) {
     return null;
   }
@@ -179,9 +225,77 @@ export function LoginScreen() {
     }, 100);
   };
 
-  const onSubmit = (data: LoginFormData) => {
-    // TODO: Implementar lógica de login
-    console.log("Login:", data);
+  const onSubmit = async (data: LoginFormData) => {
+    try {
+      const { login } = useAuthStore.getState();
+
+      // Faz login usando o store (que já salva os tokens)
+      await login(data.email || "", data.password || "");
+
+      // Obtém os tokens salvos pelo login
+      const { tokens, user } = useAuthStore.getState();
+
+      if (!tokens || !user) {
+        throw new Error("Erro ao obter tokens após login");
+      }
+
+      // Verifica se biometria está disponível no dispositivo
+      const biometricAvailable = await BiometricService.isAvailable();
+
+      if (biometricAvailable) {
+        // Obtém o nome da biometria (Face ID, Touch ID, Digital)
+        const biometricType = await BiometricService.getBiometricName();
+
+        // Armazena os dados temporariamente para salvar caso o usuário aceite
+        setPendingAuth({
+          email: user.email,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+        });
+        setBiometricType(biometricType);
+        setShowBiometricPrompt(true);
+      } else {
+        // Se biometria não está disponível, navega direto para o app
+        // TODO: Navegar para a tela principal
+        console.log("Navegando para o app sem biometria");
+        // navigation.replace("MainApp"); // ou o nome da sua tela principal
+      }
+    } catch (error) {
+      console.error("Erro no login:", error);
+      // TODO: Mostrar mensagem de erro para o usuário
+    }
+  };
+
+  const handleBiometricAccept = async () => {
+    try {
+      if (pendingAuth) {
+        // Salva os tokens (access + refresh) para autenticação biométrica
+        await BiometricAuthService.saveBiometricCredentials(
+          pendingAuth.email,
+          pendingAuth.accessToken,
+          pendingAuth.refreshToken
+        );
+      }
+
+      // Fecha o modal
+      setShowBiometricPrompt(false);
+      setPendingAuth(null);
+
+      // TODO: Navegar para a tela principal
+      console.log("Biometria habilitada! Navegando para o app");
+      // navigation.replace("MainApp"); // ou o nome da sua tela principal
+    } catch (error) {
+      console.error("Erro ao habilitar biometria:", error);
+    }
+  };
+
+  const handleBiometricDecline = () => {
+    // Usuário optou por não usar biometria
+    setShowBiometricPrompt(false);
+    setPendingAuth(null);
+
+    // TODO: Navegar para a tela principal
+    console.log("Usuário recusou biometria. Navegando para o app");
   };
 
   const handleGoogleLogin = () => {
@@ -458,6 +572,14 @@ export function LoginScreen() {
           </ScrollView>
         </KeyboardAvoidingView>
       </LinearGradient>
+
+      {/* Modal para perguntar se o usuário quer habilitar biometria */}
+      <BiometricPromptModal
+        visible={showBiometricPrompt}
+        biometricType={biometricType}
+        onAccept={handleBiometricAccept}
+        onDecline={handleBiometricDecline}
+      />
     </View>
   );
 }
