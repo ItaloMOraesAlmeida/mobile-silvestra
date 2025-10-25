@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { api } from "../services/api.service";
+import { api, registerAuthCallbacks } from "../services/api.service";
+import { tokenService } from "../services/token.service";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
@@ -66,6 +67,8 @@ export const useAuthStore = create<AuthState>()(
 
       setTokens: (tokens: AuthTokens) => {
         set({ tokens });
+        // Sincroniza com o tokenService
+        tokenService.setTokens(tokens);
       },
 
       login: async (email: string, password: string) => {
@@ -85,6 +88,9 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
           });
+
+          // Sincroniza com o tokenService
+          tokenService.setTokens(tokens);
         } catch (error) {
           set({ isLoading: false });
           throw error;
@@ -105,6 +111,9 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
           });
+
+          // Sincroniza com o tokenService
+          tokenService.setTokens(tokens);
         } catch (error) {
           set({ isLoading: false });
           throw error;
@@ -127,6 +136,9 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
           });
+
+          // Sincroniza com o tokenService
+          tokenService.setTokens(tokens);
         } catch (error) {
           set({ isLoading: false });
           throw error;
@@ -157,6 +169,9 @@ export const useAuthStore = create<AuthState>()(
           tokens: null,
           isAuthenticated: false,
         });
+
+        // Limpa o tokenService
+        tokenService.clearTokens();
       },
 
       refreshAccessToken: async () => {
@@ -176,6 +191,9 @@ export const useAuthStore = create<AuthState>()(
           set({
             tokens: newTokens,
           });
+
+          // Sincroniza com o tokenService
+          tokenService.setTokens(newTokens);
         } catch (error) {
           // Se o refresh falhar, fazer logout
           get().logout();
@@ -189,3 +207,14 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+// Registra os callbacks no api.service para evitar dependência circular
+registerAuthCallbacks(
+  () => useAuthStore.getState().refreshAccessToken(),
+  () => useAuthStore.getState().logout()
+);
+
+// Sincroniza tokens iniciais com o tokenService ao carregar do storage
+useAuthStore.subscribe((state) => {
+  tokenService.setTokens(state.tokens);
+});

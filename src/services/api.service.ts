@@ -1,7 +1,22 @@
 import axios from "axios";
-import { useAuthStore } from "../stores/auth.store";
+import { tokenService } from "./token.service";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+
+// Referência para a função de refresh token (será definida pelo auth store)
+let refreshTokenCallback: (() => Promise<void>) | null = null;
+let logoutCallback: (() => Promise<void>) | null = null;
+
+/**
+ * Registra callbacks do auth store para evitar dependência circular
+ */
+export function registerAuthCallbacks(
+  refreshToken: () => Promise<void>,
+  logout: () => Promise<void>
+) {
+  refreshTokenCallback = refreshToken;
+  logoutCallback = logout;
+}
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -14,7 +29,7 @@ export const api = axios.create({
 // Interceptor para adicionar token em todas as requisições
 api.interceptors.request.use(
   (config) => {
-    const { tokens } = useAuthStore.getState();
+    const tokens = tokenService.getTokens();
 
     if (tokens?.accessToken) {
       config.headers.Authorization = `Bearer ${tokens.accessToken}`;
@@ -36,17 +51,21 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const { refreshAccessToken } = useAuthStore.getState();
-        await refreshAccessToken();
+        if (!refreshTokenCallback) {
+          throw new Error("Refresh token callback não registrado");
+        }
+
+        await refreshTokenCallback();
 
         // Retry a requisição original
-        const { tokens } = useAuthStore.getState();
+        const tokens = tokenService.getTokens();
         originalRequest.headers.Authorization = `Bearer ${tokens?.accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        // Se o refresh falhar, redirecionar para login
-        const { logout } = useAuthStore.getState();
-        logout();
+        // Se o refresh falhar, fazer logout
+        if (logoutCallback) {
+          logoutCallback();
+        }
         return Promise.reject(refreshError);
       }
     }

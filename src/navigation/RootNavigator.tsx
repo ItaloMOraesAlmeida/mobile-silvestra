@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   createStackNavigator,
   CardStyleInterpolators,
@@ -8,7 +7,6 @@ import { AuthNavigator } from "./AuthNavigator";
 import { TabsNavigator } from "./TabsNavigator";
 import { PatientNavigator } from "./PatientNavigator";
 import { NutritionistNavigator } from "./NutritionistNavigator";
-import { View, ActivityIndicator } from "react-native";
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -21,22 +19,6 @@ const Stack = createStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
   const { isAuthenticated, user } = useAuthStore();
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Pequeno delay para garantir que o app carregou
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-  }, []);
-
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#572363" />
-      </View>
-    );
-  }
 
   return (
     <Stack.Navigator

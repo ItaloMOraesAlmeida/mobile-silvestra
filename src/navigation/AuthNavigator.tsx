@@ -10,7 +10,6 @@ import { ForgotPasswordScreen } from "../screens/auth/ForgotPasswordScreen";
 import { VerifyCodeScreen } from "../screens/auth/VerifyCodeScreen";
 import { ResetPasswordScreen } from "../screens/auth/ResetPasswordScreen";
 import { StorageService } from "../services/storage";
-import { View, ActivityIndicator } from "react-native";
 
 export type AuthStackParamList = {
   Onboarding: undefined;
@@ -24,31 +23,27 @@ export type AuthStackParamList = {
 const Stack = createStackNavigator<AuthStackParamList>();
 
 export function AuthNavigator() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [initialRoute, setInitialRoute] = useState<
+    "Onboarding" | "Login" | null
+  >(null);
 
   useEffect(() => {
     const checkOnboarding = async () => {
-      const completed = await StorageService.hasCompletedOnboarding();
-      setHasCompletedOnboarding(completed);
-      setIsLoading(false);
+      try {
+        const completed = await StorageService.hasCompletedOnboarding();
+        setInitialRoute(completed ? "Login" : "Onboarding");
+      } catch (error) {
+        console.error("Erro ao verificar onboarding:", error);
+        // Em caso de erro, vai direto pro login
+        setInitialRoute("Login");
+      }
     };
     checkOnboarding();
   }, []);
 
-  if (isLoading) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#572363",
-        }}
-      >
-        <ActivityIndicator size="large" color="#FFFFFF" />
-      </View>
-    );
+  // Retorna null ao invés de loading para evitar flash de tela branca
+  if (!initialRoute) {
+    return null;
   }
 
   return (
@@ -78,9 +73,9 @@ export function AuthNavigator() {
           },
         },
       }}
-      initialRouteName={hasCompletedOnboarding ? "Login" : "Onboarding"}
+      initialRouteName={initialRoute}
     >
-      {!hasCompletedOnboarding && (
+      {initialRoute === "Onboarding" && (
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       )}
       <Stack.Screen name="Login" component={LoginScreen} />
