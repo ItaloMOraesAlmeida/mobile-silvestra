@@ -11,6 +11,7 @@ import {
   ScrollView,
   Image,
   Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { LinearGradient } from "expo-linear-gradient";
@@ -95,6 +96,7 @@ export function LoginScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
   const [biometricType, setBiometricType] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [pendingAuth, setPendingAuth] = useState<{
     email: string;
     accessToken: string;
@@ -228,6 +230,10 @@ export function LoginScreen() {
   };
 
   const onSubmit = async (data: LoginFormData) => {
+    if (isLoading) return;
+
+    setIsLoading(true);
+
     try {
       const { login } = useAuthStore.getState();
 
@@ -280,6 +286,8 @@ export function LoginScreen() {
         visibilityTime: 4000,
         topOffset: 60,
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -563,9 +571,13 @@ export function LoginScreen() {
 
               {/* Login Button */}
               <TouchableOpacity
-                style={styles.loginButton}
+                style={[
+                  styles.loginButton,
+                  isLoading && styles.loginButtonDisabled,
+                ]}
                 onPress={handleSubmit(onSubmit)}
                 activeOpacity={0.8}
+                disabled={isLoading}
               >
                 <LinearGradient
                   colors={["#9b6cb0", "#6b3d7a"]}
@@ -573,7 +585,11 @@ export function LoginScreen() {
                   end={{ x: 1, y: 1 }}
                   style={styles.loginButtonGradient}
                 >
-                  <Text style={styles.loginButtonText}>Entrar</Text>
+                  {isLoading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.loginButtonText}>Entrar</Text>
+                  )}
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -726,6 +742,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
     marginBottom: 14,
+  },
+  loginButtonDisabled: {
+    opacity: 0.6,
   },
   loginButtonGradient: {
     flexDirection: "row",
