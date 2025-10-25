@@ -148,14 +148,16 @@ export function RegisterScreen() {
           >
             {/* Header */}
             <View style={styles.header}>
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.title}>Criar Conta</Text>
+              <View style={styles.headerTop}>
+                <TouchableOpacity
+                  style={styles.backButton}
+                  onPress={() => navigation.goBack()}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+                <Text style={styles.title}>Criar Conta</Text>
+              </View>
               <Text style={styles.subtitle}>
                 Preencha os dados para começar
               </Text>
@@ -446,20 +448,27 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 30,
   },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    gap: 16,
+  },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
   },
   title: {
-    fontSize: 36,
+    flex: 1,
+    fontSize: 32,
     fontFamily: "Poppins_800ExtraBold",
     color: "#FFFFFF",
-    marginBottom: 6,
+    textAlign: "center",
+    marginRight: 44,
     letterSpacing: 1,
   },
   subtitle: {

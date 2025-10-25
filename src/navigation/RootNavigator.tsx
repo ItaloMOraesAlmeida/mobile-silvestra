@@ -54,6 +54,8 @@ export function RootNavigator() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
+        gestureEnabled: true,
+        gestureDirection: "horizontal",
         cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
         transitionSpec: {
           open: {

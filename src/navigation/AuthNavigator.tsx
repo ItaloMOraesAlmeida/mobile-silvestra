@@ -26,6 +26,8 @@ export function AuthNavigator() {
       screenOptions={{
         headerShown: false,
         cardStyle: { backgroundColor: "#FFFFFF" },
+        gestureEnabled: true,
+        gestureDirection: "horizontal",
         cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
         transitionSpec: {
           open: {
