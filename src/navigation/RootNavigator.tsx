@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { createStackNavigator } from "@react-navigation/stack";
+import {
+  createStackNavigator,
+  CardStyleInterpolators,
+} from "@react-navigation/stack";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../store/authStore";
 import { AuthNavigator } from "./AuthNavigator";
@@ -48,7 +51,30 @@ export function RootNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+        transitionSpec: {
+          open: {
+            animation: "spring",
+            config: {
+              stiffness: 300,
+              damping: 30,
+              mass: 1,
+            },
+          },
+          close: {
+            animation: "spring",
+            config: {
+              stiffness: 300,
+              damping: 30,
+              mass: 1,
+            },
+          },
+        },
+      }}
+    >
       {!isAuthenticated ? (
         <Stack.Screen name="Auth" component={AuthNavigator} />
       ) : user?.role === "nutritionist" ? (

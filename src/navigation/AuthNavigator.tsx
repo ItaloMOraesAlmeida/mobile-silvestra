@@ -1,4 +1,7 @@
-import { createStackNavigator } from "@react-navigation/stack";
+import {
+  createStackNavigator,
+  CardStyleInterpolators,
+} from "@react-navigation/stack";
 import { OnboardingScreen } from "../screens/auth/OnboardingScreen";
 import { LoginScreen } from "../screens/auth/LoginScreen";
 import { RegisterScreen } from "../screens/auth/RegisterScreen";
@@ -23,6 +26,25 @@ export function AuthNavigator() {
       screenOptions={{
         headerShown: false,
         cardStyle: { backgroundColor: "#FFFFFF" },
+        cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+        transitionSpec: {
+          open: {
+            animation: "spring",
+            config: {
+              stiffness: 300,
+              damping: 30,
+              mass: 1,
+            },
+          },
+          close: {
+            animation: "spring",
+            config: {
+              stiffness: 300,
+              damping: 30,
+              mass: 1,
+            },
+          },
+        },
       }}
       initialRouteName="Onboarding"
     >

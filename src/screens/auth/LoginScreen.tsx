@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   Image,
+  Keyboard,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,11 +32,17 @@ type LoginScreenNavigationProp = StackNavigationProp<
 
 export function LoginScreen() {
   const navigation = useNavigation<LoginScreenNavigationProp>();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const accessCodeInputRef = useRef<TextInput>(null);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [accessCode, setAccessCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -44,9 +51,62 @@ export function LoginScreen() {
     Poppins_800ExtraBold,
   });
 
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      "keyboardDidShow",
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+
+    const keyboardDidHideListener = Keyboard.addListener(
+      "keyboardDidHide",
+      () => {
+        setKeyboardHeight(0);
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
   if (!fontsLoaded) {
     return null;
   }
+
+  const handleInputFocus = (inputRef: React.RefObject<TextInput | null>) => {
+    setTimeout(() => {
+      if (inputRef.current && scrollViewRef.current) {
+        inputRef.current.measureLayout(
+          scrollViewRef.current as any,
+          (x, y) => {
+            // Altura visível da tela quando o teclado está aberto (aproximadamente)
+            const visibleScreenHeight = 380;
+            const inputHeight = 60;
+            const spacing = 20; // Espaço mínimo entre input e teclado
+
+            // Posição onde o input deveria ficar (logo acima do teclado)
+            const idealPosition = visibleScreenHeight - inputHeight - spacing;
+
+            // Se o input está abaixo da posição ideal, rola apenas o necessário
+            if (y > idealPosition) {
+              const scrollAmount = y - idealPosition;
+
+              scrollViewRef.current?.scrollTo({
+                y: scrollAmount,
+                animated: true,
+              });
+            }
+            // Se o input já está visível, não faz nada
+          },
+          () => {}
+        );
+      }
+    }, 100);
+  };
 
   const handleLogin = () => {
     // TODO: Implementar lógica de login
@@ -71,11 +131,17 @@ export function LoginScreen() {
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
         >
           <ScrollView
-            contentContainerStyle={styles.scrollContent}
+            ref={scrollViewRef}
+            contentContainerStyle={[
+              styles.scrollContent,
+              keyboardHeight > 0 && { paddingBottom: 30 },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            bounces={false}
           >
             {/* Header */}
             <View style={styles.header}>
@@ -110,6 +176,7 @@ export function LoginScreen() {
                     }
                   />
                   <TextInput
+                    ref={emailInputRef}
                     style={styles.input}
                     placeholder="Email"
                     placeholderTextColor="rgba(255, 255, 255, 0.5)"
@@ -118,7 +185,10 @@ export function LoginScreen() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoComplete="email"
-                    onFocus={() => setFocusedInput("email")}
+                    onFocus={() => {
+                      setFocusedInput("email");
+                      handleInputFocus(emailInputRef);
+                    }}
                     onBlur={() => setFocusedInput(null)}
                   />
                 </View>
@@ -142,6 +212,7 @@ export function LoginScreen() {
                     }
                   />
                   <TextInput
+                    ref={passwordInputRef}
                     style={styles.input}
                     placeholder="Senha"
                     placeholderTextColor="rgba(255, 255, 255, 0.5)"
@@ -150,7 +221,10 @@ export function LoginScreen() {
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                     autoComplete="password"
-                    onFocus={() => setFocusedInput("password")}
+                    onFocus={() => {
+                      setFocusedInput("password");
+                      handleInputFocus(passwordInputRef);
+                    }}
                     onBlur={() => setFocusedInput(null)}
                   />
                   <TouchableOpacity
@@ -176,7 +250,8 @@ export function LoginScreen() {
               </TouchableOpacity>
 
               {/* Access Code */}
-              <View style={styles.accessCodeWrapper}>
+              {/* Access Code Input */}
+              <View style={styles.inputWrapper}>
                 <View
                   style={[
                     styles.inputContainer,
@@ -193,6 +268,7 @@ export function LoginScreen() {
                     }
                   />
                   <TextInput
+                    ref={accessCodeInputRef}
                     style={styles.input}
                     placeholder="Código de acesso (opcional)"
                     placeholderTextColor="rgba(255, 255, 255, 0.5)"
@@ -200,7 +276,10 @@ export function LoginScreen() {
                     onChangeText={setAccessCode}
                     keyboardType="numeric"
                     autoCapitalize="none"
-                    onFocus={() => setFocusedInput("accessCode")}
+                    onFocus={() => {
+                      setFocusedInput("accessCode");
+                      handleInputFocus(accessCodeInputRef);
+                    }}
                     onBlur={() => setFocusedInput(null)}
                   />
                 </View>
