@@ -11,6 +11,7 @@ import {
   ScrollView,
   Switch,
   Keyboard,
+  ActivityIndicator,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { LinearGradient } from "expo-linear-gradient";
@@ -28,6 +29,7 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useAuthStore } from "../../stores/auth.store";
 
 const registerSchema = z
   .object({
@@ -46,6 +48,9 @@ const registerSchema = z
     confirmPassword: z.string().min(1, "Confirmação de senha é obrigatória"),
     crn: z.string().optional(),
     isNutritionist: z.boolean(),
+    acceptTerms: z.boolean().refine((val) => val === true, {
+      message: "Você deve aceitar os termos de uso e política de privacidade",
+    }),
   })
   .superRefine((data, ctx) => {
     // Valida se as senhas coincidem
@@ -78,6 +83,7 @@ type RegisterScreenNavigationProp = StackNavigationProp<
 
 export function RegisterScreen() {
   const navigation = useNavigation<RegisterScreenNavigationProp>();
+  const register = useAuthStore((state) => state.register);
   const scrollViewRef = useRef<ScrollView>(null);
   const nameInputRef = useRef<TextInput>(null);
   const emailInputRef = useRef<TextInput>(null);
@@ -89,6 +95,7 @@ export function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
   const {
     control,
@@ -106,10 +113,12 @@ export function RegisterScreen() {
       confirmPassword: "",
       crn: "",
       isNutritionist: false,
+      acceptTerms: false,
     },
   });
 
   const isNutritionist = watch("isNutritionist");
+  const acceptTerms = watch("acceptTerms");
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -176,9 +185,25 @@ export function RegisterScreen() {
     }, 100);
   };
 
-  const onSubmit = (data: RegisterFormData) => {
+  const onSubmit = async (data: RegisterFormData) => {
+    if (isLoading) return;
+
+    setIsLoading(true);
+
     try {
-      // TODO: Implementar lógica de cadastro
+      // Preparar dados para envio
+      const registerData = {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        role: (data.isNutritionist ? "nutritionist" : "patient") as
+          | "patient"
+          | "nutritionist",
+        ...(data.isNutritionist && data.crn ? { crn: data.crn } : {}),
+      };
+
+      // Chamar API de registro
+      await register(registerData);
 
       Toast.show({
         type: "success",
@@ -188,6 +213,11 @@ export function RegisterScreen() {
         visibilityTime: 3000,
         topOffset: 60,
       });
+
+      // Aguardar um pouco para o usuário ver o toast e então navegar
+      setTimeout(() => {
+        navigation.replace("Login");
+      }, 1500);
     } catch (error: any) {
       Toast.show({
         type: "error",
@@ -198,6 +228,8 @@ export function RegisterScreen() {
         visibilityTime: 4000,
         topOffset: 60,
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -526,11 +558,58 @@ export function RegisterScreen() {
                 </View>
               )}
 
+              {/* Terms and Conditions */}
+              <View style={styles.termsContainer}>
+                <View style={styles.checkboxContainer}>
+                  <TouchableOpacity
+                    onPress={() => setValue("acceptTerms", !acceptTerms)}
+                    activeOpacity={0.7}
+                    style={styles.checkboxTouchable}
+                  >
+                    <View
+                      style={[
+                        styles.checkbox,
+                        acceptTerms && styles.checkboxChecked,
+                      ]}
+                    >
+                      {acceptTerms && (
+                        <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                  <Text style={styles.termsText}>
+                    Eu aceito os{" "}
+                    <Text
+                      style={styles.termsLink}
+                      onPress={() => navigation.navigate("TermsOfService")}
+                    >
+                      Termos de Uso
+                    </Text>{" "}
+                    e a{" "}
+                    <Text
+                      style={styles.termsLink}
+                      onPress={() => navigation.navigate("PrivacyPolicy")}
+                    >
+                      Política de Privacidade
+                    </Text>
+                  </Text>
+                </View>
+                {errors.acceptTerms && (
+                  <Text style={styles.errorText}>
+                    {errors.acceptTerms.message}
+                  </Text>
+                )}
+              </View>
+
               {/* Register Button */}
               <TouchableOpacity
-                style={styles.registerButton}
+                style={[
+                  styles.registerButton,
+                  isLoading && styles.registerButtonDisabled,
+                ]}
                 onPress={handleSubmit(onSubmit)}
                 activeOpacity={0.8}
+                disabled={isLoading}
               >
                 <LinearGradient
                   colors={["#9b6cb0", "#572363"]}
@@ -538,7 +617,11 @@ export function RegisterScreen() {
                   end={{ x: 1, y: 1 }}
                   style={styles.registerButtonGradient}
                 >
-                  <Text style={styles.registerButtonText}>Criar Conta</Text>
+                  {isLoading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.registerButtonText}>Criar Conta</Text>
+                  )}
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -666,11 +749,52 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginLeft: 4,
   },
+  termsContainer: {
+    marginTop: 16,
+    marginBottom: 10,
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  checkboxTouchable: {
+    marginRight: 10,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+    marginTop: 2,
+  },
+  checkboxChecked: {
+    backgroundColor: "#9b6cb0",
+    borderColor: "#9b6cb0",
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Poppins_400Regular",
+    color: "rgba(255, 255, 255, 0.85)",
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: "#e6a4f0",
+    fontFamily: "Poppins_600SemiBold",
+    textDecorationLine: "underline",
+  },
   registerButton: {
     borderRadius: 14,
     overflow: "hidden",
     marginTop: 10,
     marginBottom: 20,
+  },
+  registerButtonDisabled: {
+    opacity: 0.6,
   },
   registerButtonGradient: {
     flexDirection: "row",

@@ -9,6 +9,8 @@ import { RegisterScreen } from "../screens/auth/RegisterScreen";
 import { ForgotPasswordScreen } from "../screens/auth/ForgotPasswordScreen";
 import { VerifyCodeScreen } from "../screens/auth/VerifyCodeScreen";
 import { ResetPasswordScreen } from "../screens/auth/ResetPasswordScreen";
+import { TermsOfServiceScreen } from "../screens/legal/TermsOfServiceScreen";
+import { PrivacyPolicyScreen } from "../screens/legal/PrivacyPolicyScreen";
 import { StorageService } from "../services/storage";
 
 export type AuthStackParamList = {
@@ -18,6 +20,8 @@ export type AuthStackParamList = {
   ForgotPassword: undefined;
   VerifyCode: { identifier: string };
   ResetPassword: { code: string };
+  TermsOfService: undefined;
+  PrivacyPolicy: undefined;
 };
 
 const Stack = createStackNavigator<AuthStackParamList>();
@@ -83,6 +87,8 @@ export function AuthNavigator() {
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="VerifyCode" component={VerifyCodeScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+      <Stack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
     </Stack.Navigator>
   );
 }
