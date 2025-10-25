@@ -62,7 +62,7 @@ export default function ResetPasswordScreen() {
         Alert.alert("Sucesso", "Senha alterada com sucesso!", [
           {
             text: "OK",
-            onPress: () => router.replace("/(tabs)"),
+            onPress: () => router.replace("/(tabs)" as any),
           },
         ]);
       } else {

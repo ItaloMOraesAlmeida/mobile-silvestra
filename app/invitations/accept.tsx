@@ -128,7 +128,7 @@ export default function AcceptInvitationScreen() {
         [
           {
             text: "Começar",
-            onPress: () => router.replace("/(tabs)"),
+            onPress: () => router.replace("/(tabs)" as any),
           },
         ]
       );

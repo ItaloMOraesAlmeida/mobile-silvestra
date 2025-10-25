@@ -121,7 +121,7 @@ export default function RegisterScreen() {
         }
       }
 
-      router.replace("/(tabs)");
+      router.replace("/(tabs)" as any);
     } catch (error: any) {
       console.error("Registration error:", error);
       Alert.alert(
@@ -174,7 +174,7 @@ export default function RegisterScreen() {
           }
         }
 
-        router.replace("/(tabs)");
+        router.replace("/(tabs)" as any);
       }
     } catch (error) {
       console.error("Google registration error:", error);

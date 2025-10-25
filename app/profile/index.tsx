@@ -92,7 +92,7 @@ export default function ProfileScreen() {
         onPress: async () => {
           await logout();
           // TODO: Navigate to auth/login when route is available
-          router.replace("/(tabs)");
+          router.replace("/(tabs)" as any);
         },
       },
     ]);

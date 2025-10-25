@@ -17,7 +17,7 @@ export default function WelcomeScreen() {
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[styles.button, styles.primaryButton]}
-          onPress={() => router.push("/(tabs)")}
+          onPress={() => router.push("/(tabs)" as any)}
         >
           <Text style={styles.primaryButtonText}>Entrar</Text>
         </TouchableOpacity>

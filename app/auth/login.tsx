@@ -35,7 +35,7 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       await login(email, password);
-      router.replace("/(tabs)");
+      router.replace("/(tabs)" as any);
     } catch (error: any) {
       console.error("Login error:", error);
       Alert.alert(
@@ -55,7 +55,7 @@ export default function LoginScreen() {
 
       if (googleAuthResponse?.idToken) {
         await loginWithGoogle(googleAuthResponse.idToken);
-        router.replace("/(tabs)");
+        router.replace("/(tabs)" as any);
       }
     } catch (error) {
       console.error("Google login error:", error);
