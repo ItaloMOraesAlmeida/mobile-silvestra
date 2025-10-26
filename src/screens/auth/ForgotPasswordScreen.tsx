@@ -92,42 +92,35 @@ export function ForgotPasswordScreen() {
   const onSubmit = async (data: ForgotPasswordFormData) => {
     setLoading(true);
     try {
-      const response = await api.post("/auth/forgot-password", {
+      await api.post("/auth/forgot-password", {
         identifier: data.identifier,
       });
 
-      if (response.status === 200 || response.status === 201) {
-        Toast.show({
-          type: "success",
-          text1: "Código Enviado!",
-          text2: "Verifique seu email ou SMS para o código de recuperação.",
-          position: "top",
-          visibilityTime: 3000,
-          topOffset: 60,
-        });
+      // Axios considera qualquer status 2xx como sucesso
+      // Se chegou aqui sem erro, o email foi enviado com sucesso
+      Toast.show({
+        type: "success",
+        text1: "Código Enviado!",
+        text2: "Verifique seu email para o código de recuperação.",
+        position: "top",
+        visibilityTime: 3000,
+        topOffset: 60,
+      });
 
-        navigation.navigate("VerifyCode", {
-          identifier: data.identifier,
-        });
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Erro ao Enviar Código",
-          text2:
-            response.data?.message ||
-            "Não foi possível enviar o código. Tente novamente.",
-          position: "top",
-          visibilityTime: 4000,
-          topOffset: 60,
-        });
-      }
+      navigation.navigate("VerifyCode", {
+        identifier: data.identifier,
+      });
     } catch (error: any) {
+      // Extrai a mensagem de erro da resposta da API
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Não foi possível enviar o código. Verifique o email informado.";
+
       Toast.show({
         type: "error",
-        text1: "Erro de Conexão",
-        text2:
-          error.message ||
-          "Não foi possível conectar ao servidor. Verifique sua internet.",
+        text1: "Erro ao Recuperar Senha",
+        text2: errorMessage,
         position: "top",
         visibilityTime: 4000,
         topOffset: 60,

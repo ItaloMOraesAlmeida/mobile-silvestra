@@ -134,42 +134,34 @@ export function ResetPasswordScreen() {
   const onSubmit = async (data: ResetPasswordFormData) => {
     setLoading(true);
     try {
-      const response = await api.post("/auth/reset-password", {
+      await api.post("/auth/reset-password", {
         code,
         newPassword: data.password,
         confirmPassword: data.confirmPassword,
       });
 
-      if (response.status === 200 || response.status === 201) {
-        Toast.show({
-          type: "success",
-          text1: "Senha Redefinida!",
-          text2: "Sua senha foi alterada com sucesso. Faça login novamente.",
-          position: "top",
-          visibilityTime: 3000,
-          topOffset: 60,
-        });
+      // Se chegou aqui sem erro, a senha foi redefinida com sucesso
+      Toast.show({
+        type: "success",
+        text1: "Senha Redefinida!",
+        text2: "Sua senha foi alterada com sucesso. Faça login novamente.",
+        position: "top",
+        visibilityTime: 3000,
+        topOffset: 60,
+      });
 
-        navigation.navigate("Login");
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Erro ao Redefinir Senha",
-          text2:
-            response.data?.message ||
-            "Não foi possível alterar sua senha. Tente novamente.",
-          position: "top",
-          visibilityTime: 4000,
-          topOffset: 60,
-        });
-      }
+      navigation.navigate("Login");
     } catch (error: any) {
+      // Extrai a mensagem de erro da resposta da API
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Não foi possível alterar sua senha. Tente novamente.";
+
       Toast.show({
         type: "error",
-        text1: "Erro de Conexão",
-        text2:
-          error.message ||
-          "Não foi possível conectar ao servidor. Verifique sua internet.",
+        text1: "Erro ao Redefinir Senha",
+        text2: errorMessage,
         position: "top",
         visibilityTime: 4000,
         topOffset: 60,

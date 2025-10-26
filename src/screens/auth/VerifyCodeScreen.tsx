@@ -43,6 +43,8 @@ export function VerifyCodeScreen() {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 minutos em segundos
+  const [canResend, setCanResend] = useState(false); // Controla se pode reenviar
+  const [resendTimeLeft, setResendTimeLeft] = useState(5 * 60); // 5 minutos para poder reenviar
 
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
@@ -74,7 +76,8 @@ export function VerifyCodeScreen() {
 
       const data = response.data;
 
-      if (response.status === 200 && data.valid) {
+      // A API sempre retorna status 200, verificar o campo 'valid'
+      if (data.valid === true) {
         Toast.show({
           type: "success",
           text1: "Código Válido!",
@@ -86,6 +89,7 @@ export function VerifyCodeScreen() {
 
         navigation.navigate("ResetPassword", { code: fullCode });
       } else {
+        // Código inválido, expirado ou já usado
         Toast.show({
           type: "error",
           text1: "Código Inválido",
@@ -99,22 +103,28 @@ export function VerifyCodeScreen() {
         inputRefs.current[0]?.focus();
       }
     } catch (error: any) {
+      // Extrai a mensagem de erro da resposta da API
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Não foi possível verificar o código. Tente novamente.";
+
       Toast.show({
         type: "error",
-        text1: "Erro de Conexão",
-        text2:
-          error.message ||
-          "Não foi possível conectar ao servidor. Verifique sua internet.",
+        text1: "Erro ao Verificar Código",
+        text2: errorMessage,
         position: "top",
         visibilityTime: 4000,
         topOffset: 60,
       });
+      setCode(["", "", "", "", "", ""]);
+      inputRefs.current[0]?.focus();
     } finally {
       setLoading(false);
     }
   };
 
-  // Timer countdown
+  // Timer countdown para expiração do código (15 minutos)
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -127,6 +137,22 @@ export function VerifyCodeScreen() {
     }, 1000);
 
     return () => clearInterval(timer);
+  }, []);
+
+  // Timer countdown para habilitar botão de reenviar (5 minutos)
+  useEffect(() => {
+    const resendTimer = setInterval(() => {
+      setResendTimeLeft((prev) => {
+        if (prev <= 1) {
+          setCanResend(true); // Habilita o botão após 5 minutos
+          clearInterval(resendTimer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(resendTimer);
   }, []);
 
   // Auto-submit quando todos os 6 dígitos forem preenchidos
@@ -174,41 +200,54 @@ export function VerifyCodeScreen() {
   };
 
   const handleResendCode = async () => {
+    // Não permite reenviar se ainda não passou 5 minutos
+    if (!canResend) {
+      Toast.show({
+        type: "warning",
+        text1: "Aguarde",
+        text2: `Você poderá reenviar o código em ${formatTime(
+          resendTimeLeft
+        )}.`,
+        position: "top",
+        visibilityTime: 3000,
+        topOffset: 60,
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      const response = await api.post("/auth/forgot-password", {
+      await api.post("/auth/forgot-password", {
         identifier,
       });
 
-      if (response.status === 200 || response.status === 201) {
-        Toast.show({
-          type: "success",
-          text1: "Código Reenviado!",
-          text2: "Um novo código foi enviado para seu email ou SMS.",
-          position: "top",
-          visibilityTime: 3000,
-          topOffset: 60,
-        });
-        setTimeLeft(15 * 60);
-        setCode(["", "", "", "", "", ""]);
-        inputRefs.current[0]?.focus();
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Erro ao Reenviar",
-          text2: "Não foi possível reenviar o código. Tente novamente.",
-          position: "top",
-          visibilityTime: 4000,
-          topOffset: 60,
-        });
-      }
+      // Se chegou aqui, o código foi reenviado com sucesso
+      Toast.show({
+        type: "success",
+        text1: "Código Reenviado!",
+        text2: "Um novo código foi enviado para seu email.",
+        position: "top",
+        visibilityTime: 3000,
+        topOffset: 60,
+      });
+
+      // Reseta os timers
+      setTimeLeft(15 * 60); // Novo código expira em 15 minutos
+      setResendTimeLeft(5 * 60); // Novo countdown de 5 minutos para reenviar
+      setCanResend(false); // Desabilita o botão novamente
+      setCode(["", "", "", "", "", ""]);
+      inputRefs.current[0]?.focus();
     } catch (error: any) {
+      // Extrai a mensagem de erro da resposta da API
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Não foi possível reenviar o código. Tente novamente.";
+
       Toast.show({
         type: "error",
-        text1: "Erro de Conexão",
-        text2:
-          error.message ||
-          "Não foi possível conectar ao servidor. Verifique sua internet.",
+        text1: "Erro ao Reenviar",
+        text2: errorMessage,
         position: "top",
         visibilityTime: 4000,
         topOffset: 60,
@@ -337,10 +376,16 @@ export function VerifyCodeScreen() {
                 style={styles.resendContainer}
                 onPress={handleResendCode}
                 activeOpacity={0.7}
-                disabled={loading || timeLeft === 0}
+                disabled={loading || timeLeft === 0 || !canResend}
               >
                 <Text style={styles.resendText}>Não recebeu o código?</Text>
-                <Text style={styles.resendLink}>Reenviar</Text>
+                {canResend ? (
+                  <Text style={styles.resendLink}>Reenviar</Text>
+                ) : (
+                  <Text style={[styles.resendLink, styles.resendLinkDisabled]}>
+                    Reenviar em {formatTime(resendTimeLeft)}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -491,5 +536,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Poppins_600SemiBold",
     textDecorationLine: "underline",
+  },
+  resendLinkDisabled: {
+    color: "rgba(255, 255, 255, 0.4)",
+    textDecorationLine: "none",
   },
 });
