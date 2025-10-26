@@ -43,10 +43,10 @@ export interface LoginCredentials {
 }
 
 export interface RegisterData {
+  name: string;
   email: string;
   password: string;
   role: UserRole;
-  name?: string;
   crn?: string;
   phone?: string;
   invitationCode?: string;

@@ -14,8 +14,8 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
 
   // Extrai iniciais do nome do usuário
   const getInitials = () => {
-    if (user?.patientProfile?.name) {
-      const names = user.patientProfile.name.split(" ");
+    if (user?.name) {
+      const names = user.name.split(" ");
       if (names.length >= 2) {
         return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
       }
@@ -26,9 +26,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
   };
 
   const getUserName = () => {
-    return (
-      user?.patientProfile?.name || user?.email?.split("@")[0] || "Usuário"
-    );
+    return user?.name || "Usuário";
   };
 
   return (
