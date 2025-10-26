@@ -200,7 +200,7 @@ export function LoginScreen() {
             } else {
               navigation.reset({
                 index: 0,
-                routes: [{ name: "Tabs" } as any],
+                routes: [{ name: "Main" } as any],
               });
             }
             return;
@@ -241,7 +241,7 @@ export function LoginScreen() {
               } else {
                 navigation.reset({
                   index: 0,
-                  routes: [{ name: "Tabs" } as any],
+                  routes: [{ name: "Main" } as any],
                 });
               }
             }
@@ -408,7 +408,7 @@ export function LoginScreen() {
         } else {
           navigation.reset({
             index: 0,
-            routes: [{ name: "Tabs" } as any],
+            routes: [{ name: "Main" } as any],
           });
         }
       }
@@ -458,7 +458,7 @@ export function LoginScreen() {
       } else {
         navigation.reset({
           index: 0,
-          routes: [{ name: "Tabs" } as any],
+          routes: [{ name: "Main" } as any],
         });
       }
     }
