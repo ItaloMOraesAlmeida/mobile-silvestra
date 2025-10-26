@@ -194,14 +194,23 @@ export function RegisterScreen() {
     setIsLoading(true);
 
     try {
+      // Determinar o role baseado na seleção do usuário
+      let role: "normal" | "patient" | "nutritionist" = "normal";
+
+      if (data.isNutritionist) {
+        role = "nutritionist";
+      } else {
+        // Por padrão, usuários que se cadastram sem ser nutricionista
+        // são "normal" até receberem um convite de nutricionista
+        role = "normal";
+      }
+
       // Preparar dados para envio
       const registerData = {
         name: data.name,
         email: data.email,
         password: data.password,
-        role: (data.isNutritionist ? "nutritionist" : "patient") as
-          | "patient"
-          | "nutritionist",
+        role,
         ...(data.isNutritionist && data.crn ? { crn: data.crn } : {}),
       };
 

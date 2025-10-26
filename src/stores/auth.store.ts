@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api, registerAuthCallbacks } from "../services/api.service";
 import { tokenService } from "../services/token.service";
+import type { RegisterData } from "../types";
 
 interface User {
   id: string;
@@ -50,16 +51,6 @@ interface AuthState {
   refreshAccessToken: () => Promise<void>;
   setUser: (user: User) => void;
   setTokens: (tokens: AuthTokens) => void;
-}
-
-interface RegisterData {
-  name: string;
-  email: string;
-  password: string;
-  role: "patient" | "nutritionist";
-  phone?: string;
-  crn?: string;
-  invitationCode?: string;
 }
 
 export const useAuthStore = create<AuthState>()(

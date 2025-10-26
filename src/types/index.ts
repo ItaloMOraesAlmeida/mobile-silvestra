@@ -1,4 +1,4 @@
-export type UserRole = "patient" | "nutritionist";
+export type UserRole = "normal" | "patient" | "nutritionist";
 
 export type AuthProvider = "local" | "google";
 
@@ -47,6 +47,9 @@ export interface RegisterData {
   password: string;
   role: UserRole;
   name?: string;
+  crn?: string;
+  phone?: string;
+  invitationCode?: string;
 }
 
 export interface ApiResponse<T = any> {
