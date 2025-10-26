@@ -16,6 +16,7 @@ import {
   Poppins_600SemiBold,
   Poppins_700Bold,
 } from "@expo-google-fonts/poppins";
+import { lightTheme } from "../../theme";
 
 export function PrivacyPolicyScreen() {
   const navigation = useNavigation();
@@ -32,9 +33,16 @@ export function PrivacyPolicyScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={lightTheme.colors.black}
+      />
       <LinearGradient
-        colors={["#1a0a2e", "#572363", "#1a0a2e"]}
+        colors={[
+          lightTheme.colors.primaryDarker,
+          lightTheme.colors.primaryDark,
+          lightTheme.colors.primaryDarker,
+        ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
@@ -46,7 +54,11 @@ export function PrivacyPolicyScreen() {
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
           >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={lightTheme.colors.white}
+            />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Política de Privacidade</Text>
           <View style={styles.placeholder} />
@@ -210,7 +222,7 @@ export function PrivacyPolicyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: lightTheme.colors.black,
   },
   gradient: {
     flex: 1,
@@ -232,7 +244,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: "Poppins_700Bold",
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
   },
   placeholder: {
     width: 40,
@@ -259,7 +271,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontFamily: "Poppins_700Bold",
-    color: "#e6a4f0",
+    color: lightTheme.colors.primaryLighter,
     marginTop: 20,
     marginBottom: 12,
   },

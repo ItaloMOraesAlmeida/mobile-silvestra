@@ -29,6 +29,7 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { lightTheme } from "../../theme";
 
 const forgotPasswordSchema = z.object({
   identifier: z
@@ -135,7 +136,11 @@ export function ForgotPasswordScreen() {
       <StatusBar barStyle="light-content" />
 
       <LinearGradient
-        colors={["#8b5a9f", "#572363", "#3d1a4a"]}
+        colors={[
+          lightTheme.colors.primary,
+          lightTheme.colors.primaryDark,
+          lightTheme.colors.primaryDarker,
+        ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.gradient}
@@ -159,7 +164,11 @@ export function ForgotPasswordScreen() {
                   onPress={() => navigation.goBack()}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                  <Ionicons
+                    name="arrow-back"
+                    size={24}
+                    color={lightTheme.colors.white}
+                  />
                 </TouchableOpacity>
                 <Text style={styles.title}>Recuperar Senha</Text>
               </View>
@@ -192,7 +201,9 @@ export function ForgotPasswordScreen() {
                     name="mail-outline"
                     size={20}
                     color={
-                      focusedInput ? "#FFFFFF" : "rgba(255, 255, 255, 0.6)"
+                      focusedInput
+                        ? lightTheme.colors.white
+                        : "rgba(255, 255, 255, 0.6)"
                     }
                   />
                   <Controller
@@ -232,14 +243,22 @@ export function ForgotPasswordScreen() {
               >
                 <LinearGradient
                   colors={
-                    loading ? ["#666666", "#444444"] : ["#9b6cb0", "#572363"]
+                    loading
+                      ? [
+                          lightTheme.colors.gray[600],
+                          lightTheme.colors.gray[800],
+                        ]
+                      : [
+                          lightTheme.colors.primaryLight,
+                          lightTheme.colors.primaryDark,
+                        ]
                   }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.sendButtonGradient}
                 >
                   {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                    <ActivityIndicator color={lightTheme.colors.white} />
                   ) : (
                     <Text style={styles.sendButtonText}>Enviar Código</Text>
                   )}
@@ -270,7 +289,7 @@ export function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: lightTheme.colors.black,
   },
   gradient: {
     flex: 1,
@@ -305,7 +324,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 32,
     fontFamily: "Poppins_800ExtraBold",
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
     textAlign: "center",
     marginRight: 44,
   },
@@ -346,12 +365,12 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     backgroundColor: "rgba(255, 255, 255, 0.18)",
-    borderColor: "#e6a4f0",
+    borderColor: lightTheme.colors.primaryLighter,
     borderWidth: 2,
   },
   input: {
     flex: 1,
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
     fontSize: 15,
     fontFamily: "Poppins_400Regular",
     marginLeft: 10,
@@ -371,7 +390,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   sendButtonText: {
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
     fontSize: 16,
     fontFamily: "Poppins_600SemiBold",
   },
@@ -388,11 +407,11 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
   },
   inputError: {
-    borderColor: "#ff4444",
+    borderColor: lightTheme.colors.error,
     borderWidth: 2,
   },
   errorText: {
-    color: "#ff4444",
+    color: lightTheme.colors.error,
     fontSize: 12,
     fontFamily: "Poppins_400Regular",
     marginTop: 4,

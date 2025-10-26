@@ -46,6 +46,21 @@ export const shadows = {
     shadowRadius: 24,
     elevation: 12,
   },
+  // Sombras coloridas (roxo)
+  primary: {
+    shadowColor: "#8b5a9f",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  primarySm: {
+    shadowColor: "#8b5a9f",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
 };
 
 export default {

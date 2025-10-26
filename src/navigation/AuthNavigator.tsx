@@ -12,6 +12,7 @@ import { ResetPasswordScreen } from "../screens/auth/ResetPasswordScreen";
 import { TermsOfServiceScreen } from "../screens/legal/TermsOfServiceScreen";
 import { PrivacyPolicyScreen } from "../screens/legal/PrivacyPolicyScreen";
 import { StorageService } from "../services/storage";
+import { lightTheme } from "../theme";
 
 export type AuthStackParamList = {
   Onboarding: undefined;
@@ -54,7 +55,7 @@ export function AuthNavigator() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        cardStyle: { backgroundColor: "#FFFFFF" },
+        cardStyle: { backgroundColor: lightTheme.colors.white },
         gestureEnabled: true,
         gestureDirection: "horizontal",
         cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,

@@ -31,6 +31,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuthStore } from "../../stores/auth.store";
 import { EmailExistsModal } from "../../components/EmailExistsModal";
+import { lightTheme } from "../../theme";
 
 const registerSchema = z
   .object({
@@ -290,7 +291,11 @@ export function RegisterScreen() {
       />
 
       <LinearGradient
-        colors={["#8b5a9f", "#572363", "#3d1a4a"]}
+        colors={[
+          lightTheme.colors.primary,
+          lightTheme.colors.primaryDark,
+          lightTheme.colors.primaryDarker,
+        ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.gradient}
@@ -319,7 +324,11 @@ export function RegisterScreen() {
                   onPress={() => navigation.goBack()}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                  <Ionicons
+                    name="arrow-back"
+                    size={24}
+                    color={lightTheme.colors.white}
+                  />
                 </TouchableOpacity>
                 <Text style={styles.title}>Criar Conta</Text>
               </View>
@@ -344,7 +353,7 @@ export function RegisterScreen() {
                     size={20}
                     color={
                       focusedInput === "name"
-                        ? "#FFFFFF"
+                        ? lightTheme.colors.white
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
@@ -389,7 +398,7 @@ export function RegisterScreen() {
                     size={20}
                     color={
                       focusedInput === "email"
-                        ? "#FFFFFF"
+                        ? lightTheme.colors.white
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
@@ -435,7 +444,7 @@ export function RegisterScreen() {
                     size={20}
                     color={
                       focusedInput === "password"
-                        ? "#FFFFFF"
+                        ? lightTheme.colors.white
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
@@ -493,7 +502,7 @@ export function RegisterScreen() {
                     size={20}
                     color={
                       focusedInput === "confirmPassword"
-                        ? "#FFFFFF"
+                        ? lightTheme.colors.white
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
@@ -545,7 +554,7 @@ export function RegisterScreen() {
                   <Ionicons
                     name="medical-outline"
                     size={20}
-                    color="#FFFFFF"
+                    color={lightTheme.colors.white}
                     style={styles.nutritionistIcon}
                   />
                   <Text style={styles.nutritionistLabel}>
@@ -556,9 +565,13 @@ export function RegisterScreen() {
                     onValueChange={(value) => setValue("isNutritionist", value)}
                     trackColor={{
                       false: "rgba(255, 255, 255, 0.2)",
-                      true: "#e6a4f0",
+                      true: lightTheme.colors.primaryLighter,
                     }}
-                    thumbColor={isNutritionist ? "#572363" : "#f4f3f4"}
+                    thumbColor={
+                      isNutritionist
+                        ? lightTheme.colors.primaryDark
+                        : lightTheme.colors.gray[100]
+                    }
                     ios_backgroundColor="rgba(255, 255, 255, 0.2)"
                   />
                 </View>
@@ -579,7 +592,7 @@ export function RegisterScreen() {
                       size={20}
                       color={
                         focusedInput === "crn"
-                          ? "#FFFFFF"
+                          ? lightTheme.colors.white
                           : "rgba(255, 255, 255, 0.6)"
                       }
                     />
@@ -625,7 +638,11 @@ export function RegisterScreen() {
                       ]}
                     >
                       {acceptTerms && (
-                        <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                        <Ionicons
+                          name="checkmark"
+                          size={16}
+                          color={lightTheme.colors.white}
+                        />
                       )}
                     </View>
                   </TouchableOpacity>
@@ -664,13 +681,19 @@ export function RegisterScreen() {
                 disabled={isLoading}
               >
                 <LinearGradient
-                  colors={["#9b6cb0", "#572363"]}
+                  colors={[
+                    lightTheme.colors.primaryLight,
+                    lightTheme.colors.primaryDark,
+                  ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.registerButtonGradient}
                 >
                   {isLoading ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <ActivityIndicator
+                      color={lightTheme.colors.white}
+                      size="small"
+                    />
                   ) : (
                     <Text style={styles.registerButtonText}>Criar Conta</Text>
                   )}
@@ -698,7 +721,7 @@ export function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: lightTheme.colors.black,
   },
   gradient: {
     flex: 1,
@@ -708,38 +731,40 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 30,
-    paddingTop: 60,
-    paddingBottom: 30,
+    paddingHorizontal:
+      lightTheme.spacing.screenPaddingLarge + lightTheme.spacing.xs,
+    paddingTop: lightTheme.spacing["2xl"] + lightTheme.spacing.md,
+    paddingBottom:
+      lightTheme.spacing.screenPaddingLarge + lightTheme.spacing.xs,
   },
   header: {
-    marginBottom: 30,
+    marginBottom: lightTheme.spacing.screenPaddingLarge + lightTheme.spacing.xs,
   },
   headerTop: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
-    gap: 16,
+    marginBottom: lightTheme.spacing.md,
+    gap: lightTheme.spacing.md,
   },
   backButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: lightTheme.borderRadius.full,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     justifyContent: "center",
     alignItems: "center",
   },
   title: {
     flex: 1,
-    fontSize: 32,
+    fontSize: lightTheme.typography.fontSize["4xl"],
     fontFamily: "Poppins_800ExtraBold",
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
     textAlign: "center",
     marginRight: 44,
     letterSpacing: 1,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: lightTheme.typography.fontSize.base - 1,
     fontFamily: "Poppins_400Regular",
     color: "rgba(255, 255, 255, 0.85)",
   },
@@ -747,103 +772,105 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   inputWrapper: {
-    marginBottom: 10,
+    marginBottom: lightTheme.spacing.md - 6,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.12)",
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    borderRadius: lightTheme.borderRadius.md + 2,
+    paddingHorizontal: lightTheme.spacing.md - 2,
     height: 50,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.25)",
   },
   inputFocused: {
     backgroundColor: "rgba(255, 255, 255, 0.18)",
-    borderColor: "#e6a4f0",
+    borderColor: lightTheme.colors.primaryLighter,
     borderWidth: 2,
   },
   input: {
     flex: 1,
-    color: "#FFFFFF",
-    fontSize: 15,
+    color: lightTheme.colors.white,
+    fontSize: lightTheme.typography.fontSize.base - 1,
     fontFamily: "Poppins_400Regular",
-    marginLeft: 10,
+    marginLeft: lightTheme.spacing.md - 6,
     paddingVertical: 0,
   },
   nutritionistContainer: {
-    marginVertical: 16,
+    marginVertical: lightTheme.spacing.md,
   },
   nutritionistToggle: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderRadius: lightTheme.borderRadius.md + 2,
+    paddingHorizontal: lightTheme.spacing.md,
+    paddingVertical: lightTheme.spacing.md - 2,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.2)",
   },
   nutritionistIcon: {
-    marginRight: 10,
+    marginRight: lightTheme.spacing.md - 6,
   },
   nutritionistLabel: {
     flex: 1,
-    fontSize: 15,
+    fontSize: lightTheme.typography.fontSize.base - 1,
     fontFamily: "Poppins_600SemiBold",
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
   },
   crnHint: {
-    fontSize: 11,
+    fontSize: lightTheme.typography.fontSize.xs - 1,
     fontFamily: "Poppins_400Regular",
     color: "rgba(255, 255, 255, 0.7)",
-    marginTop: 4,
-    marginLeft: 4,
+    marginTop: lightTheme.spacing.xs,
+    marginLeft: lightTheme.spacing.xs,
   },
   termsContainer: {
-    marginTop: 16,
-    marginBottom: 10,
+    marginTop: lightTheme.spacing.md,
+    marginBottom: lightTheme.spacing.md - 6,
   },
   checkboxContainer: {
     flexDirection: "row",
     alignItems: "flex-start",
   },
   checkboxTouchable: {
-    marginRight: 10,
+    marginRight: lightTheme.spacing.md - 6,
   },
   checkbox: {
     width: 20,
     height: 20,
-    borderRadius: 4,
+    borderRadius: lightTheme.borderRadius.xs,
     borderWidth: 2,
     borderColor: "rgba(255, 255, 255, 0.5)",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
-    marginTop: 2,
+    marginRight: lightTheme.spacing.md - 6,
+    marginTop: lightTheme.spacing.xs - 2,
   },
   checkboxChecked: {
-    backgroundColor: "#9b6cb0",
-    borderColor: "#9b6cb0",
+    backgroundColor: lightTheme.colors.primaryLight,
+    borderColor: lightTheme.colors.primaryLight,
   },
   termsText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: lightTheme.typography.fontSize.sm - 1,
     fontFamily: "Poppins_400Regular",
     color: "rgba(255, 255, 255, 0.85)",
-    lineHeight: 20,
+    lineHeight:
+      lightTheme.typography.lineHeight.normal *
+      lightTheme.typography.fontSize.sm,
   },
   termsLink: {
-    color: "#e6a4f0",
+    color: lightTheme.colors.primaryLighter,
     fontFamily: "Poppins_600SemiBold",
     textDecorationLine: "underline",
   },
   registerButton: {
-    borderRadius: 14,
+    borderRadius: lightTheme.borderRadius.md + 2,
     overflow: "hidden",
-    marginTop: 10,
-    marginBottom: 20,
+    marginTop: lightTheme.spacing.md - 6,
+    marginBottom: lightTheme.spacing.lg - 4,
   },
   registerButtonDisabled: {
     opacity: 0.6,
@@ -855,8 +882,8 @@ const styles = StyleSheet.create({
     height: 50,
   },
   registerButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
+    color: lightTheme.colors.white,
+    fontSize: lightTheme.typography.fontSize.base,
     fontFamily: "Poppins_700Bold",
   },
   loginContainer: {
@@ -866,23 +893,23 @@ const styles = StyleSheet.create({
   },
   loginText: {
     color: "rgba(255, 255, 255, 0.85)",
-    fontSize: 14,
+    fontSize: lightTheme.typography.fontSize.sm,
     fontFamily: "Poppins_400Regular",
   },
   loginLink: {
-    color: "#e6a4f0",
-    fontSize: 14,
+    color: lightTheme.colors.primaryLighter,
+    fontSize: lightTheme.typography.fontSize.sm,
     fontFamily: "Poppins_700Bold",
   },
   inputError: {
-    borderColor: "#ff4444",
+    borderColor: lightTheme.colors.error,
     borderWidth: 2,
   },
   errorText: {
-    color: "#ff4444",
-    fontSize: 12,
+    color: lightTheme.colors.error,
+    fontSize: lightTheme.typography.fontSize.xs,
     fontFamily: "Poppins_400Regular",
-    marginTop: 4,
-    marginLeft: 4,
+    marginTop: lightTheme.spacing.xs,
+    marginLeft: lightTheme.spacing.xs,
   },
 });

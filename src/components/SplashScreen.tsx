@@ -1,11 +1,16 @@
 import React from "react";
 import { View, StyleSheet, Image, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { lightTheme } from "../theme";
 
 export function SplashScreen() {
   return (
     <LinearGradient
-      colors={["#572363", "#8B4298", "#572363"]}
+      colors={[
+        lightTheme.colors.primaryDark,
+        lightTheme.colors.primary,
+        lightTheme.colors.primaryDark,
+      ]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.container}
@@ -16,7 +21,11 @@ export function SplashScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <ActivityIndicator size="large" color="#FFFFFF" style={styles.loader} />
+        <ActivityIndicator
+          size="large"
+          color={lightTheme.colors.white}
+          style={styles.loader}
+        />
       </View>
     </LinearGradient>
   );

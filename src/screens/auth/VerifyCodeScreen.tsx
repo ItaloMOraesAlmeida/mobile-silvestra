@@ -26,6 +26,7 @@ import {
   Poppins_700Bold,
   Poppins_800ExtraBold,
 } from "@expo-google-fonts/poppins";
+import { lightTheme } from "../../theme";
 
 type VerifyCodeScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
@@ -262,7 +263,11 @@ export function VerifyCodeScreen() {
       <StatusBar barStyle="light-content" />
 
       <LinearGradient
-        colors={["#8b5a9f", "#572363", "#3d1a4a"]}
+        colors={[
+          lightTheme.colors.primary,
+          lightTheme.colors.primaryDark,
+          lightTheme.colors.primaryDarker,
+        ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.gradient}
@@ -286,7 +291,11 @@ export function VerifyCodeScreen() {
                   onPress={() => navigation.goBack()}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                  <Ionicons
+                    name="arrow-back"
+                    size={24}
+                    color={lightTheme.colors.white}
+                  />
                 </TouchableOpacity>
                 <Text style={styles.title}>Código de Verificação</Text>
               </View>
@@ -354,15 +363,21 @@ export function VerifyCodeScreen() {
                 <LinearGradient
                   colors={
                     loading || code.join("").length !== 6
-                      ? ["#666666", "#444444"]
-                      : ["#9b6cb0", "#572363"]
+                      ? [
+                          lightTheme.colors.gray[600],
+                          lightTheme.colors.gray[800],
+                        ]
+                      : [
+                          lightTheme.colors.primaryLight,
+                          lightTheme.colors.primaryDark,
+                        ]
                   }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.verifyButtonGradient}
                 >
                   {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                    <ActivityIndicator color={lightTheme.colors.white} />
                   ) : (
                     <Text style={styles.verifyButtonText}>
                       Verificar Código
@@ -398,7 +413,7 @@ export function VerifyCodeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: lightTheme.colors.black,
   },
   gradient: {
     flex: 1,
@@ -433,7 +448,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 28,
     fontFamily: "Poppins_800ExtraBold",
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
     textAlign: "center",
     marginRight: 44,
   },
@@ -479,14 +494,14 @@ const styles = StyleSheet.create({
     textAlignVertical: "center",
     fontSize: 24,
     fontFamily: "Poppins_700Bold",
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
     paddingTop: 0,
     paddingBottom: 0,
     includeFontPadding: false,
   },
   codeInputFocused: {
     backgroundColor: "rgba(255, 255, 255, 0.18)",
-    borderColor: "#e6a4f0",
+    borderColor: lightTheme.colors.primaryLighter,
     borderWidth: 2,
   },
   timerContainer: {
@@ -515,7 +530,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   verifyButtonText: {
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
     fontSize: 16,
     fontFamily: "Poppins_600SemiBold",
   },
@@ -532,7 +547,7 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
   },
   resendLink: {
-    color: "#e6a4f0",
+    color: lightTheme.colors.primaryLighter,
     fontSize: 14,
     fontFamily: "Poppins_600SemiBold",
     textDecorationLine: "underline",

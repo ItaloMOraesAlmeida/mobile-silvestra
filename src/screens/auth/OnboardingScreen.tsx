@@ -24,6 +24,7 @@ import {
   Poppins_700Bold,
   Poppins_800ExtraBold,
 } from "@expo-google-fonts/poppins";
+import { lightTheme } from "../../theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -315,7 +316,11 @@ export function OnboardingScreen() {
               activeOpacity={0.7}
             >
               <View style={styles.nextButtonCircle}>
-                <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
+                <Ionicons
+                  name="arrow-forward"
+                  size={24}
+                  color={lightTheme.colors.white}
+                />
               </View>
             </TouchableOpacity>
           ) : (
@@ -325,7 +330,11 @@ export function OnboardingScreen() {
               activeOpacity={0.7}
             >
               <View style={styles.startButtonCircle}>
-                <Ionicons name="checkmark" size={28} color="#FFFFFF" />
+                <Ionicons
+                  name="checkmark"
+                  size={28}
+                  color={lightTheme.colors.white}
+                />
               </View>
             </TouchableOpacity>
           )}
@@ -338,7 +347,7 @@ export function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: lightTheme.colors.black,
   },
   slide: {
     width: SCREEN_WIDTH,
@@ -374,7 +383,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontFamily: "Poppins_700Bold",
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
     textAlign: "center",
     marginBottom: 8,
     textShadowColor: "rgba(0, 0, 0, 0.3)",

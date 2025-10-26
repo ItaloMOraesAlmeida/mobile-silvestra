@@ -2,6 +2,7 @@ import React from "react";
 import { View, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BaseToast, ErrorToast, InfoToast } from "react-native-toast-message";
+import { lightTheme } from "../theme";
 
 /**
  * Configuração customizada do Toast com design moderno e profissional
@@ -20,7 +21,11 @@ export const toastConfig = {
       text2NumberOfLines={3}
       renderLeadingIcon={() => (
         <View style={styles.iconContainer}>
-          <Ionicons name="checkmark-circle" size={28} color="#FFFFFF" />
+          <Ionicons
+            name="checkmark-circle"
+            size={28}
+            color={lightTheme.colors.white}
+          />
         </View>
       )}
     />
@@ -37,7 +42,11 @@ export const toastConfig = {
       text2NumberOfLines={3}
       renderLeadingIcon={() => (
         <View style={styles.iconContainer}>
-          <Ionicons name="close-circle" size={28} color="#FFFFFF" />
+          <Ionicons
+            name="close-circle"
+            size={28}
+            color={lightTheme.colors.white}
+          />
         </View>
       )}
     />
@@ -54,7 +63,11 @@ export const toastConfig = {
       text2NumberOfLines={3}
       renderLeadingIcon={() => (
         <View style={styles.iconContainer}>
-          <Ionicons name="information-circle" size={28} color="#FFFFFF" />
+          <Ionicons
+            name="information-circle"
+            size={28}
+            color={lightTheme.colors.white}
+          />
         </View>
       )}
     />
@@ -71,7 +84,7 @@ export const toastConfig = {
       text2NumberOfLines={3}
       renderLeadingIcon={() => (
         <View style={styles.iconContainer}>
-          <Ionicons name="warning" size={28} color="#FFFFFF" />
+          <Ionicons name="warning" size={28} color={lightTheme.colors.white} />
         </View>
       )}
     />
@@ -83,12 +96,12 @@ const styles = StyleSheet.create({
     height: "auto",
     minHeight: 70,
     borderLeftWidth: 6,
-    borderLeftColor: "#4CAF50",
-    backgroundColor: "#4CAF50",
+    borderLeftColor: lightTheme.colors.success,
+    backgroundColor: lightTheme.colors.success,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
-    shadowColor: "#000",
+    shadowColor: lightTheme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -99,12 +112,12 @@ const styles = StyleSheet.create({
     height: "auto",
     minHeight: 70,
     borderLeftWidth: 6,
-    borderLeftColor: "#F44336",
-    backgroundColor: "#F44336",
+    borderLeftColor: lightTheme.colors.error,
+    backgroundColor: lightTheme.colors.error,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
-    shadowColor: "#000",
+    shadowColor: lightTheme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -115,12 +128,12 @@ const styles = StyleSheet.create({
     height: "auto",
     minHeight: 70,
     borderLeftWidth: 6,
-    borderLeftColor: "#2196F3",
-    backgroundColor: "#2196F3",
+    borderLeftColor: lightTheme.colors.info,
+    backgroundColor: lightTheme.colors.info,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
-    shadowColor: "#000",
+    shadowColor: lightTheme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -131,12 +144,12 @@ const styles = StyleSheet.create({
     height: "auto",
     minHeight: 70,
     borderLeftWidth: 6,
-    borderLeftColor: "#FF9800",
-    backgroundColor: "#FF9800",
+    borderLeftColor: lightTheme.colors.warning,
+    backgroundColor: lightTheme.colors.warning,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
-    shadowColor: "#000",
+    shadowColor: lightTheme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -157,7 +170,7 @@ const styles = StyleSheet.create({
   text1: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
     marginBottom: 4,
     fontFamily: "Poppins_700Bold",
   },
@@ -165,7 +178,7 @@ const styles = StyleSheet.create({
   text2: {
     fontSize: 15,
     fontWeight: "400",
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
     opacity: 0.95,
     lineHeight: 20,
     fontFamily: "Poppins_400Regular",

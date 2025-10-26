@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { HomeScreen } from "../screens/tabs/HomeScreen";
 import { ExploreScreen } from "../screens/tabs/ExploreScreen";
+import { lightTheme } from "../theme";
 
 export type TabsParamList = {
   Home: undefined;
@@ -16,8 +17,8 @@ export function TabsNavigator() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#572363",
-        tabBarInactiveTintColor: "#666666",
+        tabBarActiveTintColor: lightTheme.colors.primaryDark,
+        tabBarInactiveTintColor: lightTheme.colors.gray[600],
       }}
     >
       <Tab.Screen

@@ -9,6 +9,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { DrawerNavigationProp } from "@react-navigation/drawer";
 import { LinearGradient } from "expo-linear-gradient";
+import { lightTheme } from "../theme";
 
 interface CustomHeaderProps {
   title: string;
@@ -31,9 +32,12 @@ export function CustomHeader({
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor="#3d1a4a" />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={lightTheme.colors.primaryDarker}
+      />
       <LinearGradient
-        colors={["#8b5a9f", "#572363"]}
+        colors={[lightTheme.colors.primary, lightTheme.colors.primaryDark]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.header}
@@ -48,7 +52,7 @@ export function CustomHeader({
             <Ionicons
               name={isDrawerOpen ? "close" : "menu"}
               size={28}
-              color="#ffffff"
+              color={lightTheme.colors.white}
             />
           </TouchableOpacity>
 
@@ -66,13 +70,9 @@ export function CustomHeader({
 const styles = StyleSheet.create({
   header: {
     paddingTop: 44,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    paddingBottom: lightTheme.spacing.md,
+    paddingHorizontal: lightTheme.spacing.md,
+    ...lightTheme.shadows.sm,
   },
   headerContent: {
     flexDirection: "row",
@@ -84,12 +84,12 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
+    borderRadius: lightTheme.borderRadius.sm,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#ffffff",
+    fontSize: lightTheme.typography.fontSize.xl,
+    fontWeight: lightTheme.typography.fontWeight.bold,
+    color: lightTheme.colors.white,
     flex: 1,
     textAlign: "center",
   },

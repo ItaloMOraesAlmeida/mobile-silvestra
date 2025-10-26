@@ -38,6 +38,7 @@ import { BiometricService } from "../../services/biometric";
 import { BiometricPromptModal } from "../../components/BiometricPromptModal";
 import { BiometricAuthService } from "../../services/biometric-auth";
 import { useAuthStore } from "../../stores/auth.store";
+import { lightTheme } from "../../theme";
 
 const loginSchema = z
   .object({
@@ -473,7 +474,11 @@ export function LoginScreen() {
       <StatusBar barStyle="light-content" />
 
       <LinearGradient
-        colors={["#8b5a9f", "#572363", "#3d1a4a"]}
+        colors={[
+          lightTheme.colors.primary,
+          lightTheme.colors.primaryDark,
+          lightTheme.colors.primaryDarker,
+        ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.gradient}
@@ -525,7 +530,7 @@ export function LoginScreen() {
                       isEmailPasswordDisabled
                         ? "rgba(255, 255, 255, 0.3)"
                         : focusedInput === "email"
-                        ? "#FFFFFF"
+                        ? lightTheme.colors.white
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
@@ -575,7 +580,7 @@ export function LoginScreen() {
                       isEmailPasswordDisabled
                         ? "rgba(255, 255, 255, 0.3)"
                         : focusedInput === "password"
-                        ? "#FFFFFF"
+                        ? lightTheme.colors.white
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
@@ -647,7 +652,7 @@ export function LoginScreen() {
                       isAccessCodeDisabled
                         ? "rgba(255, 255, 255, 0.3)"
                         : focusedInput === "accessCode"
-                        ? "#FFFFFF"
+                        ? lightTheme.colors.white
                         : "rgba(255, 255, 255, 0.6)"
                     }
                   />
@@ -697,13 +702,19 @@ export function LoginScreen() {
                 disabled={isLoading}
               >
                 <LinearGradient
-                  colors={["#9b6cb0", "#6b3d7a"]}
+                  colors={[
+                    lightTheme.colors.primaryLight,
+                    lightTheme.colors.primaryMedium,
+                  ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.loginButtonGradient}
                 >
                   {isLoading ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <ActivityIndicator
+                      color={lightTheme.colors.white}
+                      size="small"
+                    />
                   ) : (
                     <Text style={styles.loginButtonText}>Entrar</Text>
                   )}
@@ -723,7 +734,11 @@ export function LoginScreen() {
                 onPress={handleGoogleLogin}
                 activeOpacity={0.8}
               >
-                <Ionicons name="logo-google" size={20} color="#FFFFFF" />
+                <Ionicons
+                  name="logo-google"
+                  size={20}
+                  color={lightTheme.colors.white}
+                />
                 <Text style={styles.googleButtonText}>
                   Continuar com Google
                 </Text>
@@ -760,7 +775,7 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: lightTheme.colors.black,
   },
   gradient: {
     flex: 1,
@@ -771,37 +786,39 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    paddingHorizontal: 30,
-    paddingVertical: 30,
+    paddingHorizontal:
+      lightTheme.spacing.screenPaddingLarge + lightTheme.spacing.xs,
+    paddingVertical:
+      lightTheme.spacing.screenPaddingLarge + lightTheme.spacing.xs,
   },
   header: {
     alignItems: "center",
-    marginBottom: 28,
+    marginBottom: lightTheme.spacing.lg + lightTheme.spacing.xs,
   },
   logoImage: {
     width: 280,
     height: 100,
-    marginBottom: 14,
+    marginBottom: lightTheme.spacing.md - 2,
   },
   appName: {
-    fontSize: 44,
+    fontSize: lightTheme.typography.fontSize["6xl"] - 4,
     fontFamily: "Poppins_800ExtraBold",
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
     letterSpacing: 3,
-    marginBottom: 6,
+    marginBottom: lightTheme.spacing.xs + 2,
     textShadowColor: "rgba(0, 0, 0, 0.4)",
     textShadowOffset: { width: 0, height: 3 },
     textShadowRadius: 10,
   },
   logo: {
-    fontSize: 42,
-    fontWeight: "bold",
-    color: "#FFFFFF",
+    fontSize: lightTheme.typography.fontSize["5xl"] + 6,
+    fontWeight: lightTheme.typography.fontWeight.bold,
+    color: lightTheme.colors.white,
     letterSpacing: 1,
-    marginBottom: 8,
+    marginBottom: lightTheme.spacing.sm,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: lightTheme.typography.fontSize.sm,
     fontFamily: "Poppins_400Regular",
     color: "rgba(255, 255, 255, 0.9)",
     textAlign: "center",
@@ -810,55 +827,55 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   inputWrapper: {
-    marginBottom: 10,
+    marginBottom: lightTheme.spacing.md - 6,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.12)",
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    borderRadius: lightTheme.borderRadius.md + 2,
+    paddingHorizontal: lightTheme.spacing.md - 2,
     height: 50,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.25)",
   },
   inputFocused: {
     backgroundColor: "rgba(255, 255, 255, 0.18)",
-    borderColor: "#e6a4f0",
+    borderColor: lightTheme.colors.primaryLighter,
     borderWidth: 2,
   },
   input: {
     flex: 1,
-    color: "#FFFFFF",
-    fontSize: 15,
+    color: lightTheme.colors.white,
+    fontSize: lightTheme.typography.fontSize.base - 1,
     fontFamily: "Poppins_400Regular",
-    marginLeft: 10,
+    marginLeft: lightTheme.spacing.md - 6,
     paddingVertical: 0,
   },
   forgotPasswordButton: {
     alignSelf: "flex-end",
-    marginBottom: 5,
-    marginTop: 2,
+    marginBottom: lightTheme.spacing.xs + 1,
+    marginTop: lightTheme.spacing.xs - 2,
   },
   forgotPasswordText: {
-    color: "#e6a4f0",
-    fontSize: 13,
+    color: lightTheme.colors.primaryLighter,
+    fontSize: lightTheme.typography.fontSize.sm - 1,
     fontFamily: "Poppins_600SemiBold",
   },
   accessCodeWrapper: {
-    marginBottom: 14,
+    marginBottom: lightTheme.spacing.md - 2,
   },
   accessCodeHint: {
-    fontSize: 11,
+    fontSize: lightTheme.typography.fontSize.xs - 1,
     fontFamily: "Poppins_400Regular",
     color: "rgba(255, 255, 255, 0.7)",
-    marginTop: 4,
-    marginLeft: 4,
+    marginTop: lightTheme.spacing.xs,
+    marginLeft: lightTheme.spacing.xs,
   },
   loginButton: {
-    borderRadius: 14,
+    borderRadius: lightTheme.borderRadius.md + 2,
     overflow: "hidden",
-    marginBottom: 14,
+    marginBottom: lightTheme.spacing.md - 2,
   },
   loginButtonDisabled: {
     opacity: 0.6,
@@ -868,18 +885,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     height: 50,
-    gap: 8,
+    gap: lightTheme.spacing.sm,
   },
   loginButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
+    color: lightTheme.colors.white,
+    fontSize: lightTheme.typography.fontSize.base,
     fontFamily: "Poppins_700Bold",
-    marginTop: 4,
+    marginTop: lightTheme.spacing.xs,
   },
   divider: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 14,
+    marginBottom: lightTheme.spacing.md - 2,
   },
   dividerLine: {
     flex: 1,
@@ -888,27 +905,27 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     color: "rgba(255, 255, 255, 0.75)",
-    fontSize: 13,
+    fontSize: lightTheme.typography.fontSize.sm - 1,
     fontFamily: "Poppins_400Regular",
-    marginHorizontal: 14,
+    marginHorizontal: lightTheme.spacing.md - 2,
   },
   googleButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255, 255, 255, 0.12)",
-    borderRadius: 14,
+    borderRadius: lightTheme.borderRadius.md + 2,
     height: 50,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.25)",
-    gap: 10,
-    marginBottom: 20,
+    gap: lightTheme.spacing.md - 6,
+    marginBottom: lightTheme.spacing.lg - 4,
   },
   googleButtonText: {
-    color: "#FFFFFF",
-    fontSize: 15,
+    color: lightTheme.colors.white,
+    fontSize: lightTheme.typography.fontSize.base - 1,
     fontFamily: "Poppins_600SemiBold",
-    marginTop: 4,
+    marginTop: lightTheme.spacing.xs,
   },
   createAccountContainer: {
     flexDirection: "row",
@@ -917,16 +934,16 @@ const styles = StyleSheet.create({
   },
   createAccountText: {
     color: "rgba(255, 255, 255, 0.85)",
-    fontSize: 14,
+    fontSize: lightTheme.typography.fontSize.sm,
     fontFamily: "Poppins_400Regular",
   },
   createAccountLink: {
-    color: "#e6a4f0",
-    fontSize: 14,
+    color: lightTheme.colors.primaryLighter,
+    fontSize: lightTheme.typography.fontSize.sm,
     fontFamily: "Poppins_700Bold",
   },
   inputError: {
-    borderColor: "#ff4444",
+    borderColor: lightTheme.colors.error,
     borderWidth: 2,
   },
   inputDisabled: {
@@ -934,10 +951,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   errorText: {
-    color: "#ff4444",
-    fontSize: 12,
+    color: lightTheme.colors.error,
+    fontSize: lightTheme.typography.fontSize.xs,
     fontFamily: "Poppins_400Regular",
-    marginTop: 4,
-    marginLeft: 4,
+    marginTop: lightTheme.spacing.xs,
+    marginLeft: lightTheme.spacing.xs,
   },
 });

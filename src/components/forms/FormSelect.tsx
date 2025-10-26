@@ -11,6 +11,7 @@ import {
 import { Control, Controller, FieldValues, Path } from "react-hook-form";
 import { useTheme } from "../../hooks/useTheme";
 import { Ionicons } from "@expo/vector-icons";
+import { lightTheme } from "../../theme";
 
 export interface SelectOption {
   label: string;
@@ -241,7 +242,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: lightTheme.colors.gray[200],
   },
   modalTitle: {
     fontSize: 18,
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: lightTheme.colors.gray[200],
   },
   optionText: {
     fontSize: 14,

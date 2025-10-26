@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { lightTheme } from "../../theme";
 
 export function ExploreScreen() {
   return (
@@ -18,16 +19,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
-    backgroundColor: "#fff",
+    backgroundColor: lightTheme.colors.white,
   },
   title: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#572363",
+    color: lightTheme.colors.primaryDark,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: "#666",
+    color: lightTheme.colors.gray[600],
   },
 });

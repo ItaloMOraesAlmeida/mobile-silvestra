@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { lightTheme } from "../theme";
 
 interface BiometricPromptModalProps {
   visible: boolean;
@@ -41,10 +42,17 @@ export function BiometricPromptModal({
         <View style={styles.container}>
           <View style={styles.iconContainer}>
             <LinearGradient
-              colors={["#9b6cb0", "#6b3d7a"]}
+              colors={[
+                lightTheme.colors.primaryLight,
+                lightTheme.colors.primaryMedium,
+              ]}
               style={styles.iconGradient}
             >
-              <Ionicons name={getIconName()} size={48} color="#FFFFFF" />
+              <Ionicons
+                name={getIconName()}
+                size={48}
+                color={lightTheme.colors.white}
+              />
             </LinearGradient>
           </View>
 
@@ -69,7 +77,10 @@ export function BiometricPromptModal({
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={["#9b6cb0", "#6b3d7a"]}
+                colors={[
+                  lightTheme.colors.primaryLight,
+                  lightTheme.colors.primaryMedium,
+                ]}
                 style={styles.acceptGradient}
               >
                 <Text style={styles.acceptText}>Habilitar</Text>
@@ -88,61 +99,63 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.7)",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: lightTheme.spacing.screenPaddingLarge,
   },
   container: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 24,
+    backgroundColor: lightTheme.colors.white,
+    borderRadius: lightTheme.borderRadius.xl,
+    padding: lightTheme.spacing.screenPaddingLarge,
     width: "100%",
     maxWidth: 400,
     alignItems: "center",
   },
   iconContainer: {
-    marginBottom: 20,
+    marginBottom: lightTheme.spacing.lg - 4,
   },
   iconGradient: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: lightTheme.borderRadius.full,
     justifyContent: "center",
     alignItems: "center",
   },
   title: {
-    fontSize: 22,
+    fontSize: lightTheme.typography.fontSize["2xl"] - 2,
     fontFamily: "Poppins_700Bold",
-    color: "#333333",
-    marginBottom: 12,
+    color: lightTheme.colors.gray[800],
+    marginBottom: lightTheme.spacing.md - 4,
     textAlign: "center",
   },
   message: {
-    fontSize: 14,
+    fontSize: lightTheme.typography.fontSize.sm,
     fontFamily: "Poppins_400Regular",
-    color: "#666666",
+    color: lightTheme.colors.gray[600],
     textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 24,
+    lineHeight:
+      lightTheme.typography.lineHeight.relaxed *
+      lightTheme.typography.fontSize.sm,
+    marginBottom: lightTheme.spacing.screenPaddingLarge,
   },
   buttonsContainer: {
     flexDirection: "row",
-    gap: 12,
+    gap: lightTheme.spacing.md - 4,
     width: "100%",
   },
   button: {
     flex: 1,
     height: 50,
-    borderRadius: 12,
+    borderRadius: lightTheme.borderRadius.md,
     overflow: "hidden",
   },
   declineButton: {
-    backgroundColor: "#F5F5F5",
+    backgroundColor: lightTheme.colors.gray[100],
     justifyContent: "center",
     alignItems: "center",
   },
   declineText: {
-    fontSize: 15,
+    fontSize: lightTheme.typography.fontSize.base - 1,
     fontFamily: "Poppins_600SemiBold",
-    color: "#666666",
+    color: lightTheme.colors.gray[600],
   },
   acceptButton: {
     overflow: "hidden",
@@ -153,8 +166,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   acceptText: {
-    fontSize: 15,
+    fontSize: lightTheme.typography.fontSize.base - 1,
     fontFamily: "Poppins_600SemiBold",
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
   },
 });

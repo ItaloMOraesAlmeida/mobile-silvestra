@@ -15,6 +15,7 @@ import {
   Poppins_600SemiBold,
   Poppins_700Bold,
 } from "@expo-google-fonts/poppins";
+import { lightTheme } from "../theme";
 
 interface EmailExistsModalProps {
   visible: boolean;
@@ -51,7 +52,7 @@ export function EmailExistsModal({
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
           <LinearGradient
-            colors={["#8b5a9f", "#572363"]}
+            colors={[lightTheme.colors.primary, lightTheme.colors.primaryDark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.gradient}
@@ -62,13 +63,21 @@ export function EmailExistsModal({
               onPress={onClose}
               activeOpacity={0.7}
             >
-              <Ionicons name="close" size={24} color="#FFFFFF" />
+              <Ionicons
+                name="close"
+                size={24}
+                color={lightTheme.colors.white}
+              />
             </TouchableOpacity>
 
             {/* Icon */}
             <View style={styles.iconContainer}>
               <View style={styles.iconCircle}>
-                <Ionicons name="mail" size={40} color="#572363" />
+                <Ionicons
+                  name="mail"
+                  size={40}
+                  color={lightTheme.colors.primaryDark}
+                />
               </View>
             </View>
 
@@ -94,7 +103,10 @@ export function EmailExistsModal({
                 activeOpacity={0.8}
               >
                 <LinearGradient
-                  colors={["#9b6cb0", "#6b3d7a"]}
+                  colors={[
+                    lightTheme.colors.primaryLight,
+                    lightTheme.colors.primaryMedium,
+                  ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.buttonGradient}
@@ -102,7 +114,7 @@ export function EmailExistsModal({
                   <Ionicons
                     name="log-in-outline"
                     size={20}
-                    color="#FFFFFF"
+                    color={lightTheme.colors.white}
                     style={styles.buttonIcon}
                   />
                   <Text style={styles.buttonText}>Ir para Login</Text>
@@ -119,7 +131,7 @@ export function EmailExistsModal({
                   <Ionicons
                     name="key-outline"
                     size={20}
-                    color="#e6a4f0"
+                    color={lightTheme.colors.primaryLighter}
                     style={styles.buttonIcon}
                   />
                   <Text style={styles.secondaryButtonText}>
@@ -176,10 +188,10 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: lightTheme.colors.white,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    shadowColor: lightTheme.colors.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -188,7 +200,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontFamily: "Poppins_700Bold",
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
     textAlign: "center",
     marginBottom: 12,
   },
@@ -202,7 +214,7 @@ const styles = StyleSheet.create({
   },
   emailText: {
     fontFamily: "Poppins_600SemiBold",
-    color: "#e6a4f0",
+    color: lightTheme.colors.primaryLighter,
   },
   subMessage: {
     fontSize: 14,
@@ -230,7 +242,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   buttonText: {
-    color: "#FFFFFF",
+    color: lightTheme.colors.white,
     fontSize: 16,
     fontFamily: "Poppins_600SemiBold",
   },
@@ -247,7 +259,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   secondaryButtonText: {
-    color: "#e6a4f0",
+    color: lightTheme.colors.primaryLighter,
     fontSize: 16,
     fontFamily: "Poppins_600SemiBold",
   },

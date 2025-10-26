@@ -1,9 +1,13 @@
 export const colors = {
-  // Cores principais
+  // Cores principais (Roxo do App)
   primary: {
-    DEFAULT: "#572363",
-    light: "#7B3E8F",
-    dark: "#3D1847",
+    DEFAULT: "#8b5a9f", // Roxo principal
+    light: "#9b6cb0", // Roxo claro
+    lighter: "#e6a4f0", // Roxo muito claro (accent)
+    dark: "#572363", // Roxo escuro
+    darker: "#3d1a4a", // Roxo muito escuro
+    medium: "#6b3d7a", // Roxo médio
+    background: "#f3e8f7", // Roxo de fundo (muito claro)
   },
   secondary: {
     DEFAULT: "#8B4A9D",

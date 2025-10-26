@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { lightTheme } from "../../theme";
 
 export function HomeScreen() {
   return (
@@ -20,7 +21,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-    backgroundColor: "#fff",
+    backgroundColor: lightTheme.colors.white,
   },
   title: {
     fontSize: 32,
@@ -29,12 +30,12 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 20,
-    color: "#572363",
+    color: lightTheme.colors.primaryDark,
     marginBottom: 16,
   },
   description: {
     fontSize: 16,
-    color: "#666",
+    color: lightTheme.colors.gray[600],
     textAlign: "center",
     lineHeight: 24,
   },

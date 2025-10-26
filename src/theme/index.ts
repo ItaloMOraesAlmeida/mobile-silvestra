@@ -7,7 +7,11 @@ export interface Theme {
   colors: {
     primary: string;
     primaryLight: string;
+    primaryLighter: string;
     primaryDark: string;
+    primaryDarker: string;
+    primaryMedium: string;
+    primaryBackground: string;
     secondary: string;
     secondaryLight: string;
     accent: string;
@@ -62,7 +66,11 @@ export const lightTheme: Theme = {
   colors: {
     primary: baseColors.primary.DEFAULT,
     primaryLight: baseColors.primary.light,
+    primaryLighter: baseColors.primary.lighter,
     primaryDark: baseColors.primary.dark,
+    primaryDarker: baseColors.primary.darker,
+    primaryMedium: baseColors.primary.medium,
+    primaryBackground: baseColors.primary.background,
     secondary: baseColors.secondary.DEFAULT,
     secondaryLight: baseColors.secondary.light,
     accent: baseColors.accent.DEFAULT,
@@ -117,7 +125,11 @@ export const darkTheme: Theme = {
   colors: {
     primary: baseColors.primary.DEFAULT,
     primaryLight: baseColors.primary.light,
+    primaryLighter: baseColors.primary.lighter,
     primaryDark: baseColors.primary.dark,
+    primaryDarker: baseColors.primary.darker,
+    primaryMedium: baseColors.primary.medium,
+    primaryBackground: baseColors.primary.background,
     secondary: baseColors.secondary.DEFAULT,
     secondaryLight: baseColors.secondary.light,
     accent: baseColors.accent.DEFAULT,

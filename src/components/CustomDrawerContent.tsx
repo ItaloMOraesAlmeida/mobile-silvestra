@@ -7,6 +7,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../stores/auth.store";
 import { LinearGradient } from "expo-linear-gradient";
+import { lightTheme } from "../theme";
 
 export function CustomDrawerContent(props: DrawerContentComponentProps) {
   const user = useAuthStore((state) => state.user);
@@ -34,7 +35,11 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
     <View style={styles.container}>
       {/* Header do Drawer com Gradiente */}
       <LinearGradient
-        colors={["#8b5a9f", "#572363", "#3d1a4a"]}
+        colors={[
+          lightTheme.colors.primary,
+          lightTheme.colors.primaryDark,
+          lightTheme.colors.primaryDarker,
+        ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -69,7 +74,11 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
           <Ionicons
             name="home"
             size={24}
-            color={props.state.index === 0 ? "#8b5a9f" : "#6b7280"}
+            color={
+              props.state.index === 0
+                ? lightTheme.colors.primary
+                : lightTheme.colors.gray[500]
+            }
             style={styles.drawerIcon}
           />
           <Text
@@ -89,74 +98,74 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: lightTheme.colors.white,
   },
   header: {
-    paddingTop: 60,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
+    paddingTop: lightTheme.spacing["2xl"] + lightTheme.spacing.md,
+    paddingBottom: lightTheme.spacing.lg + lightTheme.spacing.sm,
+    paddingHorizontal: lightTheme.spacing.screenPaddingLarge,
     alignItems: "center",
   },
   avatarContainer: {
-    marginBottom: 16,
+    marginBottom: lightTheme.spacing.md,
   },
   avatar: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: lightTheme.borderRadius.full,
     backgroundColor: "rgba(255, 255, 255, 0.3)",
     borderWidth: 3,
-    borderColor: "#ffffff",
+    borderColor: lightTheme.colors.white,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#ffffff",
+    fontSize: lightTheme.typography.fontSize["4xl"],
+    fontWeight: lightTheme.typography.fontWeight.bold,
+    color: lightTheme.colors.white,
   },
   userName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginBottom: 4,
+    fontSize: lightTheme.typography.fontSize.lg,
+    fontWeight: lightTheme.typography.fontWeight.bold,
+    color: lightTheme.colors.white,
+    marginBottom: lightTheme.spacing.xs,
     textAlign: "center",
   },
   userEmail: {
-    fontSize: 14,
+    fontSize: lightTheme.typography.fontSize.sm,
     color: "rgba(255, 255, 255, 0.9)",
     textAlign: "center",
   },
   divider: {
     height: 1,
-    backgroundColor: "#e5e7eb",
-    marginVertical: 8,
+    backgroundColor: lightTheme.colors.gray[200],
+    marginVertical: lightTheme.spacing.sm,
   },
   drawerContent: {
-    paddingTop: 8,
+    paddingTop: lightTheme.spacing.sm,
   },
   drawerItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    marginHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: "transparent",
+    paddingVertical: lightTheme.spacing.md,
+    paddingHorizontal: lightTheme.spacing.lg - 4,
+    marginHorizontal: lightTheme.spacing.md - 4,
+    borderRadius: lightTheme.borderRadius.md,
+    backgroundColor: lightTheme.colors.transparent,
   },
   drawerItemActive: {
-    backgroundColor: "#f3e8f7",
+    backgroundColor: lightTheme.colors.primaryBackground,
   },
   drawerIcon: {
-    marginRight: 16,
+    marginRight: lightTheme.spacing.md,
   },
   drawerLabel: {
-    fontSize: 16,
-    color: "#6b7280",
-    fontWeight: "500",
+    fontSize: lightTheme.typography.fontSize.base,
+    color: lightTheme.colors.gray[500],
+    fontWeight: lightTheme.typography.fontWeight.medium,
   },
   drawerLabelActive: {
-    color: "#8b5a9f",
-    fontWeight: "600",
+    color: lightTheme.colors.primary,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
   },
 });

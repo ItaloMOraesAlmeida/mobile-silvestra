@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { lightTheme } from "../../theme";
 
 export function HomeScreen() {
   return (
@@ -10,12 +11,16 @@ export function HomeScreen() {
         {/* Ícone */}
         <View style={styles.iconContainer}>
           <LinearGradient
-            colors={["#8b5a9f", "#572363"]}
+            colors={[lightTheme.colors.primary, lightTheme.colors.primaryDark]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.iconGradient}
           >
-            <Ionicons name="construct-outline" size={64} color="#ffffff" />
+            <Ionicons
+              name="construct-outline"
+              size={64}
+              color={lightTheme.colors.white}
+            />
           </LinearGradient>
         </View>
 
@@ -30,7 +35,11 @@ export function HomeScreen() {
 
         {/* Informação adicional */}
         <View style={styles.infoBox}>
-          <Ionicons name="information-circle" size={20} color="#8b5a9f" />
+          <Ionicons
+            name="information-circle"
+            size={20}
+            color={lightTheme.colors.primary}
+          />
           <Text style={styles.infoText}>
             Acompanhe as atualizações do aplicativo
           </Text>
@@ -43,58 +52,56 @@ export function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f9fafb",
+    backgroundColor: lightTheme.colors.gray[50],
   },
   content: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 32,
+    paddingHorizontal: lightTheme.spacing["2xl"] - lightTheme.spacing.md,
   },
   iconContainer: {
-    marginBottom: 32,
+    marginBottom: lightTheme.spacing["2xl"] - lightTheme.spacing.md,
   },
   iconGradient: {
     width: 120,
     height: 120,
-    borderRadius: 60,
+    borderRadius: lightTheme.borderRadius.full,
     alignItems: "center",
     justifyContent: "center",
-    elevation: 8,
-    shadowColor: "#8b5a9f",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    ...lightTheme.shadows.primary,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#1f2937",
-    marginBottom: 16,
+    fontSize: lightTheme.typography.fontSize["3xl"],
+    fontWeight: lightTheme.typography.fontWeight.bold,
+    color: lightTheme.colors.gray[800],
+    marginBottom: lightTheme.spacing.md,
     textAlign: "center",
   },
   description: {
-    fontSize: 16,
-    color: "#6b7280",
+    fontSize: lightTheme.typography.fontSize.base,
+    color: lightTheme.colors.gray[500],
     textAlign: "center",
-    lineHeight: 24,
-    marginBottom: 32,
+    lineHeight:
+      lightTheme.typography.lineHeight.relaxed *
+      lightTheme.typography.fontSize.base,
+    marginBottom: lightTheme.spacing["2xl"] - lightTheme.spacing.md,
   },
   infoBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f3e8f7",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: lightTheme.colors.primaryBackground,
+    paddingHorizontal: lightTheme.spacing.lg - 4,
+    paddingVertical: lightTheme.spacing.md,
+    borderRadius: lightTheme.borderRadius.md,
     borderWidth: 1,
-    borderColor: "#8b5a9f",
-    marginTop: 16,
+    borderColor: lightTheme.colors.primary,
+    marginTop: lightTheme.spacing.md,
   },
   infoText: {
-    fontSize: 14,
-    color: "#572363",
-    marginLeft: 8,
-    fontWeight: "500",
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.primaryDark,
+    marginLeft: lightTheme.spacing.sm,
+    fontWeight: lightTheme.typography.fontWeight.medium,
   },
 });
