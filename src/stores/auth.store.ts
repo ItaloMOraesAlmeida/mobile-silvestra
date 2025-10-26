@@ -30,9 +30,20 @@ interface AuthState {
   tokens: AuthTokens | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  // Novo: Controla se deve mostrar o modal de biometria
+  pendingBiometricSetup: {
+    email: string;
+    accessToken: string;
+    refreshToken: string;
+  } | null;
 
   // Actions
-  login: (email: string, password: string) => Promise<void>;
+  login: (
+    email: string,
+    password: string
+  ) => Promise<{ user: User; tokens: AuthTokens }>;
+  completeBiometricSetup: () => void;
+  skipBiometricSetup: () => void;
   register: (data: RegisterData) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -58,6 +69,7 @@ export const useAuthStore = create<AuthState>()(
       tokens: null,
       isAuthenticated: false,
       isLoading: false,
+      pendingBiometricSetup: null,
 
       setUser: (user: User) => {
         set({ user, isAuthenticated: true });
@@ -80,19 +92,46 @@ export const useAuthStore = create<AuthState>()(
 
           const { user, tokens } = response.data;
 
+          // NÃO define isAuthenticated = true ainda!
+          // Apenas salva os dados temporariamente para o modal de biometria
           set({
             user,
             tokens,
-            isAuthenticated: true,
+            isAuthenticated: false, // Mantém false até confirmar biometria
             isLoading: false,
+            pendingBiometricSetup: {
+              email: user.email,
+              accessToken: tokens.accessToken,
+              refreshToken: tokens.refreshToken,
+            },
           });
 
           // Sincroniza com o tokenService
           tokenService.setTokens(tokens);
+
+          return { user, tokens };
         } catch (error) {
           set({ isLoading: false });
           throw error;
         }
+      },
+
+      completeBiometricSetup: () => {
+        // Usuário aceitou configurar biometria
+        // Agora sim, marca como autenticado
+        set({
+          isAuthenticated: true,
+          pendingBiometricSetup: null,
+        });
+      },
+
+      skipBiometricSetup: () => {
+        // Usuário recusou biometria
+        // Marca como autenticado mesmo assim
+        set({
+          isAuthenticated: true,
+          pendingBiometricSetup: null,
+        });
       },
 
       register: async (data: RegisterData) => {
@@ -103,11 +142,13 @@ export const useAuthStore = create<AuthState>()(
 
           const { user, tokens } = response.data;
 
+          // Para registro, autenticamos direto (sem modal de biometria)
           set({
             user,
             tokens,
             isAuthenticated: true,
             isLoading: false,
+            pendingBiometricSetup: null,
           });
 
           // Sincroniza com o tokenService
@@ -128,11 +169,13 @@ export const useAuthStore = create<AuthState>()(
 
           const { user, tokens } = response.data;
 
+          // Para Google, autenticamos direto (sem modal de biometria)
           set({
             user,
             tokens,
             isAuthenticated: true,
             isLoading: false,
+            pendingBiometricSetup: null,
           });
 
           // Sincroniza com o tokenService
@@ -148,15 +191,9 @@ export const useAuthStore = create<AuthState>()(
 
         if (tokens?.refreshToken && tokens?.accessToken) {
           try {
-            await api.post(
-              "/auth/logout",
-              { refreshToken: tokens.refreshToken },
-              {
-                headers: {
-                  Authorization: `Bearer ${tokens.accessToken}`,
-                },
-              }
-            );
+            await api.post("/auth/logout", {
+              refreshToken: tokens.refreshToken,
+            });
           } catch (error) {
             console.error("Erro ao fazer logout na API:", error);
           }
@@ -166,6 +203,7 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           tokens: null,
           isAuthenticated: false,
+          pendingBiometricSetup: null,
         });
 
         // Limpa o tokenService
@@ -202,6 +240,15 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "auth-storage",
       storage: createJSONStorage(() => AsyncStorage),
+      // NÃO persiste isAuthenticated - sempre começa como false ao abrir o app
+      // Isso força a verificação de biometria
+      partialize: (state) => ({
+        user: state.user,
+        tokens: state.tokens,
+        // isAuthenticated: NÃO persiste (sempre false ao reabrir)
+        // isLoading: NÃO persiste
+        // pendingBiometricSetup: NÃO persiste
+      }),
     }
   )
 );

@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from "axios";
-import { useAuthStore } from "../store/authStore";
+import { useAuthStore } from "../stores/auth.store";
 import { ApiResponse, AuthTokens } from "../types";
 
 // Configuração base da API
@@ -65,7 +65,7 @@ api.interceptors.response.use(
         }
 
         // Atualizar tokens no store
-        useAuthStore.getState().login(useAuthStore.getState().user!, newTokens);
+        useAuthStore.getState().setTokens(newTokens);
 
         // Repetir a requisição original com o novo token
         if (originalRequest.headers) {

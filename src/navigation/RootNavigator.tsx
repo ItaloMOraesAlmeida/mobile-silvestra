@@ -2,7 +2,6 @@ import {
   createStackNavigator,
   CardStyleInterpolators,
 } from "@react-navigation/stack";
-import { useAuthStore } from "../store/authStore";
 import { AuthNavigator } from "./AuthNavigator";
 import { TabsNavigator } from "./TabsNavigator";
 import { PatientNavigator } from "./PatientNavigator";
@@ -18,8 +17,6 @@ export type RootStackParamList = {
 const Stack = createStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
-  const { isAuthenticated, user } = useAuthStore();
-
   return (
     <Stack.Navigator
       screenOptions={{
@@ -47,15 +44,13 @@ export function RootNavigator() {
         },
       }}
     >
-      {!isAuthenticated ? (
-        <Stack.Screen name="Auth" component={AuthNavigator} />
-      ) : user?.role === "nutritionist" ? (
-        <Stack.Screen name="Nutritionist" component={NutritionistNavigator} />
-      ) : user?.role === "patient" ? (
-        <Stack.Screen name="Patient" component={PatientNavigator} />
-      ) : (
-        <Stack.Screen name="Tabs" component={TabsNavigator} />
-      )}
+      {/* SEMPRE mostra Auth primeiro - LoginScreen decide se redireciona */}
+      <Stack.Screen name="Auth" component={AuthNavigator} />
+
+      {/* Stacks autenticadas - só acessíveis via navigate() */}
+      <Stack.Screen name="Nutritionist" component={NutritionistNavigator} />
+      <Stack.Screen name="Patient" component={PatientNavigator} />
+      <Stack.Screen name="Tabs" component={TabsNavigator} />
     </Stack.Navigator>
   );
 }

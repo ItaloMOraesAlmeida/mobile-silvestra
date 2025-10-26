@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   BIOMETRIC_ENABLED: "@silvestra:biometric_enabled",
   USER_CREDENTIALS: "@silvestra:user_credentials",
   AUTH_TOKENS: "@silvestra:auth_tokens",
+  USER_DATA: "@silvestra:user_data",
 };
 
 export const StorageService = {
@@ -76,12 +77,27 @@ export const StorageService = {
     await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKENS);
   },
 
+  // User Data (dados completos do usuário para restaurar sessão)
+  async saveUserData(user: any): Promise<void> {
+    await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+  },
+
+  async getUserData(): Promise<any | null> {
+    const value = await AsyncStorage.getItem(STORAGE_KEYS.USER_DATA);
+    return value ? JSON.parse(value) : null;
+  },
+
+  async clearUserData(): Promise<void> {
+    await AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA);
+  },
+
   // Clear all data (logout)
   async clearAll(): Promise<void> {
     await AsyncStorage.multiRemove([
       STORAGE_KEYS.BIOMETRIC_ENABLED,
       STORAGE_KEYS.USER_CREDENTIALS,
       STORAGE_KEYS.AUTH_TOKENS,
+      STORAGE_KEYS.USER_DATA,
     ]);
   },
 };

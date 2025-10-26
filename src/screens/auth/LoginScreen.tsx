@@ -172,20 +172,77 @@ export function LoginScreen() {
     };
   }, []);
 
-  // Verifica se biometria está habilitada e tenta autenticar automaticamente
-  // Verifica se biometria está habilitada e tenta autenticar automaticamente
+  // Verifica ao carregar a tela:
+  // 1. Se já está autenticado → redireciona
+  // 2. Se tem biometria salva → pede biometria
   useFocusEffect(
     useCallback(() => {
-      const checkBiometric = async () => {
+      const checkAuthAndBiometric = async () => {
         try {
+          const { isAuthenticated, user } = useAuthStore.getState();
+
+          // Se já está autenticado, redireciona para a tela apropriada
+          if (isAuthenticated && user) {
+            if (user.role === "nutritionist") {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Nutritionist" } as any],
+              });
+            } else if (user.role === "patient") {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Patient" } as any],
+              });
+            } else {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Tabs" } as any],
+              });
+            }
+            return;
+          }
+
+          // Se não está autenticado, verifica se tem biometria salva
           const result = await BiometricAuthService.authenticateWithBiometric();
 
           if (result.success) {
-            // Autenticação bem-sucedida, tokens atualizados
-            // TODO: Navegar para a tela principal
-            // navigation.replace("MainApp"); // ou o nome da sua tela principal
+            // Autenticação biométrica bem-sucedida
+            Toast.show({
+              type: "success",
+              text1: "Login com Biometria",
+              text2: "Bem-vindo de volta!",
+              position: "top",
+              visibilityTime: 3000,
+              topOffset: 60,
+            });
+
+            // Completa a autenticação
+            const { completeBiometricSetup } = useAuthStore.getState();
+            completeBiometricSetup();
+
+            // Navega manualmente para a tela apropriada
+            const currentUser = useAuthStore.getState().user;
+
+            if (currentUser) {
+              if (currentUser.role === "nutritionist") {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: "Nutritionist" } as any],
+                });
+              } else if (currentUser.role === "patient") {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: "Patient" } as any],
+                });
+              } else {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: "Tabs" } as any],
+                });
+              }
+            }
           } else {
-            // Trata os diferentes tipos de falha
+            // Falhou ou não tem biometria salva
             if (result.reason === "token_expired") {
               Toast.show({
                 type: "warning",
@@ -195,17 +252,17 @@ export function LoginScreen() {
                 visibilityTime: 5000,
                 topOffset: 60,
               });
-            } else if (result.reason === "biometric_failed") {
-              // Autenticação biométrica falhou ou foi cancelada
             }
+            // Para outros casos (no_credentials, biometric_failed, cancelled),
+            // apenas mantém na tela de login sem mostrar mensagem
           }
-        } catch {
-          // Erro silencioso - biometria não disponível
+        } catch (error) {
+          console.error("Erro ao verificar autenticação:", error);
         }
       };
 
-      checkBiometric();
-    }, [])
+      checkAuthAndBiometric();
+    }, [navigation])
   );
 
   if (!fontsLoaded) {
@@ -251,17 +308,14 @@ export function LoginScreen() {
     try {
       const { login } = useAuthStore.getState();
 
-      // Faz login usando o store (que já salva os tokens)
-      await login(data.email || "", data.password || "");
+      // IMPORTANTE: O login() agora retorna {user, tokens} mas NÃO define isAuthenticated = true
+      // Em vez disso, define pendingBiometricSetup no store
+      const { user, tokens } = await login(
+        data.email || "",
+        data.password || ""
+      );
 
-      // Obtém os tokens salvos pelo login
-      const { tokens, user } = useAuthStore.getState();
-
-      if (!tokens || !user) {
-        throw new Error("Erro ao obter tokens após login");
-      }
-
-      // Verifica se biometria está disponível no dispositivo
+      // Verifica se biometria está disponível
       const biometricAvailable = await BiometricService.isAvailable();
 
       if (biometricAvailable) {
@@ -277,7 +331,10 @@ export function LoginScreen() {
         setBiometricType(biometricType);
         setShowBiometricPrompt(true);
       } else {
-        // Se biometria não está disponível, navega direto para o app
+        // Se biometria não está disponível, completa a autenticação direto
+        const { skipBiometricSetup } = useAuthStore.getState();
+        skipBiometricSetup();
+
         Toast.show({
           type: "success",
           text1: "Login Realizado!",
@@ -286,8 +343,6 @@ export function LoginScreen() {
           visibilityTime: 3000,
           topOffset: 60,
         });
-        // TODO: Navegar para a tela principal
-        // navigation.replace("MainApp"); // ou o nome da sua tela principal
       }
     } catch (error: any) {
       Toast.show({
@@ -320,6 +375,10 @@ export function LoginScreen() {
       setShowBiometricPrompt(false);
       setPendingAuth(null);
 
+      // AGORA SIM: Marca como autenticado
+      const { completeBiometricSetup } = useAuthStore.getState();
+      completeBiometricSetup();
+
       Toast.show({
         type: "success",
         text1: "Biometria Habilitada!",
@@ -329,8 +388,26 @@ export function LoginScreen() {
         topOffset: 60,
       });
 
-      // TODO: Navegar para a tela principal
-      // navigation.replace("MainApp"); // ou o nome da sua tela principal
+      // Navega manualmente para a tela apropriada
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        if (currentUser.role === "nutritionist") {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Nutritionist" } as any],
+          });
+        } else if (currentUser.role === "patient") {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Patient" } as any],
+          });
+        } else {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Tabs" } as any],
+          });
+        }
+      }
     } catch {
       Toast.show({
         type: "error",
@@ -348,6 +425,10 @@ export function LoginScreen() {
     setShowBiometricPrompt(false);
     setPendingAuth(null);
 
+    // AGORA SIM: Marca como autenticado (mesmo sem biometria)
+    const { skipBiometricSetup } = useAuthStore.getState();
+    skipBiometricSetup();
+
     Toast.show({
       type: "info",
       text1: "Login Realizado!",
@@ -357,8 +438,26 @@ export function LoginScreen() {
       topOffset: 60,
     });
 
-    // TODO: Navegar para a tela principal
-    // navigation.replace("MainApp"); // ou o nome da sua tela principal
+    // Navega manualmente para a tela apropriada
+    const currentUser = useAuthStore.getState().user;
+    if (currentUser) {
+      if (currentUser.role === "nutritionist") {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Nutritionist" } as any],
+        });
+      } else if (currentUser.role === "patient") {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Patient" } as any],
+        });
+      } else {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Tabs" } as any],
+        });
+      }
+    }
   };
 
   const handleGoogleLogin = () => {

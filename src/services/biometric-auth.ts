@@ -21,18 +21,21 @@ export const BiometricAuthService = {
     try {
       // 1. Verifica se biometria está habilitada
       const biometricEnabled = await StorageService.isBiometricEnabled();
+
       if (!biometricEnabled) {
         return { success: false, reason: "no_credentials" };
       }
 
       // 2. Obtém os tokens salvos
       const savedTokens = await StorageService.getAuthTokens();
+
       if (!savedTokens) {
         return { success: false, reason: "no_credentials" };
       }
 
       // 3. Solicita autenticação biométrica
       const biometricType = await BiometricService.getBiometricName();
+
       const biometricSuccess = await BiometricService.authenticate(
         `Use ${biometricType} para acessar`
       );
@@ -42,7 +45,8 @@ export const BiometricAuthService = {
       }
 
       // 4. Tenta validar/restaurar a sessão com os tokens salvos
-      const { setTokens, refreshAccessToken, logout } = useAuthStore.getState();
+      const { setTokens, setUser, refreshAccessToken, logout } =
+        useAuthStore.getState();
 
       try {
         // Restaura os tokens no store
@@ -51,19 +55,31 @@ export const BiometricAuthService = {
           refreshToken: savedTokens.refreshToken,
         });
 
+        // Restaura os dados do usuário (se salvos)
+        const savedUser = await StorageService.getUserData();
+
+        if (savedUser) {
+          setUser(savedUser);
+        }
+
         // Tenta fazer uma requisição simples para validar o token
         // Se o token estiver expirado, o interceptor vai tentar fazer refresh automaticamente
         await refreshAccessToken();
 
         // Se chegou aqui, o refresh foi bem-sucedido
         // Atualiza os tokens salvos com os novos
-        const { tokens } = useAuthStore.getState();
+        const { tokens, user } = useAuthStore.getState();
         if (tokens) {
           await StorageService.saveAuthTokens(
             savedTokens.email,
             tokens.accessToken,
             tokens.refreshToken
           );
+        }
+
+        // Atualiza os dados do usuário se mudaram
+        if (user) {
+          await StorageService.saveUserData(user);
         }
 
         return { success: true };
@@ -73,6 +89,7 @@ export const BiometricAuthService = {
 
         // Limpa os dados salvos
         await StorageService.clearAuthTokens();
+        await StorageService.clearUserData();
         await StorageService.setBiometricEnabled(false);
 
         // Faz logout
@@ -96,6 +113,12 @@ export const BiometricAuthService = {
   ): Promise<void> {
     await StorageService.saveAuthTokens(email, accessToken, refreshToken);
     await StorageService.setBiometricEnabled(true);
+
+    // Salva também os dados do usuário
+    const { user } = useAuthStore.getState();
+    if (user) {
+      await StorageService.saveUserData(user);
+    }
   },
 
   /**

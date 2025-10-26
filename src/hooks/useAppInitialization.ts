@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { StorageService } from "../services/storage";
-import { useAuthStore } from "../store/authStore";
+import { useAuthStore } from "../stores/auth.store";
 
 interface AppState {
   isLoading: boolean;
@@ -35,7 +35,7 @@ export function useAppInitialization() {
           isLoading: false,
           hasCompletedOnboarding,
           isAuthenticated,
-          userRole: user?.role,
+          userRole: user?.role as "nutritionist" | "patient" | null,
         });
       } catch (error) {
         console.error("Erro ao inicializar app:", error);
