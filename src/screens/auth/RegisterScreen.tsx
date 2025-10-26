@@ -228,7 +228,7 @@ export function RegisterScreen() {
 
       // Aguardar um pouco para o usuário ver o toast e então navegar
       setTimeout(() => {
-        navigation.replace("Login");
+        navigation.replace("Login", { email: registerData.email });
       }, 1500);
     } catch (error: any) {
       // Verifica se o erro é de email já cadastrado

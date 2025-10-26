@@ -73,7 +73,8 @@ async function request<T = any>(
       const isAuthEndpoint =
         endpoint.includes("/auth/login") ||
         endpoint.includes("/auth/register") ||
-        endpoint.includes("/auth/refresh");
+        endpoint.includes("/auth/refresh") ||
+        endpoint.includes("/auth/logout");
 
       if (response.status === 401 && !isAuthEndpoint && refreshTokenCallback) {
         try {

@@ -147,6 +147,10 @@ export function LoginScreen() {
   useEffect(() => {
     if (route.params?.email) {
       setValue("email", route.params.email);
+      // Foca no campo de senha após um pequeno delay
+      setTimeout(() => {
+        passwordInputRef.current?.focus();
+      }, 500);
     }
   }, [route.params?.email, setValue]);
 
