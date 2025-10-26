@@ -137,8 +137,9 @@ export function TermsOfServiceScreen() {
               9. Limitação de Responsabilidade
             </Text>
             <Text style={styles.paragraph}>
-              O Silvestra é fornecido "como está" e "conforme disponível". Não
-              garantimos que o serviço será ininterrupto ou livre de erros.
+              O Silvestra é fornecido &quot;como está&quot; e &quot;conforme
+              disponível&quot;. Não garantimos que o serviço será ininterrupto
+              ou livre de erros.
             </Text>
 
             <Text style={styles.sectionTitle}>10. Contato</Text>

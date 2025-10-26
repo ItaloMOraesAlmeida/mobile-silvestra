@@ -22,7 +22,7 @@ export function registerAuthCallbacks(
 /**
  * Interface para a resposta da API
  */
-interface ApiResponse<T = any> {
+export interface ApiResponse<T = any> {
   data: T;
   success: boolean;
   message?: string;
@@ -80,7 +80,7 @@ async function request<T = any>(
           await refreshTokenCallback();
           // Tentar novamente após refresh
           return request<T>(endpoint, config);
-        } catch (refreshError) {
+        } catch {
           // Se o refresh falhar, fazer logout
           if (logoutCallback) {
             await logoutCallback();
