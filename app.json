@@ -10,7 +10,12 @@
     "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.logicphire.silvestra",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Silvestra precisa acessar sua câmera para você tirar fotos do seu perfil e registrar seu progresso nutricional.",
+        "NSPhotoLibraryUsageDescription": "Silvestra precisa acessar suas fotos para você escolher imagens do seu perfil e registrar seu progresso nutricional.",
+        "NSPhotoLibraryAddUsageDescription": "Silvestra precisa salvar fotos na sua galeria para registrar seu progresso nutricional."
+      }
     },
     "android": {
       "package": "com.logicphire.silvestra",
@@ -21,7 +26,13 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "output": "static",

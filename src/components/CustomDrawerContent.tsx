@@ -1,16 +1,36 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import {
   DrawerContentScrollView,
   DrawerContentComponentProps,
 } from "@react-navigation/drawer";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../stores/auth.store";
+import { useAvatar } from "../hooks/use-avatar";
 import { LinearGradient } from "expo-linear-gradient";
 import { lightTheme } from "../theme";
 
 export function CustomDrawerContent(props: DrawerContentComponentProps) {
   const user = useAuthStore((state) => state.user);
+
+  // Extrair a KEY do avatar (antes de gerar URL assinada)
+  const getAvatarKey = (): string | null => {
+    // Prioridade: perfil específico > user.avatarUrl
+    if (user?.role === "NUTRITIONIST" && user.nutritionistProfile?.avatarUrl) {
+      return user.nutritionistProfile.avatarUrl;
+    }
+    if (user?.role === "PATIENT" && user.patientProfile?.avatarUrl) {
+      return user.patientProfile.avatarUrl;
+    }
+    // Fallback para avatarUrl direto do User (usuários NORMAL)
+    if (user?.avatarUrl) {
+      return user.avatarUrl;
+    }
+    return null;
+  };
+
+  // Hook que gerencia cache e busca da URL assinada
+  const { avatarUrl } = useAvatar(getAvatarKey());
 
   // Extrai iniciais do nome do usuário
   const getInitials = () => {
@@ -79,12 +99,16 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
       >
         {/* Avatar com iniciais e badge de status */}
         <View style={styles.avatarWrapper}>
-          <LinearGradient
-            colors={[lightTheme.colors.white, lightTheme.colors.white]}
-            style={styles.avatar}
-          >
-            <Text style={styles.avatarText}>{getInitials()}</Text>
-          </LinearGradient>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+          ) : (
+            <LinearGradient
+              colors={[lightTheme.colors.white, lightTheme.colors.white]}
+              style={styles.avatar}
+            >
+              <Text style={styles.avatarText}>{getInitials()}</Text>
+            </LinearGradient>
+          )}
           {/* Badge de status online */}
           <View style={styles.statusBadge}>
             <View style={styles.statusDot} />
@@ -189,6 +213,60 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
             Início
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.drawerItem,
+            props.state.index === 1 && styles.drawerItemActive,
+          ]}
+          onPress={() => props.navigation.navigate("Profile")}
+        >
+          <Ionicons
+            name="person-outline"
+            size={24}
+            color={
+              props.state.index === 1
+                ? lightTheme.colors.primary
+                : lightTheme.colors.gray[500]
+            }
+            style={styles.drawerIcon}
+          />
+          <Text
+            style={[
+              styles.drawerLabel,
+              props.state.index === 1 && styles.drawerLabelActive,
+            ]}
+          >
+            Perfil
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.drawerItem,
+            props.state.index === 2 && styles.drawerItemActive,
+          ]}
+          onPress={() => props.navigation.navigate("Settings")}
+        >
+          <Ionicons
+            name="settings-outline"
+            size={24}
+            color={
+              props.state.index === 2
+                ? lightTheme.colors.primary
+                : lightTheme.colors.gray[500]
+            }
+            style={styles.drawerIcon}
+          />
+          <Text
+            style={[
+              styles.drawerLabel,
+              props.state.index === 2 && styles.drawerLabelActive,
+            ]}
+          >
+            Configurações
+          </Text>
+        </TouchableOpacity>
       </DrawerContentScrollView>
     </View>
   );
@@ -217,6 +295,12 @@ const styles = StyleSheet.create({
     borderRadius: lightTheme.borderRadius.full,
     alignItems: "center",
     justifyContent: "center",
+    ...lightTheme.shadows.sm,
+  },
+  avatarImage: {
+    width: 70,
+    height: 70,
+    borderRadius: lightTheme.borderRadius.full,
     ...lightTheme.shadows.sm,
   },
   avatarText: {

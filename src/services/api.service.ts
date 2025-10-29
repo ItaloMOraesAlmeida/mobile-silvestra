@@ -47,11 +47,19 @@ async function request<T = any>(
   const url = `${API_URL}${endpoint}`;
   const tokens = tokenService.getTokens();
 
-  // Headers padrão
+  // Verifica se o body é FormData
+  const isFormData = config.body instanceof FormData;
+
+  // Headers padrão (não adicionar Content-Type se for FormData)
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...config.headers,
   };
+
+  // Remove Content-Type se for FormData (o browser define automaticamente com boundary)
+  if (isFormData && headers["Content-Type"]) {
+    delete headers["Content-Type"];
+  }
 
   // Adicionar token de autenticação se existir
   if (tokens?.accessToken) {
@@ -62,7 +70,11 @@ async function request<T = any>(
     const response = await fetch(url, {
       method: config.method,
       headers,
-      body: config.body ? JSON.stringify(config.body) : undefined,
+      body: isFormData
+        ? config.body
+        : config.body
+        ? JSON.stringify(config.body)
+        : undefined,
     });
 
     const data = await response.json();

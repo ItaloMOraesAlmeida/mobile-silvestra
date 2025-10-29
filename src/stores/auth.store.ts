@@ -16,6 +16,7 @@ interface User {
   email: string;
   role: string;
   provider: string;
+  avatarUrl?: string; // Avatar principal (para usuários NORMAL)
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -24,6 +25,16 @@ interface User {
     name: string;
     avatarUrl?: string;
     phone?: string;
+  };
+  nutritionistProfile?: {
+    id: string;
+    userId: string;
+    crn: string;
+    specialization?: string;
+    bio?: string;
+    avatarUrl?: string;
+    phone?: string;
+    isVerified: boolean;
   };
 }
 
@@ -230,10 +241,13 @@ export const useAuthStore = create<AuthState>()(
             refreshToken: tokens.refreshToken,
           });
 
-          const newTokens = response.data;
+          // API retorna { user, tokens }
+          const { user, tokens: newTokens } = response.data;
 
           set({
+            user,
             tokens: newTokens,
+            isAuthenticated: true,
           });
 
           // Sincroniza com o tokenService
