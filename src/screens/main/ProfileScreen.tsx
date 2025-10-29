@@ -8,6 +8,7 @@ import {
   Modal,
   Linking,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -21,56 +22,44 @@ import Toast from "react-native-toast-message";
 type PermissionModalType = "camera" | "gallery" | null;
 
 export function ProfileScreen() {
-  const { user, setUser } = useAuthStore();
+  const user = useAuthStore((state) => state.user); // Subscription reativa
+  const setUser = useAuthStore((state) => state.setUser);
   const [isLoading, setIsLoading] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [showPermissionModal, setShowPermissionModal] =
     useState<PermissionModalType>(null);
 
-  // Extrair a KEY do avatar (antes de gerar URL assinada)
   const getAvatarKey = (): string | null => {
-    // Prioridade: perfil específico > user.avatarUrl
-    if (user?.role === "NUTRITIONIST" && user.nutritionistProfile?.avatarUrl) {
-      return user.nutritionistProfile.avatarUrl;
-    }
-    if (user?.role === "PATIENT" && user.patientProfile?.avatarUrl) {
-      return user.patientProfile.avatarUrl;
-    }
-    // Fallback para avatarUrl direto do User (usuários NORMAL)
-    if (user?.avatarUrl) {
-      return user.avatarUrl;
-    }
-    return null;
+    return user?.avatarUrl || null;
   };
 
-  // Hook que gerencia cache e busca da URL assinada
   const { avatarUrl } = useAvatar(getAvatarKey());
 
-  // Função para fazer upload do avatar
+  const fetchUserProfile = async () => {
+    const response = await api.get("/users/me");
+    const updatedUser = response.data;
+    setUser(updatedUser);
+    return updatedUser;
+  };
+
   const uploadAvatarToBackend = async (imageUri: string) => {
     try {
-      // Criar FormData
       const formData = new FormData();
 
-      // Extrair nome e tipo do arquivo
       const filename = imageUri.split("/").pop() || "avatar.jpg";
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : "image/jpeg";
 
-      // Adicionar arquivo ao FormData (React Native formato)
       formData.append("avatar", {
         uri: imageUri,
         name: filename,
         type,
       } as any);
 
-      // Fazer upload para a API
       const response = await api.post("/users/me/avatar", formData);
 
       return response.data;
     } catch (error: any) {
-      console.error("❌ Erro no upload:", error);
-      console.error("Detalhes:", error.response?.data);
       throw new Error(
         error.response?.data?.message || "Erro ao fazer upload da imagem"
       );
@@ -128,6 +117,9 @@ export function ProfileScreen() {
   const handleTakePhoto = async () => {
     setShowPhotoModal(false);
 
+    // Aguardar um frame para garantir que o modal fechou
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     try {
       const hasPermission = await checkCameraPermission();
       if (!hasPermission) {
@@ -140,41 +132,29 @@ export function ProfileScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
-        exif: false, // Não incluir dados EXIF (reduz tamanho)
-        cameraType: ImagePicker.CameraType.front, // Câmera frontal por padrão para selfie
+        exif: false,
+        cameraType: ImagePicker.CameraType.front,
       });
+
+      if (result.canceled) {
+        return;
+      }
+
+      if (!result.assets || result.assets.length === 0) {
+        return;
+      }
 
       if (!result.canceled && result.assets[0]) {
         setIsLoading(true);
 
         try {
           // Upload para o backend
-          const uploadResult = await uploadAvatarToBackend(
-            result.assets[0].uri
-          );
+          await uploadAvatarToBackend(result.assets[0].uri);
 
-          // Atualizar o usuário no Zustand com a nova URL do avatar
-          if (user) {
-            const updatedUser = { ...user };
-
-            // Atualizar profile específico se existir
-            if (user.role === "NUTRITIONIST" && user.nutritionistProfile) {
-              updatedUser.nutritionistProfile = {
-                ...user.nutritionistProfile,
-                avatarUrl: uploadResult.avatarUrl,
-              };
-            } else if (user.role === "PATIENT" && user.patientProfile) {
-              updatedUser.patientProfile = {
-                ...user.patientProfile,
-                avatarUrl: uploadResult.avatarUrl,
-              };
-            }
-
-            // SEMPRE atualizar user.avatarUrl (funciona para NORMAL e como fallback)
-            updatedUser.avatarUrl = uploadResult.avatarUrl;
-
-            setUser(updatedUser);
-          }
+          // Buscar perfil atualizado do backend (igual ao login)
+          // O useAvatar vai automaticamente detectar a mudança de KEY
+          // através da assinatura reativa e buscar a nova URL
+          await fetchUserProfile();
 
           Toast.show({
             type: "success",
@@ -195,7 +175,7 @@ export function ProfileScreen() {
           setIsLoading(false);
         }
       }
-    } catch (error) {
+    } catch {
       Toast.show({
         type: "error",
         text1: "Erro",
@@ -203,7 +183,6 @@ export function ProfileScreen() {
         position: "top",
         visibilityTime: 3000,
       });
-      console.error("Erro ao tirar foto:", error);
     }
   };
 
@@ -216,46 +195,32 @@ export function ProfileScreen() {
         return;
       }
 
-      // Abrir seletor de imagens com opções de edição
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
-        exif: false, // Não incluir dados EXIF (reduz tamanho)
+        exif: false,
       });
 
+      if (result.canceled) {
+        return;
+      }
+
+      if (!result.assets || result.assets.length === 0) {
+        return;
+      }
       if (!result.canceled && result.assets[0]) {
         setIsLoading(true);
 
         try {
           // Upload para o backend
-          const uploadResult = await uploadAvatarToBackend(
-            result.assets[0].uri
-          );
+          await uploadAvatarToBackend(result.assets[0].uri);
 
-          // Atualizar o usuário no Zustand com a nova URL do avatar
-          if (user) {
-            const updatedUser = { ...user };
-
-            // Atualizar profile específico se existir
-            if (user.role === "NUTRITIONIST" && user.nutritionistProfile) {
-              updatedUser.nutritionistProfile = {
-                ...user.nutritionistProfile,
-                avatarUrl: uploadResult.avatarUrl,
-              };
-            } else if (user.role === "PATIENT" && user.patientProfile) {
-              updatedUser.patientProfile = {
-                ...user.patientProfile,
-                avatarUrl: uploadResult.avatarUrl,
-              };
-            }
-
-            // SEMPRE atualizar user.avatarUrl (funciona para NORMAL e como fallback)
-            updatedUser.avatarUrl = uploadResult.avatarUrl;
-
-            setUser(updatedUser);
-          }
+          // Buscar perfil atualizado do backend (igual ao login)
+          // O useAvatar vai automaticamente detectar a mudança de KEY
+          // através da assinatura reativa e buscar a nova URL
+          await fetchUserProfile();
 
           Toast.show({
             type: "success",
@@ -276,7 +241,7 @@ export function ProfileScreen() {
           setIsLoading(false);
         }
       }
-    } catch (error) {
+    } catch {
       Toast.show({
         type: "error",
         text1: "Erro",
@@ -284,7 +249,6 @@ export function ProfileScreen() {
         position: "top",
         visibilityTime: 3000,
       });
-      console.error("Erro ao selecionar imagem:", error);
     }
   };
 
@@ -358,6 +322,18 @@ export function ProfileScreen() {
                   </Text>
                 </View>
               )}
+
+              {/* Loading Overlay */}
+              {isLoading && (
+                <View style={styles.loadingOverlay}>
+                  <ActivityIndicator
+                    size="large"
+                    color={lightTheme.colors.white}
+                  />
+                  <Text style={styles.loadingText}>Salvando...</Text>
+                </View>
+              )}
+
               {/* Edit Badge */}
               <View style={styles.editBadge}>
                 <LinearGradient
@@ -370,7 +346,10 @@ export function ProfileScreen() {
                   style={styles.editBadgeGradient}
                 >
                   {isLoading ? (
-                    <View style={styles.loadingDot} />
+                    <ActivityIndicator
+                      size="small"
+                      color={lightTheme.colors.white}
+                    />
                   ) : (
                     <Ionicons
                       name="camera"
@@ -665,6 +644,24 @@ const styles = StyleSheet.create({
     borderRadius: lightTheme.borderRadius.full,
     borderWidth: 4,
     borderColor: lightTheme.colors.white,
+    backgroundColor: lightTheme.colors.white, // Evita fundo escuro/transparente
+  },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: lightTheme.borderRadius.full,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: lightTheme.spacing.sm,
+  },
+  loadingText: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.medium as any,
+    color: lightTheme.colors.white,
   },
   avatarText: {
     fontSize: lightTheme.typography.fontSize["3xl"],
@@ -686,12 +683,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 3,
     borderColor: lightTheme.colors.white,
-  },
-  loadingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: lightTheme.borderRadius.full,
-    backgroundColor: lightTheme.colors.white,
   },
   userName: {
     fontSize: lightTheme.typography.fontSize["2xl"],

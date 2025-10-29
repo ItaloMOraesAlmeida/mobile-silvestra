@@ -200,7 +200,6 @@ export function PatientsListScreen() {
   });
 
   const handlePatientPress = (patient: Patient) => {
-    console.log("Navigate to patient details:", patient.id);
     // TODO: Navegar para tela de detalhes do paciente
   };
 

@@ -13,20 +13,9 @@ import { lightTheme } from "../theme";
 export function CustomDrawerContent(props: DrawerContentComponentProps) {
   const user = useAuthStore((state) => state.user);
 
-  // Extrair a KEY do avatar (antes de gerar URL assinada)
+  // Extrair a KEY do avatar (agora sempre está em user.avatarUrl)
   const getAvatarKey = (): string | null => {
-    // Prioridade: perfil específico > user.avatarUrl
-    if (user?.role === "NUTRITIONIST" && user.nutritionistProfile?.avatarUrl) {
-      return user.nutritionistProfile.avatarUrl;
-    }
-    if (user?.role === "PATIENT" && user.patientProfile?.avatarUrl) {
-      return user.patientProfile.avatarUrl;
-    }
-    // Fallback para avatarUrl direto do User (usuários NORMAL)
-    if (user?.avatarUrl) {
-      return user.avatarUrl;
-    }
-    return null;
+    return user?.avatarUrl || null;
   };
 
   // Hook que gerencia cache e busca da URL assinada

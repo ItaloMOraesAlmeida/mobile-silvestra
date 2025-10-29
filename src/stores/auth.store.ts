@@ -16,15 +16,17 @@ interface User {
   email: string;
   role: string;
   provider: string;
-  avatarUrl?: string; // Avatar principal (para usuários NORMAL)
+  phone?: string; // Phone agora está no User
+  avatarUrl?: string; // Avatar agora está sempre no User (não mais nos perfis)
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
   patientProfile?: {
     id: string;
-    name: string;
-    avatarUrl?: string;
-    phone?: string;
+    cpf?: string;
+    gender?: string;
+    birthDate?: string;
+    biologicalSex?: string;
   };
   nutritionistProfile?: {
     id: string;
@@ -32,8 +34,6 @@ interface User {
     crn: string;
     specialization?: string;
     bio?: string;
-    avatarUrl?: string;
-    phone?: string;
     isVerified: boolean;
   };
 }
@@ -48,7 +48,6 @@ interface AuthState {
   tokens: AuthTokens | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  // Novo: Controla se deve mostrar o modal de biometria
   pendingBiometricSetup: {
     email: string;
     accessToken: string;

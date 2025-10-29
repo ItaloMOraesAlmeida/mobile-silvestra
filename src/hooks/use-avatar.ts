@@ -14,8 +14,13 @@ interface UseAvatarResult {
  * - Verifica cache primeiro (válido por 6 dias)
  * - Se não houver cache ou expirado, busca URL assinada da API
  * - Salva nova URL no cache
+ * @param key - A KEY do arquivo no bucket (ex: avatars/user-123.jpg)
+ * @param refreshTrigger - Número que quando muda, força re-fetch do avatar
  */
-export function useAvatar(key: string | null | undefined): UseAvatarResult {
+export function useAvatar(
+  key: string | null | undefined,
+  refreshTrigger: number = 0
+): UseAvatarResult {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -31,7 +36,7 @@ export function useAvatar(key: string | null | undefined): UseAvatarResult {
       setError(null);
 
       try {
-        // 1. Verificar cache (se não for refresh forçado)
+        // Verificar cache (se não for refresh forçado)
         if (!forceRefresh) {
           const cachedUrl = await avatarCacheService.get(key);
           if (cachedUrl) {
@@ -41,17 +46,16 @@ export function useAvatar(key: string | null | undefined): UseAvatarResult {
           }
         }
 
-        // 2. Buscar URL assinada da API
+        // Buscar URL assinada da API
         const response = await api.post("/upload/signed-url", { key });
         const signedUrl = response.data.signedUrl;
 
-        // 3. Salvar no cache
+        // Salvar no cache
         await avatarCacheService.set(key, signedUrl);
 
-        // 4. Atualizar estado
+        // Atualizar estado
         setAvatarUrl(signedUrl);
       } catch (err) {
-        console.error("❌ [useAvatar] Erro ao buscar avatar:", err);
         setError(
           err instanceof Error ? err : new Error("Erro ao buscar avatar")
         );
@@ -63,12 +67,10 @@ export function useAvatar(key: string | null | undefined): UseAvatarResult {
     [key]
   );
 
-  // Buscar avatar quando a KEY mudar
   useEffect(() => {
     fetchAvatar();
-  }, [fetchAvatar]);
+  }, [fetchAvatar, key, refreshTrigger]);
 
-  // Função para forçar atualização
   const refresh = async () => {
     await fetchAvatar(true);
   };
