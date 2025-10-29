@@ -15,18 +15,30 @@ interface CustomHeaderProps {
   title: string;
   navigation: DrawerNavigationProp<any>;
   isDrawerOpen?: boolean;
+  showBackButton?: boolean;
 }
 
 export function CustomHeader({
   title,
   navigation,
   isDrawerOpen,
+  showBackButton = false,
 }: CustomHeaderProps) {
   const toggleDrawer = () => {
     if (isDrawerOpen) {
       navigation.closeDrawer();
     } else {
       navigation.openDrawer();
+    }
+  };
+
+  const handleBackPress = () => {
+    // Quando showBackButton é true, significa que é uma tela modal vinda de Settings
+    // Então navegamos explicitamente para Settings
+    if (showBackButton) {
+      navigation.navigate("Settings" as never);
+    } else {
+      navigation.goBack();
     }
   };
 
@@ -43,14 +55,16 @@ export function CustomHeader({
         style={styles.header}
       >
         <View style={styles.headerContent}>
-          {/* Botão Hamburguer / Close */}
+          {/* Botão Voltar ou Hamburguer / Close */}
           <TouchableOpacity
             style={styles.menuButton}
-            onPress={toggleDrawer}
+            onPress={showBackButton ? handleBackPress : toggleDrawer}
             activeOpacity={0.7}
           >
             <Ionicons
-              name={isDrawerOpen ? "close" : "menu"}
+              name={
+                showBackButton ? "arrow-back" : isDrawerOpen ? "close" : "menu"
+              }
               size={28}
               color={lightTheme.colors.white}
             />

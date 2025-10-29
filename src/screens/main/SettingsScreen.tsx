@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -14,6 +13,9 @@ import { lightTheme } from "../../theme";
 import { useAuthStore } from "../../stores/auth.store";
 import { BiometricService } from "../../services/biometric";
 import { BiometricAuthService } from "../../services/biometric-auth";
+import { SkeletonSettingItem } from "../../components/ui/skeleton";
+import { ConfirmModal } from "../../components/ui/confirm-modal";
+import Toast from "react-native-toast-message";
 
 interface SettingItemProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -66,8 +68,17 @@ export function SettingsScreen() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  // Modals
+  const [showDisableBiometricModal, setShowDisableBiometricModal] =
+    useState(false);
+  const [showClearCredentialsModal, setShowClearCredentialsModal] =
+    useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const checkBiometricStatus = async () => {
+    setIsInitialLoading(true);
     try {
       const available = await BiometricService.isAvailable();
       setBiometricAvailable(available);
@@ -83,6 +94,8 @@ export function SettingsScreen() {
       }
     } catch {
       setBiometricAvailable(false);
+    } finally {
+      setIsInitialLoading(false);
     }
   };
 
@@ -112,114 +125,139 @@ export function SettingsScreen() {
               tokens.refreshToken
             );
             setBiometricEnabled(true);
-            Alert.alert("Sucesso!", `${biometricType} habilitada com sucesso.`);
+            Toast.show({
+              type: "success",
+              text1: "Sucesso!",
+              text2: `${biometricType} habilitada com sucesso.`,
+              position: "top",
+              visibilityTime: 3000,
+            });
           }
         }
       } else {
-        // Desabilitar biometria
-        Alert.alert(
-          "Desabilitar Biometria?",
-          `Deseja realmente desabilitar ${biometricType}? Você precisará fazer login com email e senha novamente.`,
-          [
-            {
-              text: "Cancelar",
-              style: "cancel",
-            },
-            {
-              text: "Desabilitar",
-              style: "destructive",
-              onPress: async () => {
-                await BiometricAuthService.removeBiometricCredentials();
-                setBiometricEnabled(false);
-                Alert.alert(
-                  "Desabilitada",
-                  `${biometricType} foi desabilitada.`
-                );
-              },
-            },
-          ]
-        );
+        // Desabilitar biometria - abre modal
+        setShowDisableBiometricModal(true);
       }
     } catch {
-      Alert.alert("Erro", "Não foi possível alterar as configurações.");
+      Toast.show({
+        type: "error",
+        text1: "Erro",
+        text2: "Não foi possível alterar as configurações.",
+        position: "top",
+        visibilityTime: 3000,
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleClearCredentials = () => {
-    Alert.alert(
-      "Limpar Credenciais?",
-      "Isso irá remover suas credenciais salvas e você precisará fazer login novamente.",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel",
-        },
-        {
-          text: "Limpar",
-          style: "destructive",
-          onPress: async () => {
-            await BiometricAuthService.removeBiometricCredentials();
-            setBiometricEnabled(false);
-            Alert.alert("Sucesso", "Credenciais removidas com sucesso.");
-          },
-        },
-      ]
-    );
+    setShowClearCredentialsModal(true);
+  };
+
+  const confirmClearCredentials = async () => {
+    await BiometricAuthService.removeBiometricCredentials();
+    setBiometricEnabled(false);
+    setShowClearCredentialsModal(false);
+    Toast.show({
+      type: "success",
+      text1: "Sucesso",
+      text2: "Credenciais removidas com sucesso.",
+      position: "top",
+      visibilityTime: 3000,
+    });
+  };
+
+  const confirmDisableBiometric = async () => {
+    await BiometricAuthService.removeBiometricCredentials();
+    setBiometricEnabled(false);
+    setShowDisableBiometricModal(false);
+    Toast.show({
+      type: "success",
+      text1: "Desabilitada",
+      text2: `${biometricType} foi desabilitada.`,
+      position: "top",
+      visibilityTime: 3000,
+    });
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      "Sair da Conta?",
-      "Você precisará fazer login novamente para acessar o aplicativo.",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel",
-        },
-        {
-          text: "Sair",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              // Limpar biometria se estiver habilitada
-              if (biometricEnabled) {
-                await BiometricAuthService.removeBiometricCredentials();
-              }
-
-              // Fazer logout
-              await logout();
-
-              // Navegar para tela de autenticação
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Auth" as never }],
-              });
-            } catch {
-              Alert.alert("Erro", "Não foi possível fazer logout.");
-            }
-          },
-        },
-      ]
-    );
+    setShowLogoutModal(true);
   };
+
+  const confirmLogout = async () => {
+    try {
+      // Limpar biometria se estiver habilitada
+      if (biometricEnabled) {
+        await BiometricAuthService.removeBiometricCredentials();
+      }
+
+      // Fazer logout
+      await logout();
+
+      setShowLogoutModal(false);
+
+      // Navegar para tela de autenticação
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Auth" as never }],
+      });
+    } catch {
+      setShowLogoutModal(false);
+      Toast.show({
+        type: "error",
+        text1: "Erro",
+        text2: "Não foi possível fazer logout.",
+        position: "top",
+        visibilityTime: 3000,
+      });
+    }
+  };
+
+  if (isInitialLoading) {
+    return (
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Security Section Skeleton */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Segurança</Text>
+          <View style={styles.card}>
+            <SkeletonSettingItem hasSwitch />
+            <View style={styles.divider} />
+            <SkeletonSettingItem />
+            <View style={styles.divider} />
+            <SkeletonSettingItem />
+          </View>
+        </View>
+
+        {/* App Section Skeleton */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Aplicativo</Text>
+          <View style={styles.card}>
+            <SkeletonSettingItem />
+            <View style={styles.divider} />
+            <SkeletonSettingItem hasSwitch />
+          </View>
+        </View>
+
+        {/* About Section Skeleton */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Sobre</Text>
+          <View style={styles.card}>
+            <SkeletonSettingItem />
+            <View style={styles.divider} />
+            <SkeletonSettingItem />
+            <View style={styles.divider} />
+            <SkeletonSettingItem />
+          </View>
+        </View>
+
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* User Info Card */}
-      <View style={styles.userCard}>
-        <View style={styles.userAvatar}>
-          <Text style={styles.userAvatarText}>
-            {user?.name?.charAt(0).toUpperCase() || "U"}
-          </Text>
-        </View>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{user?.name || "Usuário"}</Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
-        </View>
-      </View>
-
       {/* Security Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Segurança</Text>
@@ -263,12 +301,7 @@ export function SettingsScreen() {
             icon="shield-checkmark-outline"
             title="Alterar Senha"
             subtitle="Atualizar senha da conta"
-            onPress={() => {
-              Alert.alert(
-                "Em Desenvolvimento",
-                "Esta função será implementada em breve!"
-              );
-            }}
+            onPress={() => navigation.navigate("ChangePassword" as never)}
             showChevron
           />
         </View>
@@ -283,10 +316,13 @@ export function SettingsScreen() {
             title="Notificações"
             subtitle="Gerenciar preferências de notificação"
             onPress={() => {
-              Alert.alert(
-                "Em Desenvolvimento",
-                "Esta função será implementada em breve!"
-              );
+              Toast.show({
+                type: "info",
+                text1: "Em Desenvolvimento",
+                text2: "Esta função será implementada em breve!",
+                position: "top",
+                visibilityTime: 3000,
+              });
             }}
             showChevron
           />
@@ -319,30 +355,21 @@ export function SettingsScreen() {
             icon="information-circle-outline"
             title="Sobre o App"
             subtitle="Versão 1.0.0"
+            onPress={() => navigation.navigate("About" as never)}
             showChevron
           />
           <View style={styles.divider} />
           <SettingItem
             icon="document-text-outline"
             title="Termos de Uso"
-            onPress={() => {
-              Alert.alert(
-                "Em Desenvolvimento",
-                "Esta função será implementada em breve!"
-              );
-            }}
+            onPress={() => navigation.navigate("Terms" as never)}
             showChevron
           />
           <View style={styles.divider} />
           <SettingItem
             icon="shield-outline"
             title="Política de Privacidade"
-            onPress={() => {
-              Alert.alert(
-                "Em Desenvolvimento",
-                "Esta função será implementada em breve!"
-              );
-            }}
+            onPress={() => navigation.navigate("Privacy" as never)}
             showChevron
           />
         </View>
@@ -366,6 +393,46 @@ export function SettingsScreen() {
 
       {/* Bottom Spacer */}
       <View style={styles.bottomSpacer} />
+
+      {/* Modals */}
+      <ConfirmModal
+        visible={showDisableBiometricModal}
+        title="Desabilitar Biometria?"
+        message={`Deseja realmente desabilitar ${biometricType}? Você precisará fazer login com email e senha novamente.`}
+        confirmText="Desabilitar"
+        cancelText="Cancelar"
+        confirmColor={lightTheme.colors.error}
+        icon="finger-print"
+        iconColor={lightTheme.colors.error}
+        onConfirm={confirmDisableBiometric}
+        onCancel={() => setShowDisableBiometricModal(false)}
+      />
+
+      <ConfirmModal
+        visible={showClearCredentialsModal}
+        title="Limpar Credenciais?"
+        message="Isso irá remover suas credenciais salvas e você precisará fazer login novamente."
+        confirmText="Limpar"
+        cancelText="Cancelar"
+        confirmColor={lightTheme.colors.error}
+        icon="key-outline"
+        iconColor={lightTheme.colors.warning}
+        onConfirm={confirmClearCredentials}
+        onCancel={() => setShowClearCredentialsModal(false)}
+      />
+
+      <ConfirmModal
+        visible={showLogoutModal}
+        title="Sair da Conta?"
+        message="Você precisará fazer login novamente para acessar o aplicativo."
+        confirmText="Sair"
+        cancelText="Cancelar"
+        confirmColor={lightTheme.colors.error}
+        icon="log-out-outline"
+        iconColor={lightTheme.colors.error}
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutModal(false)}
+      />
     </ScrollView>
   );
 }
@@ -374,44 +441,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: lightTheme.colors.gray[50],
-  },
-  userCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: lightTheme.colors.white,
-    marginHorizontal: lightTheme.spacing.xl,
-    marginTop: lightTheme.spacing.xl,
-    marginBottom: lightTheme.spacing.lg,
-    padding: lightTheme.spacing.lg,
-    borderRadius: lightTheme.borderRadius.lg,
-    ...lightTheme.shadows.sm,
-  },
-  userAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: lightTheme.borderRadius.full,
-    backgroundColor: lightTheme.colors.primaryBackground,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: lightTheme.spacing.md,
-  },
-  userAvatarText: {
-    fontSize: lightTheme.typography.fontSize["2xl"],
-    fontWeight: lightTheme.typography.fontWeight.bold as any,
-    color: lightTheme.colors.primary,
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: lightTheme.typography.fontSize.base,
-    fontWeight: lightTheme.typography.fontWeight.semibold as any,
-    color: lightTheme.colors.gray[800],
-    marginBottom: lightTheme.spacing.xs - 2,
-  },
-  userEmail: {
-    fontSize: lightTheme.typography.fontSize.sm,
-    color: lightTheme.colors.gray[500],
   },
   section: {
     paddingHorizontal: lightTheme.spacing.xl,
