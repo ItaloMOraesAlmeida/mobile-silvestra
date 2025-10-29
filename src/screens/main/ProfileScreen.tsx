@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNavigation } from "@react-navigation/native";
 import { lightTheme } from "../../theme";
 import { useAuthStore } from "../../stores/auth.store";
 import { useAvatar } from "../../hooks/use-avatar";
@@ -22,6 +23,7 @@ import Toast from "react-native-toast-message";
 type PermissionModalType = "camera" | "gallery" | null;
 
 export function ProfileScreen() {
+  const navigation = useNavigation();
   const user = useAuthStore((state) => state.user); // Subscription reativa
   const setUser = useAuthStore((state) => state.setUser);
   const [isLoading, setIsLoading] = useState(false);
@@ -67,14 +69,7 @@ export function ProfileScreen() {
   };
 
   const handleEditProfile = () => {
-    // TODO: Navegar para tela de edição de perfil
-    Toast.show({
-      type: "info",
-      text1: "Em Desenvolvimento",
-      text2: "A edição de perfil será implementada em breve!",
-      position: "top",
-      visibilityTime: 3000,
-    });
+    (navigation as any).navigate("EditProfile");
   };
 
   const checkCameraPermission = async (): Promise<boolean> => {

@@ -16,17 +16,17 @@ interface User {
   email: string;
   role: string;
   provider: string;
-  phone?: string; // Phone agora está no User
-  avatarUrl?: string; // Avatar agora está sempre no User (não mais nos perfis)
+  phone?: string;
+  avatarUrl?: string;
+  cpf?: string; // Movido de PatientProfile para User
+  gender?: string; // Movido de PatientProfile para User
+  birthDate?: string; // Movido de PatientProfile para User
+  biologicalSex?: string; // Movido de PatientProfile para User
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
   patientProfile?: {
     id: string;
-    cpf?: string;
-    gender?: string;
-    birthDate?: string;
-    biologicalSex?: string;
   };
   nutritionistProfile?: {
     id: string;

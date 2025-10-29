@@ -16,6 +16,7 @@ interface CustomHeaderProps {
   navigation: DrawerNavigationProp<any>;
   isDrawerOpen?: boolean;
   showBackButton?: boolean;
+  backTo?: string; // Nome da tela para onde voltar (opcional)
 }
 
 export function CustomHeader({
@@ -23,6 +24,7 @@ export function CustomHeader({
   navigation,
   isDrawerOpen,
   showBackButton = false,
+  backTo,
 }: CustomHeaderProps) {
   const toggleDrawer = () => {
     if (isDrawerOpen) {
@@ -33,10 +35,14 @@ export function CustomHeader({
   };
 
   const handleBackPress = () => {
-    // Quando showBackButton é true, significa que é uma tela modal vinda de Settings
-    // Então navegamos explicitamente para Settings
     if (showBackButton) {
-      navigation.navigate("Settings" as never);
+      // Se backTo foi especificado, navega para lá
+      if (backTo) {
+        navigation.navigate(backTo as never);
+      } else {
+        // Padrão: voltar para Settings
+        navigation.navigate("Settings" as never);
+      }
     } else {
       navigation.goBack();
     }

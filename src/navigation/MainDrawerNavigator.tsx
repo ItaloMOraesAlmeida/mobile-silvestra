@@ -9,6 +9,7 @@ import { ProfileScreen } from "../screens/main/ProfileScreen";
 import { SettingsScreen } from "../screens/main/SettingsScreen";
 import { ChangePasswordScreen } from "../screens/main/ChangePasswordScreen";
 import { AboutScreen } from "../screens/main/AboutScreen";
+import { EditProfileScreen } from "../screens/main/EditProfileScreen";
 import { TermsOfServiceScreen } from "../screens/legal/TermsOfServiceScreen";
 import { PrivacyPolicyScreen } from "../screens/legal/PrivacyPolicyScreen";
 import { CustomDrawerContent } from "../components/CustomDrawerContent";
@@ -20,6 +21,7 @@ export type MainDrawerParamList = {
   Settings: undefined;
   ChangePassword: undefined;
   About: undefined;
+  EditProfile: undefined;
   Terms: undefined;
   Privacy: undefined;
 };
@@ -29,7 +31,8 @@ const Drawer = createDrawerNavigator<MainDrawerParamList>();
 function createScreenWithHeader(
   Screen: React.ComponentType,
   title: string,
-  showBackButton: boolean = false
+  showBackButton: boolean = false,
+  backTo?: string
 ): React.ComponentType<any> {
   const ScreenWithHeader = ({ navigation }: any) => {
     const isDrawerOpen = useDrawerStatus() === "open";
@@ -41,6 +44,7 @@ function createScreenWithHeader(
           navigation={navigation}
           isDrawerOpen={isDrawerOpen}
           showBackButton={showBackButton}
+          backTo={backTo}
         />
         <Screen />
       </>
@@ -66,6 +70,12 @@ const AboutScreenWithHeader = createScreenWithHeader(
   AboutScreen,
   "Sobre o App",
   true // Mostra botão de voltar
+);
+const EditProfileScreenWithHeader = createScreenWithHeader(
+  EditProfileScreen,
+  "Editar Perfil",
+  true, // Mostra botão de voltar
+  "Profile" // Volta para Profile
 );
 
 export function MainDrawerNavigator() {
@@ -121,6 +131,14 @@ export function MainDrawerNavigator() {
         component={AboutScreenWithHeader}
         options={{
           title: "Sobre",
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="EditProfile"
+        component={EditProfileScreenWithHeader}
+        options={{
+          title: "Editar Perfil",
           drawerItemStyle: { display: "none" },
         }}
       />
