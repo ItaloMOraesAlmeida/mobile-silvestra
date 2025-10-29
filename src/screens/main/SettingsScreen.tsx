@@ -60,15 +60,12 @@ function SettingItem({
 
 export function SettingsScreen() {
   const navigation = useNavigation();
-  const { logout, user } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    checkBiometricStatus();
-  }, []);
 
   const checkBiometricStatus = async () => {
     try {
@@ -88,6 +85,10 @@ export function SettingsScreen() {
       setBiometricAvailable(false);
     }
   };
+
+  useEffect(() => {
+    checkBiometricStatus();
+  }, []);
 
   const handleToggleBiometric = async (value: boolean) => {
     if (isLoading) return;
