@@ -59,6 +59,10 @@
         "track": "production",
         "serviceAccountKeyPath": "./google-services.json",
         "releaseStatus": "draft"
+      },
+      "ios": {
+        "appleId": "logicphire@logicphire.com.br",
+        "ascAppId": "6754695838"
       }
     }
   }
