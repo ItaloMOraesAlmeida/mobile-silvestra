@@ -4,16 +4,27 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "preview": {
+      "distribution": "internal",
+      "environment": "development",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      },
+      "channel": "development"
+    },
     "development": {
       "autoIncrement": true,
       "distribution": "internal",
       "environment": "development",
       "android": {
-        "buildType": "apk",
+        "buildType": "app-bundle",
         "autoIncrement": "versionCode"
       },
       "ios": {
-        "simulator": true,
+        "image": "latest",
         "autoIncrement": "buildNumber"
       },
       "channel": "development"
