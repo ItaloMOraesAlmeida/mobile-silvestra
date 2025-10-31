@@ -14,7 +14,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Silvestra precisa acessar sua câmera para você tirar fotos do seu perfil e registrar seu progresso nutricional.",
         "NSPhotoLibraryUsageDescription": "Silvestra precisa acessar suas fotos para você escolher imagens do seu perfil e registrar seu progresso nutricional.",
-        "NSPhotoLibraryAddUsageDescription": "Silvestra precisa salvar fotos na sua galeria para registrar seu progresso nutricional."
+        "NSPhotoLibraryAddUsageDescription": "Silvestra precisa salvar fotos na sua galeria para registrar seu progresso nutricional.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -31,15 +32,18 @@
         "CAMERA",
         "READ_MEDIA_IMAGES",
         "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
       ]
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router",
       [
         "expo-splash-screen",
         {
@@ -55,8 +59,18 @@
       "expo-font"
     ],
     "experiments": {
-      "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f7293a17-ecaa-43a5-8f93-4f66544183e7"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f7293a17-ecaa-43a5-8f93-4f66544183e7"
     }
   }
 }
