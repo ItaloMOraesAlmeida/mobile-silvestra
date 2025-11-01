@@ -17,7 +17,7 @@ import { lightTheme } from "../theme";
 export type AuthStackParamList = {
   Onboarding: undefined;
   Login: { email?: string } | undefined;
-  Register: undefined;
+  Register: { mode?: "normal" | "clerk-complete" } | undefined;
   ForgotPassword: { email?: string } | undefined;
   VerifyCode: { identifier: string };
   ResetPassword: { code: string };

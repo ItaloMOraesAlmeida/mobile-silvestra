@@ -31,8 +31,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuthStore } from "../../stores/auth.store";
 import { EmailExistsModal } from "../../components/EmailExistsModal";
+import { BiometricService } from "../../services/biometric";
+import { BiometricAuthService } from "../../services/biometric-auth";
+import { BiometricPromptModal } from "../../components/BiometricPromptModal";
 import { lightTheme } from "../../theme";
 
+// Schema para cadastro normal (todos os campos)
 const registerSchema = z
   .object({
     name: z
@@ -76,22 +80,54 @@ const registerSchema = z
     }
   });
 
+// Schema para completar perfil após login com Clerk (campos reduzidos)
+const clerkCompleteSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1, "Nome é obrigatório")
+      .min(3, "Nome deve ter pelo menos 3 caracteres"),
+    crn: z.string().optional(),
+    isNutritionist: z.boolean(),
+    acceptTerms: z.boolean().refine((val) => val === true, {
+      message: "Você deve aceitar os termos de uso e política de privacidade",
+    }),
+  })
+  .superRefine((data, ctx) => {
+    // Se for nutricionista, CRN é obrigatório
+    if (data.isNutritionist) {
+      if (!data.crn || data.crn.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "CRN é obrigatório para nutricionistas",
+          path: ["crn"],
+        });
+      }
+    }
+  });
+
 type RegisterFormData = z.infer<typeof registerSchema>;
+type ClerkCompleteFormData = z.infer<typeof clerkCompleteSchema>;
 
 type RegisterScreenNavigationProp = StackNavigationProp<
   AuthStackParamList,
   "Register"
 >;
 
-export function RegisterScreen() {
+export function RegisterScreen({ route }: any) {
   const navigation = useNavigation<RegisterScreenNavigationProp>();
   const register = useAuthStore((state) => state.register);
+  const completeProfile = useAuthStore((state) => state.completeProfile);
   const scrollViewRef = useRef<ScrollView>(null);
   const nameInputRef = useRef<TextInput>(null);
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const confirmPasswordInputRef = useRef<TextInput>(null);
   const crnInputRef = useRef<TextInput>(null);
+
+  // Detectar o modo: 'normal' (padrão) ou 'clerk-complete'
+  const mode: "normal" | "clerk-complete" = route?.params?.mode || "normal";
+  const isClerkMode = mode === "clerk-complete";
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -100,6 +136,16 @@ export function RegisterScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showEmailExistsModal, setShowEmailExistsModal] = useState(false);
   const [existingEmail, setExistingEmail] = useState("");
+  const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
+  const [biometricType, setBiometricType] = useState("");
+  const [pendingAuth, setPendingAuth] = useState<{
+    email: string;
+    accessToken: string;
+    refreshToken: string;
+  } | null>(null);
+
+  // Usar schema apropriado baseado no modo
+  const schema = isClerkMode ? clerkCompleteSchema : registerSchema;
 
   const {
     control,
@@ -107,18 +153,25 @@ export function RegisterScreen() {
     formState: { errors },
     watch,
     setValue,
-  } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
+  } = useForm<RegisterFormData | ClerkCompleteFormData>({
+    resolver: zodResolver(schema),
     mode: "onSubmit",
-    defaultValues: {
-      name: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      crn: "",
-      isNutritionist: false,
-      acceptTerms: false,
-    },
+    defaultValues: isClerkMode
+      ? {
+          name: "",
+          crn: "",
+          isNutritionist: false,
+          acceptTerms: false,
+        }
+      : {
+          name: "",
+          email: "",
+          password: "",
+          confirmPassword: "",
+          crn: "",
+          isNutritionist: false,
+          acceptTerms: false,
+        },
   });
 
   const isNutritionist = watch("isNutritionist");
@@ -189,73 +242,141 @@ export function RegisterScreen() {
     }, 100);
   };
 
-  const onSubmit = async (data: RegisterFormData) => {
+  const onSubmit = async (data: RegisterFormData | ClerkCompleteFormData) => {
     if (isLoading) return;
 
     setIsLoading(true);
 
     try {
-      // Determinar o role baseado na seleção do usuário
-      let role: "normal" | "patient" | "nutritionist" = "normal";
+      if (isClerkMode) {
+        // Modo Clerk: completar perfil após login do Clerk
+        const clerkData = data as ClerkCompleteFormData;
 
-      if (data.isNutritionist) {
-        role = "nutritionist";
+        await completeProfile({
+          name: clerkData.name,
+          isNutritionist: clerkData.isNutritionist,
+          crn: clerkData.crn,
+          acceptTerms: clerkData.acceptTerms,
+        });
+
+        Toast.show({
+          type: "success",
+          text1: "Perfil Completado!",
+          text2: "Seu cadastro foi finalizado com sucesso!",
+          position: "top",
+          visibilityTime: 3000,
+          topOffset: 60,
+        });
+
+        // Verificar se biometria está disponível
+        const biometricAvailable = await BiometricService.isAvailable();
+
+        if (biometricAvailable) {
+          // Obtém o nome da biometria (Face ID, Touch ID, Digital)
+          const biometricName = await BiometricService.getBiometricName();
+
+          // Armazena os dados temporariamente para salvar caso o usuário aceite
+          const { user, tokens } = useAuthStore.getState();
+          if (user && tokens) {
+            setPendingAuth({
+              email: user.email,
+              accessToken: tokens.accessToken,
+              refreshToken: tokens.refreshToken,
+            });
+            setBiometricType(biometricName);
+            setShowBiometricPrompt(true);
+          } else {
+            // Sem tokens, apenas redireciona (auth store já marcou isAuthenticated=true)
+            // RootNavigator vai redirecionar automaticamente
+          }
+        } else {
+          // Biometria não disponível, apenas completa o processo
+          // O auth store já marcou isAuthenticated=true
+          // RootNavigator vai redirecionar automaticamente
+        }
       } else {
-        // Por padrão, usuários que se cadastram sem ser nutricionista
-        // são "normal" até receberem um convite de nutricionista
-        role = "normal";
+        // Modo normal: cadastro completo com email/senha
+        const registerData = data as RegisterFormData;
+
+        // Determinar o role baseado na seleção do usuário
+        let role: "normal" | "patient" | "nutritionist" = "normal";
+
+        if (registerData.isNutritionist) {
+          role = "nutritionist";
+        } else {
+          // Por padrão, usuários que se cadastram sem ser nutricionista
+          // são "normal" até receberem um convite de nutricionista
+          role = "normal";
+        }
+
+        // Preparar dados para envio
+        const apiData = {
+          name: registerData.name,
+          email: registerData.email,
+          password: registerData.password,
+          role,
+          ...(registerData.isNutritionist && registerData.crn
+            ? { crn: registerData.crn }
+            : {}),
+        };
+
+        // Chamar API de registro
+        await register(apiData);
+
+        Toast.show({
+          type: "success",
+          text1: "Cadastro Realizado!",
+          text2: "Sua conta foi criada com sucesso. Bem-vindo!",
+          position: "top",
+          visibilityTime: 3000,
+          topOffset: 60,
+        });
+
+        // Aguardar um pouco para o usuário ver o toast e então navegar
+        setTimeout(() => {
+          navigation.replace("Login", { email: apiData.email });
+        }, 1500);
       }
-
-      // Preparar dados para envio
-      const registerData = {
-        name: data.name,
-        email: data.email,
-        password: data.password,
-        role,
-        ...(data.isNutritionist && data.crn ? { crn: data.crn } : {}),
-      };
-
-      // Chamar API de registro
-      await register(registerData);
-
-      Toast.show({
-        type: "success",
-        text1: "Cadastro Realizado!",
-        text2: "Sua conta foi criada com sucesso. Bem-vindo!",
-        position: "top",
-        visibilityTime: 3000,
-        topOffset: 60,
-      });
-
-      // Aguardar um pouco para o usuário ver o toast e então navegar
-      setTimeout(() => {
-        navigation.replace("Login", { email: registerData.email });
-      }, 1500);
     } catch (error: any) {
-      // Verifica se o erro é de email já cadastrado
-      const errorMessage = error.message || "";
-      const isEmailExists =
-        errorMessage.toLowerCase().includes("já cadastrado") ||
-        errorMessage.toLowerCase().includes("já existe") ||
-        errorMessage.toLowerCase().includes("already exists") ||
-        errorMessage.toLowerCase().includes("duplicate");
-
-      if (isEmailExists) {
-        // Mostra o modal customizado
-        setExistingEmail(data.email);
-        setShowEmailExistsModal(true);
-      } else {
-        // Mostra toast de erro genérico
+      if (isClerkMode) {
+        // Erro ao completar perfil Clerk
         Toast.show({
           type: "error",
-          text1: "Erro no Cadastro",
+          text1: "Erro ao Completar Perfil",
           text2:
             error.message ||
-            "Não foi possível criar sua conta. Tente novamente.",
+            "Não foi possível completar seu cadastro. Tente novamente.",
           position: "top",
           visibilityTime: 4000,
           topOffset: 60,
         });
+      } else {
+        // Erro no cadastro normal
+        const registerData = data as RegisterFormData;
+        const errorMessage = error.message || "";
+        const isEmailExists =
+          errorMessage.toLowerCase().includes("já cadastrado") ||
+          errorMessage.toLowerCase().includes("já existe") ||
+          errorMessage.toLowerCase().includes("already exists") ||
+          errorMessage.toLowerCase().includes("duplicate");
+
+        if (isEmailExists) {
+          // Mostra o modal customizado
+          setExistingEmail(registerData.email);
+          setShowEmailExistsModal(true);
+        } else {
+          // Mostra toast de erro genérico
+          Toast.show({
+            type: "error",
+            text1: "Erro no Cadastro",
+            text2:
+              error.message ||
+              "Não foi possível criar sua conta. Tente novamente.",
+            position: "top",
+            visibilityTime: 4000,
+            topOffset: 60,
+          });
+        }
       }
     } finally {
       setIsLoading(false);
@@ -278,6 +399,112 @@ export function RegisterScreen() {
     setShowEmailExistsModal(false);
   };
 
+  const handleBiometricAccept = async () => {
+    try {
+      if (pendingAuth) {
+        // Salva os tokens (access + refresh) para autenticação biométrica
+        await BiometricAuthService.saveBiometricCredentials(
+          pendingAuth.email,
+          pendingAuth.accessToken,
+          pendingAuth.refreshToken
+        );
+
+        // Completa a configuração de biometria no auth store
+        const { completeBiometricSetup, user } = useAuthStore.getState();
+        completeBiometricSetup();
+
+        setShowBiometricPrompt(false);
+
+        Toast.show({
+          type: "success",
+          text1: "Biometria Ativada!",
+          text2: `${biometricType} foi configurado com sucesso!`,
+          position: "top",
+          visibilityTime: 3000,
+          topOffset: 60,
+        });
+
+        // Redireciona para a tela apropriada baseado no role do usuário
+        setTimeout(() => {
+          if (user) {
+            if (user.role === "nutritionist") {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Nutritionist" } as any],
+              });
+            } else if (user.role === "patient") {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Patient" } as any],
+              });
+            } else {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Main" } as any],
+              });
+            }
+          }
+        }, 500); // Aguarda meio segundo para o toast aparecer
+      }
+    } catch (error) {
+      console.error("Erro ao salvar biometria:", error);
+      setShowBiometricPrompt(false);
+
+      // Mesmo com erro, redireciona (biometria é opcional)
+      const { user } = useAuthStore.getState();
+      setTimeout(() => {
+        if (user) {
+          if (user.role === "nutritionist") {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Nutritionist" } as any],
+            });
+          } else if (user.role === "patient") {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Patient" } as any],
+            });
+          } else {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Main" } as any],
+            });
+          }
+        }
+      }, 500);
+    }
+  };
+
+  const handleBiometricDecline = () => {
+    setShowBiometricPrompt(false);
+
+    // Usuário recusou biometria, mas continua autenticado
+    const { skipBiometricSetup, user } = useAuthStore.getState();
+    skipBiometricSetup();
+
+    // Redireciona para a tela apropriada baseado no role do usuário
+    setTimeout(() => {
+      if (user) {
+        if (user.role === "nutritionist") {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Nutritionist" } as any],
+          });
+        } else if (user.role === "patient") {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Patient" } as any],
+          });
+        } else {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Main" } as any],
+          });
+        }
+      }
+    }, 300); // Aguarda um pouco antes de redirecionar
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -288,6 +515,13 @@ export function RegisterScreen() {
         onClose={handleCloseModal}
         onGoToLogin={handleGoToLogin}
         onRecoverPassword={handleRecoverPassword}
+      />
+
+      <BiometricPromptModal
+        visible={showBiometricPrompt}
+        biometricType={biometricType}
+        onAccept={handleBiometricAccept}
+        onDecline={handleBiometricDecline}
       />
 
       <LinearGradient
@@ -330,10 +564,16 @@ export function RegisterScreen() {
                     color={lightTheme.colors.white}
                   />
                 </TouchableOpacity>
-                <Text style={styles.title}>Criar Conta</Text>
+                <Text
+                  style={[styles.title, isClerkMode && styles.titleSmaller]}
+                >
+                  {isClerkMode ? "Complete seu Cadastro" : "Criar Conta"}
+                </Text>
               </View>
               <Text style={styles.subtitle}>
-                Preencha os dados para começar
+                {isClerkMode
+                  ? "Informe seus dados para finalizar"
+                  : "Preencha os dados para começar"}
               </Text>
             </View>
 
@@ -384,169 +624,181 @@ export function RegisterScreen() {
                 )}
               </View>
 
-              {/* Email Input */}
-              <View style={styles.inputWrapper}>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    focusedInput === "email" && styles.inputFocused,
-                    errors.email && styles.inputError,
-                  ]}
-                >
-                  <Ionicons
-                    name="mail-outline"
-                    size={20}
-                    color={
-                      focusedInput === "email"
-                        ? lightTheme.colors.white
-                        : "rgba(255, 255, 255, 0.6)"
-                    }
-                  />
-                  <Controller
-                    control={control}
-                    name="email"
-                    render={({ field: { onChange, value } }) => (
-                      <TextInput
-                        ref={emailInputRef}
-                        style={styles.input}
-                        placeholder="Email"
-                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                        value={value}
-                        onChangeText={onChange}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        autoComplete="email"
-                        onFocus={() => {
-                          setFocusedInput("email");
-                          handleInputFocus(emailInputRef);
-                        }}
-                        onBlur={() => setFocusedInput(null)}
-                      />
-                    )}
-                  />
-                </View>
-                {errors.email && (
-                  <Text style={styles.errorText}>{errors.email.message}</Text>
-                )}
-              </View>
-
-              {/* Password Input */}
-              <View style={styles.inputWrapper}>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    focusedInput === "password" && styles.inputFocused,
-                    errors.password && styles.inputError,
-                  ]}
-                >
-                  <Ionicons
-                    name="lock-closed-outline"
-                    size={20}
-                    color={
-                      focusedInput === "password"
-                        ? lightTheme.colors.white
-                        : "rgba(255, 255, 255, 0.6)"
-                    }
-                  />
-                  <Controller
-                    control={control}
-                    name="password"
-                    render={({ field: { onChange, value } }) => (
-                      <TextInput
-                        ref={passwordInputRef}
-                        style={styles.input}
-                        placeholder="Senha"
-                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                        value={value}
-                        onChangeText={onChange}
-                        secureTextEntry={!showPassword}
-                        autoCapitalize="none"
-                        autoComplete="password"
-                        onFocus={() => {
-                          setFocusedInput("password");
-                          handleInputFocus(passwordInputRef);
-                        }}
-                        onBlur={() => setFocusedInput(null)}
-                      />
-                    )}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowPassword(!showPassword)}
-                    activeOpacity={0.7}
+              {/* Email Input - Apenas no modo normal */}
+              {!isClerkMode && (
+                <View style={styles.inputWrapper}>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      focusedInput === "email" && styles.inputFocused,
+                      (errors as any).email && styles.inputError,
+                    ]}
                   >
                     <Ionicons
-                      name={showPassword ? "eye-outline" : "eye-off-outline"}
+                      name="mail-outline"
                       size={20}
-                      color="rgba(255, 255, 255, 0.6)"
-                    />
-                  </TouchableOpacity>
-                </View>
-                {errors.password && (
-                  <Text style={styles.errorText}>
-                    {errors.password.message}
-                  </Text>
-                )}
-              </View>
-
-              {/* Confirm Password Input */}
-              <View style={styles.inputWrapper}>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    focusedInput === "confirmPassword" && styles.inputFocused,
-                    errors.confirmPassword && styles.inputError,
-                  ]}
-                >
-                  <Ionicons
-                    name="lock-closed-outline"
-                    size={20}
-                    color={
-                      focusedInput === "confirmPassword"
-                        ? lightTheme.colors.white
-                        : "rgba(255, 255, 255, 0.6)"
-                    }
-                  />
-                  <Controller
-                    control={control}
-                    name="confirmPassword"
-                    render={({ field: { onChange, value } }) => (
-                      <TextInput
-                        ref={confirmPasswordInputRef}
-                        style={styles.input}
-                        placeholder="Confirmar senha"
-                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                        value={value}
-                        onChangeText={onChange}
-                        secureTextEntry={!showConfirmPassword}
-                        autoCapitalize="none"
-                        autoComplete="password"
-                        onFocus={() => {
-                          setFocusedInput("confirmPassword");
-                          handleInputFocus(confirmPasswordInputRef);
-                        }}
-                        onBlur={() => setFocusedInput(null)}
-                      />
-                    )}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={
-                        showConfirmPassword ? "eye-outline" : "eye-off-outline"
+                      color={
+                        focusedInput === "email"
+                          ? lightTheme.colors.white
+                          : "rgba(255, 255, 255, 0.6)"
                       }
-                      size={20}
-                      color="rgba(255, 255, 255, 0.6)"
                     />
-                  </TouchableOpacity>
+                    <Controller
+                      control={control}
+                      name="email"
+                      render={({ field: { onChange, value } }) => (
+                        <TextInput
+                          ref={emailInputRef}
+                          style={styles.input}
+                          placeholder="Email"
+                          placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                          value={value}
+                          onChangeText={onChange}
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                          autoComplete="email"
+                          onFocus={() => {
+                            setFocusedInput("email");
+                            handleInputFocus(emailInputRef);
+                          }}
+                          onBlur={() => setFocusedInput(null)}
+                        />
+                      )}
+                    />
+                  </View>
+                  {(errors as any).email && (
+                    <Text style={styles.errorText}>
+                      {(errors as any).email.message}
+                    </Text>
+                  )}
                 </View>
-                {errors.confirmPassword && (
-                  <Text style={styles.errorText}>
-                    {errors.confirmPassword.message}
-                  </Text>
-                )}
-              </View>
+              )}
+
+              {/* Password Input - Apenas no modo normal */}
+              {!isClerkMode && (
+                <View style={styles.inputWrapper}>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      focusedInput === "password" && styles.inputFocused,
+                      (errors as any).password && styles.inputError,
+                    ]}
+                  >
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={20}
+                      color={
+                        focusedInput === "password"
+                          ? lightTheme.colors.white
+                          : "rgba(255, 255, 255, 0.6)"
+                      }
+                    />
+                    <Controller
+                      control={control}
+                      name="password"
+                      render={({ field: { onChange, value } }) => (
+                        <TextInput
+                          ref={passwordInputRef}
+                          style={styles.input}
+                          placeholder="Senha"
+                          placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                          value={value}
+                          onChangeText={onChange}
+                          secureTextEntry={!showPassword}
+                          autoCapitalize="none"
+                          autoComplete="password"
+                          onFocus={() => {
+                            setFocusedInput("password");
+                            handleInputFocus(passwordInputRef);
+                          }}
+                          onBlur={() => setFocusedInput(null)}
+                        />
+                      )}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowPassword(!showPassword)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={showPassword ? "eye-outline" : "eye-off-outline"}
+                        size={20}
+                        color="rgba(255, 255, 255, 0.6)"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  {(errors as any).password && (
+                    <Text style={styles.errorText}>
+                      {(errors as any).password.message}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Confirm Password Input - Apenas no modo normal */}
+              {!isClerkMode && (
+                <View style={styles.inputWrapper}>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      focusedInput === "confirmPassword" && styles.inputFocused,
+                      (errors as any).confirmPassword && styles.inputError,
+                    ]}
+                  >
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={20}
+                      color={
+                        focusedInput === "confirmPassword"
+                          ? lightTheme.colors.white
+                          : "rgba(255, 255, 255, 0.6)"
+                      }
+                    />
+                    <Controller
+                      control={control}
+                      name="confirmPassword"
+                      render={({ field: { onChange, value } }) => (
+                        <TextInput
+                          ref={confirmPasswordInputRef}
+                          style={styles.input}
+                          placeholder="Confirmar senha"
+                          placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                          value={value}
+                          onChangeText={onChange}
+                          secureTextEntry={!showConfirmPassword}
+                          autoCapitalize="none"
+                          autoComplete="password"
+                          onFocus={() => {
+                            setFocusedInput("confirmPassword");
+                            handleInputFocus(confirmPasswordInputRef);
+                          }}
+                          onBlur={() => setFocusedInput(null)}
+                        />
+                      )}
+                    />
+                    <TouchableOpacity
+                      onPress={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={
+                          showConfirmPassword
+                            ? "eye-outline"
+                            : "eye-off-outline"
+                        }
+                        size={20}
+                        color="rgba(255, 255, 255, 0.6)"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                  {(errors as any).confirmPassword && (
+                    <Text style={styles.errorText}>
+                      {(errors as any).confirmPassword.message}
+                    </Text>
+                  )}
+                </View>
+              )}
 
               {/* Nutritionist Toggle */}
               <View style={styles.nutritionistContainer}>
@@ -695,21 +947,25 @@ export function RegisterScreen() {
                       size="small"
                     />
                   ) : (
-                    <Text style={styles.registerButtonText}>Criar Conta</Text>
+                    <Text style={styles.registerButtonText}>
+                      {isClerkMode ? "Finalizar Cadastro" : "Criar Conta"}
+                    </Text>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
 
-              {/* Login Link */}
-              <View style={styles.loginContainer}>
-                <Text style={styles.loginText}>Já tem uma conta? </Text>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate("Login")}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.loginLink}>Entrar</Text>
-                </TouchableOpacity>
-              </View>
+              {/* Login Link - Apenas no modo normal */}
+              {!isClerkMode && (
+                <View style={styles.loginContainer}>
+                  <Text style={styles.loginText}>Já tem uma conta? </Text>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate("Login")}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.loginLink}>Entrar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -911,5 +1167,8 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
     marginTop: lightTheme.spacing.xs,
     marginLeft: lightTheme.spacing.xs,
+  },
+  titleSmaller: {
+    fontSize: lightTheme.typography.fontSize["2xl"], // Menor para texto mais longo
   },
 });
