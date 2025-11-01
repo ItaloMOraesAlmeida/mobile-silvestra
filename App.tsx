@@ -4,6 +4,8 @@ import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import Toast from "react-native-toast-message";
+import { ClerkProvider, ClerkLoaded } from "@clerk/clerk-expo";
+import * as SecureStore from "expo-secure-store";
 import { RootNavigator } from "./src/navigation/RootNavigator";
 import { toastConfig } from "./src/config/toast.config";
 import { SplashScreen } from "./src/components/SplashScreen";
@@ -14,6 +16,31 @@ import {
   Poppins_700Bold,
   Poppins_900Black,
 } from "@expo-google-fonts/poppins";
+
+// Token cache para o Clerk usar SecureStore
+const tokenCache = {
+  async getToken(key: string) {
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch (error) {
+      console.error("Erro ao buscar token do SecureStore:", error);
+      return null;
+    }
+  },
+  async saveToken(key: string, value: string) {
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch (error) {
+      console.error("Erro ao salvar token no SecureStore:", error);
+    }
+  },
+};
+
+const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
+
+if (!publishableKey) {
+  throw new Error("EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY não encontrado no .env");
+}
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
@@ -47,12 +74,16 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <RootNavigator />
-        <StatusBar style="auto" />
-      </NavigationContainer>
-      <Toast config={toastConfig} />
-    </SafeAreaProvider>
+    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+      <ClerkLoaded>
+        <SafeAreaProvider>
+          <NavigationContainer>
+            <RootNavigator />
+            <StatusBar style="auto" />
+          </NavigationContainer>
+          <Toast config={toastConfig} />
+        </SafeAreaProvider>
+      </ClerkLoaded>
+    </ClerkProvider>
   );
 }

@@ -63,6 +63,18 @@ interface AuthState {
   skipBiometricSetup: () => void;
   register: (data: RegisterData) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
+  syncClerkUser: (
+    clerkId: string,
+    email: string,
+    name?: string,
+    avatarUrl?: string
+  ) => Promise<{ needsProfileCompletion: boolean }>;
+  completeProfile: (data: {
+    name: string;
+    isNutritionist: boolean;
+    crn?: string;
+    acceptTerms: boolean;
+  }) => Promise<void>;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<void>;
   setUser: (user: User) => void;
@@ -185,8 +197,96 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      syncClerkUser: async (
+        clerkId: string,
+        email: string,
+        name?: string,
+        avatarUrl?: string
+      ) => {
+        try {
+          // Criar promise com timeout
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => {
+              reject(
+                new Error("TIMEOUT: Requisição demorou mais de 30 segundos")
+              );
+            }, 30000);
+          });
+
+          const requestPromise = api.post("/auth/clerk/sync", {
+            clerkId,
+            email,
+            name,
+            avatarUrl,
+          });
+
+          const response: any = await Promise.race([
+            requestPromise,
+            timeoutPromise,
+          ]);
+
+          // A resposta vem com { data: { user, tokens, needsProfileCompletion }, success }
+          const { user, tokens, needsProfileCompletion } =
+            response.data || response;
+
+          // Salvar tokens e user no store
+          set({
+            user,
+            tokens,
+            // Se needsProfileCompletion = true, NÃO autenticar ainda
+            isAuthenticated: !needsProfileCompletion,
+          });
+
+          // Sincroniza com o tokenService
+          tokenService.setTokens(tokens);
+
+          return { needsProfileCompletion };
+        } catch (error: any) {
+          console.error("🔴 [AUTH STORE] Erro response:", error.response?.data);
+          console.error("🔴 [AUTH STORE] Erro completo:", error);
+
+          if (
+            error.name === "AbortError" ||
+            error.message?.includes("timeout")
+          ) {
+            throw new Error(
+              "Tempo limite de conexão excedido. Verifique sua internet e tente novamente."
+            );
+          }
+
+          throw new Error(
+            error.response?.data?.message || "Erro ao conectar com o servidor"
+          );
+        }
+      },
+
+      completeProfile: async (data: {
+        name: string;
+        isNutritionist: boolean;
+        crn?: string;
+        acceptTerms: boolean;
+      }) => {
+        try {
+          const response = await api.post("/auth/complete-profile", data);
+
+          const { user } = response.data;
+
+          // Atualizar apenas o usuário
+          // NÃO marca como autenticado aqui, pois precisamos mostrar o modal de biometria primeiro
+          // A autenticação será confirmada em completeBiometricSetup() ou skipBiometricSetup()
+          set({
+            user,
+            // isAuthenticated permanece false até decisão sobre biometria
+          });
+        } catch (error: any) {
+          console.error("Erro ao completar perfil:", error);
+          throw new Error(
+            error.response?.data?.message || "Erro ao completar perfil"
+          );
+        }
+      },
+
       logout: async () => {
-        // Prevenir múltiplas chamadas simultâneas de logout
         if (isLoggingOut) {
           return;
         }

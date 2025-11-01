@@ -34,11 +34,16 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useOAuth, useClerk } from "@clerk/clerk-expo";
+import * as WebBrowser from "expo-web-browser";
 import { BiometricService } from "../../services/biometric";
 import { BiometricPromptModal } from "../../components/BiometricPromptModal";
 import { BiometricAuthService } from "../../services/biometric-auth";
 import { useAuthStore } from "../../stores/auth.store";
 import { lightTheme } from "../../theme";
+
+// Necessário para o Clerk funcionar corretamente
+WebBrowser.maybeCompleteAuthSession();
 
 const loginSchema = z
   .object({
@@ -98,12 +103,17 @@ export function LoginScreen() {
   const passwordInputRef = useRef<TextInput>(null);
   const accessCodeInputRef = useRef<TextInput>(null);
 
+  // Hooks do Clerk para OAuth com Google
+  const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
+  const clerk = useClerk();
+
   const [showPassword, setShowPassword] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
   const [biometricType, setBiometricType] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [pendingAuth, setPendingAuth] = useState<{
     email: string;
     accessToken: string;
@@ -465,8 +475,113 @@ export function LoginScreen() {
     }
   };
 
-  const handleGoogleLogin = () => {
-    // TODO: Implementar login com Google
+  const handleGoogleLogin = async () => {
+    if (isGoogleLoading) return;
+
+    try {
+      setIsGoogleLoading(true);
+
+      // Verifica se já existe uma sessão ativa do Clerk
+      let clerkUser = clerk.user;
+
+      if (!clerkUser) {
+        // Inicia o fluxo de OAuth com Google
+        const { createdSessionId, setActive } = await startOAuthFlow();
+
+        if (createdSessionId) {
+          // Ativa a sessão do Clerk
+          await setActive!({ session: createdSessionId });
+
+          // Aguarda um momento para o Clerk carregar os dados do usuário
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+
+          // Busca os dados do usuário do Clerk
+          clerkUser = clerk.user;
+        }
+      }
+
+      // Se chegou aqui sem clerkUser, algo deu errado
+      if (!clerkUser) {
+        throw new Error("Usuário não encontrado após autenticação");
+      }
+
+      // Extrai os dados necessários
+      const userId = clerkUser.id;
+      const emailData = clerkUser.emailAddresses?.[0]?.emailAddress;
+      const firstName = clerkUser.firstName || "";
+      const lastName = clerkUser.lastName || "";
+      const fullName =
+        firstName && lastName
+          ? `${firstName} ${lastName}`
+          : firstName || lastName || undefined;
+      const imageUrl = clerkUser.imageUrl;
+
+      if (!userId || !emailData) {
+        throw new Error("Dados do usuário incompletos");
+      }
+
+      // Sincroniza com o backend
+      const { syncClerkUser } = useAuthStore.getState();
+      const { needsProfileCompletion } = await syncClerkUser(
+        userId,
+        emailData,
+        fullName,
+        imageUrl
+      );
+
+      if (needsProfileCompletion) {
+        // Usuário precisa completar o cadastro
+        Toast.show({
+          type: "info",
+          text1: "Complete seu Cadastro",
+          text2: "Precisamos de mais algumas informações",
+          position: "top",
+          visibilityTime: 3000,
+          topOffset: 60,
+        });
+        navigation.navigate("Register", { mode: "clerk-complete" });
+      } else {
+        // Usuário já tem cadastro completo - verifica biometria
+        const biometricAvailable = await BiometricService.isAvailable();
+
+        if (biometricAvailable) {
+          const biometricName = await BiometricService.getBiometricName();
+          setBiometricType(biometricName);
+          setShowBiometricPrompt(true);
+
+          // Armazena dados para caso aceite biometria
+          const { user: backendUser, tokens } = useAuthStore.getState();
+          if (backendUser && tokens) {
+            setPendingAuth({
+              email: backendUser.email,
+              accessToken: tokens.accessToken,
+              refreshToken: tokens.refreshToken,
+            });
+          }
+        } else {
+          // Sem biometria disponível - completa autenticação direto
+          Toast.show({
+            type: "success",
+            text1: "Login Realizado!",
+            text2: "Bem-vindo de volta!",
+            position: "top",
+            visibilityTime: 3000,
+            topOffset: 60,
+          });
+        }
+      }
+    } catch (error: any) {
+      Toast.show({
+        type: "error",
+        text1: "Erro no Google Login",
+        text2: error.message || "Não foi possível fazer login com Google",
+        position: "top",
+        visibilityTime: 4000,
+        topOffset: 60,
+      });
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
   return (
@@ -732,16 +847,23 @@ export function LoginScreen() {
               <TouchableOpacity
                 style={styles.googleButton}
                 onPress={handleGoogleLogin}
+                disabled={isGoogleLoading}
                 activeOpacity={0.8}
               >
-                <Ionicons
-                  name="logo-google"
-                  size={20}
-                  color={lightTheme.colors.white}
-                />
-                <Text style={styles.googleButtonText}>
-                  Continuar com Google
-                </Text>
+                {isGoogleLoading ? (
+                  <ActivityIndicator color={lightTheme.colors.white} />
+                ) : (
+                  <>
+                    <Ionicons
+                      name="logo-google"
+                      size={20}
+                      color={lightTheme.colors.white}
+                    />
+                    <Text style={styles.googleButtonText}>
+                      Continuar com Google
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
 
               {/* Create Account */}

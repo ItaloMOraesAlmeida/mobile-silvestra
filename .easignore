@@ -21,6 +21,9 @@ coverage/
 .gitignore
 .gitattributes
 
+#Github
+.github/
+
 # IDEs
 .vscode/
 .idea/
@@ -35,6 +38,7 @@ coverage/
 .env.preview
 .env.homolog
 .env.production
+.env.example
 
 # Secrets
 secrets/
