@@ -5,6 +5,9 @@ import {
   DrawerContentComponentProps,
 } from "@react-navigation/drawer";
 import { HomeScreen } from "../screens/main/HomeScreen";
+import { DashboardScreen as NutritionistDashboard } from "../screens/nutritionist/DashboardScreen";
+import { PatientDashboardScreen } from "../screens/patient/DashboardScreen";
+import { useAuthStore } from "../stores/auth.store";
 import { ProfileScreen } from "../screens/main/ProfileScreen";
 import { SettingsScreen } from "../screens/main/SettingsScreen";
 import { ChangePasswordScreen } from "../screens/main/ChangePasswordScreen";
@@ -34,7 +37,8 @@ function createScreenWithHeader(
   showBackButton: boolean = false,
   backTo?: string
 ): React.ComponentType<any> {
-  const ScreenWithHeader = ({ navigation }: any) => {
+  const ScreenWithHeader = (props: any) => {
+    const { navigation } = props;
     const isDrawerOpen = useDrawerStatus() === "open";
 
     return (
@@ -46,7 +50,8 @@ function createScreenWithHeader(
           showBackButton={showBackButton}
           backTo={backTo}
         />
-        <Screen />
+        {/* Repassa todas as props para a tela (navigation, route, etc.) */}
+        <Screen {...props} />
       </>
     );
   };
@@ -55,7 +60,26 @@ function createScreenWithHeader(
   return ScreenWithHeader;
 }
 
-const HomeScreenWithHeader = createScreenWithHeader(HomeScreen, "Início");
+function RoleBasedHome(props: any) {
+  const user = useAuthStore((s) => s.user);
+
+  // auth.store normaliza role para lowercase
+  const role = user?.role || "normal";
+
+  if (role === "nutritionist" || role === "nutricionista") {
+    return <NutritionistDashboard {...props} />;
+  }
+
+  // Caso paciente: renderiza dashboard do paciente
+  if (role === "patient" || role === "paciente") {
+    return <PatientDashboardScreen {...props} />;
+  }
+
+  // Usuário normal
+  return <HomeScreen {...props} />;
+}
+
+const HomeScreenWithHeader = createScreenWithHeader(RoleBasedHome, "Início");
 const ProfileScreenWithHeader = createScreenWithHeader(ProfileScreen, "Perfil");
 const SettingsScreenWithHeader = createScreenWithHeader(
   SettingsScreen,

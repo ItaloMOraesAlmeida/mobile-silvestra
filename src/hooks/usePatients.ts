@@ -1,0 +1,259 @@
+import { useState, useCallback } from "react";
+import { api } from "../services/api";
+import { PatientStatus } from "../types/patient";
+
+// Tipos baseados nos DTOs do backend
+export interface PatientMetrics {
+  totalAppointments: number;
+  totalMealPlans: number;
+  totalEvaluations: number;
+  currentWeight?: number;
+  goalWeight?: number;
+  weightProgress?: number;
+  averageAdherence?: number;
+  lastUpdated: Date;
+}
+
+export interface PatientProfile {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  cpf?: string;
+  gender?: string;
+  birthDate?: Date;
+  age?: number;
+  avatarUrl?: string;
+  phone?: string;
+  biologicalSex?: string;
+}
+
+export interface Patient {
+  id: string;
+  nutritionistId: string;
+  patientId: string;
+  status: PatientStatus;
+  notes?: string;
+  lastContactDate?: Date;
+  lastEvaluationDate?: Date;
+  adherenceScore?: number;
+  createdAt: Date;
+  updatedAt: Date;
+  patient: PatientProfile;
+  metrics?: PatientMetrics;
+}
+
+export interface PatientFilters {
+  status?: PatientStatus;
+  lastContactBefore?: string;
+  lastContactAfter?: string;
+  adherenceMin?: number;
+  adherenceMax?: number;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface PatientsResponse {
+  data: Patient[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export const usePatients = () => {
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [meta, setMeta] = useState<PatientsResponse["meta"] | null>(null);
+
+  /**
+   * Busca lista de pacientes com filtros opcionais
+   */
+  const getPatients = useCallback(async (filters?: PatientFilters) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams();
+
+      if (filters?.status) params.append("status", filters.status);
+      if (filters?.lastContactBefore)
+        params.append("lastContactBefore", filters.lastContactBefore);
+      if (filters?.lastContactAfter)
+        params.append("lastContactAfter", filters.lastContactAfter);
+      if (filters?.adherenceMin !== undefined)
+        params.append("adherenceMin", filters.adherenceMin.toString());
+      if (filters?.adherenceMax !== undefined)
+        params.append("adherenceMax", filters.adherenceMax.toString());
+      if (filters?.search) params.append("search", filters.search);
+      if (filters?.page) params.append("page", filters.page.toString());
+      if (filters?.limit) params.append("limit", filters.limit.toString());
+
+      const response = await api.get<PatientsResponse>(
+        `/patients?${params.toString()}`
+      );
+
+      // O api.service retorna o corpo já parseado. Algumas rotas retornam
+      // diretamente o array de pacientes, outras retornam um objeto { data, meta }.
+      // Normalizamos ambos os formatos aqui para evitar que `patients` vire undefined.
+      const resAny: any = response;
+
+      if (resAny && resAny.data && Array.isArray(resAny.data)) {
+        setPatients(resAny.data as Patient[]);
+        setMeta(resAny.meta || null);
+      } else if (Array.isArray(resAny)) {
+        setPatients(resAny as Patient[]);
+        setMeta(null);
+      } else {
+        // Caso inesperado: fallback para array vazio
+        setPatients([]);
+        setMeta(null);
+      }
+
+      return response;
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.message || "Erro ao buscar pacientes";
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * Busca um paciente específico por ID
+   */
+  const getPatientById = useCallback(async (patientId: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await api.get<Patient>(`/patients/${patientId}`);
+      return response;
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.message || "Erro ao buscar paciente";
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * Atualiza informações de um paciente
+   */
+  const updatePatient = useCallback(
+    async (
+      patientId: string,
+      data: {
+        status?: PatientStatus;
+        notes?: string;
+        lastContactDate?: Date;
+        lastEvaluationDate?: Date;
+        adherenceScore?: number;
+      }
+    ) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await api.patch<Patient>(
+          `/patients/${patientId}`,
+          data
+        );
+
+        // Atualiza o paciente na lista local
+        // response pode ser o objeto paciente direto
+        const updatedPatient: any = response;
+        setPatients((prev) =>
+          prev.map((p) => (p.id === patientId ? updatedPatient : p))
+        );
+
+        return response;
+      } catch (err: any) {
+        const errorMessage =
+          err.response?.data?.message || "Erro ao atualizar paciente";
+        setError(errorMessage);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  /**
+   * Busca dashboard individual de um paciente
+   */
+  const getPatientDashboard = useCallback(async (patientId: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await api.get<{
+        patient: Patient;
+        charts: {
+          weightEvolution: any[];
+          adherenceTrend: any[];
+          bodyComposition: any[];
+        };
+      }>(`/patients/${patientId}/dashboard`);
+
+      return response;
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.message || "Erro ao buscar dashboard do paciente";
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * Busca pacientes com busca por nome
+   */
+  const searchPatients = useCallback(
+    async (query: string) => {
+      return getPatients({ search: query, page: 1, limit: 20 });
+    },
+    [getPatients]
+  );
+
+  /**
+   * Filtra pacientes por status
+   */
+  const filterByStatus = useCallback(
+    async (status: PatientStatus) => {
+      return getPatients({ status, page: 1, limit: 20 });
+    },
+    [getPatients]
+  );
+
+  /**
+   * Recarrega a lista de pacientes
+   */
+  const refreshPatients = useCallback(() => {
+    return getPatients({ page: 1, limit: 20 });
+  }, [getPatients]);
+
+  return {
+    patients,
+    loading,
+    error,
+    meta,
+    getPatients,
+    getPatientById,
+    updatePatient,
+    getPatientDashboard,
+    searchPatients,
+    filterByStatus,
+    refreshPatients,
+  };
+};

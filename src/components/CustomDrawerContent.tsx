@@ -39,12 +39,15 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
   };
 
   const getRoleName = () => {
-    switch (user?.role) {
-      case "PATIENT":
+    const r = String(user?.role || "").toLowerCase();
+    switch (r) {
+      case "patient":
+      case "paciente":
         return "Paciente";
-      case "NUTRITIONIST":
+      case "nutritionist":
+      case "nutricionista":
         return "Nutricionista";
-      case "NORMAL":
+      case "normal":
         return "Usuário";
       default:
         return "Usuário";
@@ -52,13 +55,15 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
   };
 
   const getRoleIcon = () => {
-    switch (user?.role) {
-      case "PATIENT":
+    const r = String(user?.role || "").toLowerCase();
+    switch (r) {
+      case "patient":
+      case "paciente":
         return "person";
-      case "NUTRITIONIST":
+      case "nutritionist":
+      case "nutricionista":
         return "medical";
-      case "NORMAL":
-        return "person-circle";
+      case "normal":
       default:
         return "person-circle";
     }

@@ -9,17 +9,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image,
   Keyboard,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import {
   useNavigation,
-  useFocusEffect,
   useRoute,
+  useFocusEffect,
   RouteProp,
 } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
@@ -34,59 +34,19 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useOAuth, useClerk } from "@clerk/clerk-expo";
-import * as WebBrowser from "expo-web-browser";
-import { BiometricService } from "../../services/biometric";
-import { BiometricPromptModal } from "../../components/BiometricPromptModal";
-import { BiometricAuthService } from "../../services/biometric-auth";
 import { useAuthStore } from "../../stores/auth.store";
+import { BiometricService } from "../../services/biometric";
+import { BiometricAuthService } from "../../services/biometric-auth";
+import { BiometricPromptModal } from "../../components/BiometricPromptModal";
 import { lightTheme } from "../../theme";
+import { useOAuth, useClerk } from "@clerk/clerk-expo";
 
-// Necessário para o Clerk funcionar corretamente
-WebBrowser.maybeCompleteAuthSession();
-
-const loginSchema = z
-  .object({
-    email: z.string().optional().or(z.literal("")),
-    password: z.string().optional().or(z.literal("")),
-    accessCode: z.string().optional().or(z.literal("")),
-  })
-  .superRefine((data, ctx) => {
-    // Se código de acesso foi fornecido, valida apenas ele
-    if (data.accessCode && data.accessCode.length > 0) {
-      if (!/^\d{6}$/.test(data.accessCode)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Código deve ter 6 dígitos",
-          path: ["accessCode"],
-        });
-      }
-      return;
-    }
-
-    // Caso contrário, email e senha são obrigatórios
-    if (!data.email || data.email.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Email é obrigatório",
-        path: ["email"],
-      });
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Email inválido",
-        path: ["email"],
-      });
-    }
-
-    if (!data.password || data.password.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Senha é obrigatória",
-        path: ["password"],
-      });
-    }
-  });
+// Schema mínimo para login
+const loginSchema = z.object({
+  email: z.string().min(1, "Email é obrigatório").email("Email inválido"),
+  password: z.string().min(1, "Senha é obrigatória"),
+  accessCode: z.string().optional(),
+});
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
@@ -198,22 +158,10 @@ export function LoginScreen() {
 
           // Se já está autenticado, redireciona para a tela apropriada
           if (isAuthenticated && user) {
-            if (user.role === "nutritionist") {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Nutritionist" } as any],
-              });
-            } else if (user.role === "patient") {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Patient" } as any],
-              });
-            } else {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Main" } as any],
-              });
-            }
+            // Depois da consolidação de navegadores, sempre resetamos para
+            // a rota raiz `Main`. O componente responsável (`MainDrawerNavigator`)
+            // decide qual tela interna renderizar com base no role do usuário.
+            navigation.reset({ index: 0, routes: [{ name: "Main" } as any] });
             return;
           }
 
@@ -231,31 +179,11 @@ export function LoginScreen() {
               topOffset: 60,
             });
 
-            // Completa a autenticação
+            // Completa a autenticação e redireciona para Main
             const { completeBiometricSetup } = useAuthStore.getState();
             completeBiometricSetup();
 
-            // Navega manualmente para a tela apropriada
-            const currentUser = useAuthStore.getState().user;
-
-            if (currentUser) {
-              if (currentUser.role === "nutritionist") {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: "Nutritionist" } as any],
-                });
-              } else if (currentUser.role === "patient") {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: "Patient" } as any],
-                });
-              } else {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: "Main" } as any],
-                });
-              }
-            }
+            navigation.reset({ index: 0, routes: [{ name: "Main" } as any] });
           } else {
             // Falhou ou não tem biometria salva
             if (result.reason === "token_expired") {
@@ -390,7 +318,7 @@ export function LoginScreen() {
       setShowBiometricPrompt(false);
       setPendingAuth(null);
 
-      // AGORA SIM: Marca como autenticado
+      // AGORA SIM: Marca como autenticado e redireciona para Main
       const { completeBiometricSetup } = useAuthStore.getState();
       completeBiometricSetup();
 
@@ -403,26 +331,7 @@ export function LoginScreen() {
         topOffset: 60,
       });
 
-      // Navega manualmente para a tela apropriada
-      const currentUser = useAuthStore.getState().user;
-      if (currentUser) {
-        if (currentUser.role === "nutritionist") {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Nutritionist" } as any],
-          });
-        } else if (currentUser.role === "patient") {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Patient" } as any],
-          });
-        } else {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Main" } as any],
-          });
-        }
-      }
+      navigation.reset({ index: 0, routes: [{ name: "Main" } as any] });
     } catch {
       Toast.show({
         type: "error",
@@ -456,22 +365,8 @@ export function LoginScreen() {
     // Navega manualmente para a tela apropriada
     const currentUser = useAuthStore.getState().user;
     if (currentUser) {
-      if (currentUser.role === "nutritionist") {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "Nutritionist" } as any],
-        });
-      } else if (currentUser.role === "patient") {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "Patient" } as any],
-        });
-      } else {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "Main" } as any],
-        });
-      }
+      // Normaliza para `Main` e deixa o drawer decidir a tela correta.
+      navigation.reset({ index: 0, routes: [{ name: "Main" } as any] });
     }
   };
 

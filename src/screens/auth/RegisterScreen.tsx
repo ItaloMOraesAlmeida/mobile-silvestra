@@ -424,26 +424,9 @@ export function RegisterScreen({ route }: any) {
           topOffset: 60,
         });
 
-        // Redireciona para a tela apropriada baseado no role do usuário
+        // Redireciona para a pilha Main (RoleBasedHome decide a tela específica)
         setTimeout(() => {
-          if (user) {
-            if (user.role === "nutritionist") {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Nutritionist" } as any],
-              });
-            } else if (user.role === "patient") {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Patient" } as any],
-              });
-            } else {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Main" } as any],
-              });
-            }
-          }
+          navigation.reset({ index: 0, routes: [{ name: "Main" } as any] });
         }, 500); // Aguarda meio segundo para o toast aparecer
       }
     } catch (error) {
@@ -452,25 +435,9 @@ export function RegisterScreen({ route }: any) {
 
       // Mesmo com erro, redireciona (biometria é opcional)
       const { user } = useAuthStore.getState();
+      // Mesmo com erro, redireciona para Main
       setTimeout(() => {
-        if (user) {
-          if (user.role === "nutritionist") {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Nutritionist" } as any],
-            });
-          } else if (user.role === "patient") {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Patient" } as any],
-            });
-          } else {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Main" } as any],
-            });
-          }
-        }
+        navigation.reset({ index: 0, routes: [{ name: "Main" } as any] });
       }, 500);
     }
   };
@@ -482,26 +449,9 @@ export function RegisterScreen({ route }: any) {
     const { skipBiometricSetup, user } = useAuthStore.getState();
     skipBiometricSetup();
 
-    // Redireciona para a tela apropriada baseado no role do usuário
+    // Redireciona para a pilha Main (RoleBasedHome decide a tela específica)
     setTimeout(() => {
-      if (user) {
-        if (user.role === "nutritionist") {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Nutritionist" } as any],
-          });
-        } else if (user.role === "patient") {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Patient" } as any],
-          });
-        } else {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Main" } as any],
-          });
-        }
-      }
+      navigation.reset({ index: 0, routes: [{ name: "Main" } as any] });
     }, 300); // Aguarda um pouco antes de redirecionar
   };
 

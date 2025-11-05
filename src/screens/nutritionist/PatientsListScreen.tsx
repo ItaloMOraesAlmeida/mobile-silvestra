@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,45 +7,63 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "../../theme";
+import { usePatients } from "../../hooks/usePatients";
+import { PatientStatus } from "../../types/patient";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
-interface Patient {
+// Interface local para o card (simplificada)
+interface PatientCardData {
   id: string;
   name: string;
-  age: number;
+  age?: number;
   avatarUrl?: string;
   lastContact: string;
-  status: "active" | "inactive" | "pending";
+  status: "active" | "inactive" | "pending" | "archived";
   adherence?: number;
 }
 
 interface PatientCardProps {
-  patient: Patient;
-  onPress: (patient: Patient) => void;
+  patient: PatientCardData;
+  onPress: (patient: PatientCardData) => void;
 }
 
 function PatientCard({ patient, onPress }: PatientCardProps) {
-  const statusConfig = {
+  const statusConfig: Record<
+    string,
+    {
+      label: string;
+      color: string;
+      icon: keyof typeof Ionicons.glyphMap;
+    }
+  > = {
     active: {
       label: "Ativo",
       color: lightTheme.colors.success,
-      icon: "checkmark-circle" as keyof typeof Ionicons.glyphMap,
+      icon: "checkmark-circle",
     },
     inactive: {
       label: "Inativo",
       color: lightTheme.colors.gray[400],
-      icon: "pause-circle" as keyof typeof Ionicons.glyphMap,
+      icon: "pause-circle",
     },
     pending: {
       label: "Pendente",
       color: lightTheme.colors.warning,
-      icon: "time" as keyof typeof Ionicons.glyphMap,
+      icon: "time",
+    },
+    archived: {
+      label: "Arquivado",
+      color: lightTheme.colors.gray[300],
+      icon: "archive",
     },
   };
 
-  const status = statusConfig[patient.status];
+  const status = statusConfig[patient.status] || statusConfig.active;
 
   return (
     <TouchableOpacity
@@ -131,102 +149,134 @@ function PatientCard({ patient, onPress }: PatientCardProps) {
   );
 }
 
-export function PatientsListScreen() {
+interface PatientsListScreenProps {
+  navigation: any;
+}
+
+export function PatientsListScreen({ navigation }: PatientsListScreenProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<
-    "all" | "active" | "inactive" | "pending"
+    "all" | "active" | "inactive" | "pending" | "archived"
   >("all");
-  const [refreshing, setRefreshing] = useState(false);
 
-  // Dados mockados - serão substituídos pela API
-  const patients: Patient[] = [
-    {
-      id: "1",
-      name: "Maria Silva",
-      age: 34,
-      lastContact: "Há 2 dias",
-      status: "active",
-      adherence: 85,
-    },
-    {
-      id: "2",
-      name: "João Santos",
-      age: 28,
-      lastContact: "Há 5 dias",
-      status: "active",
-      adherence: 72,
-    },
-    {
-      id: "3",
-      name: "Ana Costa",
-      age: 42,
-      lastContact: "Há 1 semana",
-      status: "pending",
-      adherence: 45,
-    },
-    {
-      id: "4",
-      name: "Carlos Oliveira",
-      age: 51,
-      lastContact: "Há 2 horas",
-      status: "active",
-      adherence: 92,
-    },
-    {
-      id: "5",
-      name: "Paula Mendes",
-      age: 29,
-      lastContact: "Há 3 dias",
-      status: "inactive",
-      adherence: 28,
-    },
-    {
-      id: "6",
-      name: "Roberto Lima",
-      age: 36,
-      lastContact: "Há 1 dia",
-      status: "active",
-      adherence: 88,
-    },
-  ];
+  const {
+    patients: apiPatients,
+    loading,
+    error,
+    getPatients,
+    searchPatients,
+    refreshPatients,
+  } = usePatients();
 
-  const filteredPatients = patients.filter((patient) => {
-    const matchesSearch = patient.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const matchesFilter =
-      filterStatus === "all" || patient.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
+  const loadPatients = React.useCallback(async () => {
+    try {
+      if (filterStatus === "all") {
+        await getPatients();
+      } else {
+        await getPatients({
+          status: filterStatus.toUpperCase() as PatientStatus,
+        });
+      }
+    } catch (err) {
+      console.error("Erro ao carregar pacientes:", err);
+    }
+  }, [filterStatus, getPatients]);
 
-  const handlePatientPress = (patient: Patient) => {
-    // TODO: Navegar para tela de detalhes do paciente
+  // Carregar pacientes ao montar o componente
+  useEffect(() => {
+    loadPatients();
+  }, [loadPatients]);
+
+  // Buscar com debounce
+  useEffect(() => {
+    const debounce = setTimeout(() => {
+      if (searchQuery) {
+        searchPatients(searchQuery);
+      } else {
+        loadPatients();
+      }
+    }, 500);
+
+    return () => clearTimeout(debounce);
+  }, [searchQuery, searchPatients, loadPatients]);
+
+  // Transformar dados da API para o formato do card
+  const patientsCardData: PatientCardData[] = apiPatients.map((patient) => ({
+    id: patient.id,
+    name: patient.patient.name,
+    age: patient.patient.age,
+    avatarUrl: patient.patient.avatarUrl,
+    lastContact: patient.lastContactDate
+      ? formatDistanceToNow(new Date(patient.lastContactDate), {
+          addSuffix: true,
+          locale: ptBR,
+        })
+      : "Nunca",
+    status: patient.status.toLowerCase() as
+      | "active"
+      | "inactive"
+      | "pending"
+      | "archived",
+    adherence: patient.adherenceScore,
+  }));
+
+  const handlePatientPress = (patient: PatientCardData) => {
+    navigation.navigate("PatientDetails", { patientId: patient.id });
   };
 
   const handleRefresh = async () => {
-    setRefreshing(true);
-    // TODO: Atualizar lista da API
-    setTimeout(() => setRefreshing(false), 1000);
+    try {
+      await refreshPatients();
+    } catch (err) {
+      console.error("Erro ao atualizar pacientes:", err);
+    }
   };
 
   const filterButtons = [
-    { key: "all", label: "Todos", count: patients.length },
+    { key: "all", label: "Todos", count: patientsCardData.length },
     {
       key: "active",
       label: "Ativos",
-      count: patients.filter((p) => p.status === "active").length,
+      count: patientsCardData.filter((p) => p.status === "active").length,
     },
     {
       key: "pending",
       label: "Pendentes",
-      count: patients.filter((p) => p.status === "pending").length,
+      count: patientsCardData.filter((p) => p.status === "pending").length,
     },
     {
       key: "inactive",
       label: "Inativos",
-      count: patients.filter((p) => p.status === "inactive").length,
+      count: patientsCardData.filter((p) => p.status === "inactive").length,
     },
   ];
+
+  // Loading inicial
+  if (loading && apiPatients.length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={lightTheme.colors.primary} />
+        <Text style={styles.loadingText}>Carregando pacientes...</Text>
+      </View>
+    );
+  }
+
+  // Erro
+  if (error && apiPatients.length === 0) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons
+          name="alert-circle"
+          size={64}
+          color={lightTheme.colors.error}
+        />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadPatients}>
+          <Text style={styles.retryButtonText}>Tentar Novamente</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -302,14 +352,14 @@ export function PatientsListScreen() {
 
       {/* Patients List */}
       <FlatList
-        data={filteredPatients}
+        data={patientsCardData}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <PatientCard patient={item} onPress={handlePatientPress} />
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        refreshing={refreshing}
+        refreshing={loading}
         onRefresh={handleRefresh}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -536,5 +586,42 @@ const styles = StyleSheet.create({
     color: lightTheme.colors.gray[400],
     marginTop: lightTheme.spacing.xs,
     textAlign: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: lightTheme.colors.gray[50],
+    padding: lightTheme.spacing.xl,
+  },
+  loadingText: {
+    marginTop: lightTheme.spacing.lg,
+    fontSize: lightTheme.typography.fontSize.base,
+    color: lightTheme.colors.gray[600],
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: lightTheme.colors.gray[50],
+    padding: lightTheme.spacing.xl,
+  },
+  errorText: {
+    marginTop: lightTheme.spacing.lg,
+    marginBottom: lightTheme.spacing.xl,
+    fontSize: lightTheme.typography.fontSize.base,
+    color: lightTheme.colors.gray[600],
+    textAlign: "center",
+  },
+  retryButton: {
+    backgroundColor: lightTheme.colors.primary,
+    paddingHorizontal: lightTheme.spacing.xl,
+    paddingVertical: lightTheme.spacing.md,
+    borderRadius: lightTheme.borderRadius.lg,
+  },
+  retryButtonText: {
+    color: lightTheme.colors.white,
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
   },
 });
