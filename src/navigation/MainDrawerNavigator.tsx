@@ -17,9 +17,13 @@ import { TermsOfServiceScreen } from "../screens/legal/TermsOfServiceScreen";
 import { PrivacyPolicyScreen } from "../screens/legal/PrivacyPolicyScreen";
 import { CustomDrawerContent } from "../components/CustomDrawerContent";
 import { CustomHeader } from "../components/CustomHeader";
+import { PatientsListScreen } from "../screens/nutritionist/PatientsListScreen";
+import { PatientCreateScreen } from "../screens/nutritionist/PatientCreateScreen";
 
 export type MainDrawerParamList = {
   Home: undefined;
+  Patients: undefined;
+  PatientCreate: undefined;
   Profile: undefined;
   Settings: undefined;
   ChangePassword: undefined;
@@ -132,6 +136,24 @@ export function MainDrawerNavigator() {
         options={{
           title: "Perfil",
         }}
+      />
+      {/* Pacientes (mantemos as telas registradas, mas não as exibimos direto no drawer; o conteúdo do drawer fornece links) */}
+      <Drawer.Screen
+        name="Patients"
+        component={
+          createScreenWithHeader(PatientsListScreen as any, "Pacientes") as any
+        }
+        options={{ drawerItemStyle: { display: "none" } }}
+      />
+      <Drawer.Screen
+        name="PatientCreate"
+        component={
+          createScreenWithHeader(
+            PatientCreateScreen as any,
+            "Novo Paciente"
+          ) as any
+        }
+        options={{ drawerItemStyle: { display: "none" } }}
       />
       <Drawer.Screen
         name="Settings"

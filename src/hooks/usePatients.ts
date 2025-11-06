@@ -102,11 +102,15 @@ export const usePatients = () => {
       // Normalizamos ambos os formatos aqui para evitar que `patients` vire undefined.
       const resAny: any = response;
 
-      if (resAny && resAny.data && Array.isArray(resAny.data)) {
-        setPatients(resAny.data as Patient[]);
-        setMeta(resAny.meta || null);
-      } else if (Array.isArray(resAny)) {
-        setPatients(resAny as Patient[]);
+      // A API retorna { success: true, data: { data: [...], meta: {...} } }
+      // Então precisamos acessar resAny.data primeiro
+      const apiData = resAny.data || resAny;
+
+      if (apiData && apiData.data && Array.isArray(apiData.data)) {
+        setPatients(apiData.data as Patient[]);
+        setMeta(apiData.meta || null);
+      } else if (Array.isArray(apiData)) {
+        setPatients(apiData as Patient[]);
         setMeta(null);
       } else {
         // Caso inesperado: fallback para array vazio

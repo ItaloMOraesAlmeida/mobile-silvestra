@@ -44,20 +44,22 @@ export const useDashboard = () => {
       const response = await api.get<DashboardMetrics>("/patients/metrics");
 
       // Normalizar resposta: garantir que arrays e numbers existam
+      // A API retorna { success: true, data: {...} }, então precisamos acessar .data
       const resAny: any = response;
+      const data = resAny.data || resAny; // Suporta ambos os formatos
 
       const normalized: DashboardMetrics = {
-        totalPatients: resAny.totalPatients ?? resAny.total ?? 0,
-        activePatients: resAny.activePatients ?? 0,
-        inactivePatients: resAny.inactivePatients ?? 0,
-        archivedPatients: resAny.archivedPatients ?? 0,
-        pendingEvaluations: resAny.pendingEvaluations ?? 0,
-        averageAdherence: resAny.averageAdherence ?? 0,
-        upcomingBirthdays: Array.isArray(resAny.upcomingBirthdays)
-          ? resAny.upcomingBirthdays
+        totalPatients: data.totalPatients ?? data.total ?? 0,
+        activePatients: data.activePatients ?? 0,
+        inactivePatients: data.inactivePatients ?? 0,
+        archivedPatients: data.archivedPatients ?? 0,
+        pendingEvaluations: data.pendingEvaluations ?? 0,
+        averageAdherence: data.averageAdherence ?? 0,
+        upcomingBirthdays: Array.isArray(data.upcomingBirthdays)
+          ? data.upcomingBirthdays
           : [],
-        recentActivities: Array.isArray(resAny.recentActivities)
-          ? resAny.recentActivities
+        recentActivities: Array.isArray(data.recentActivities)
+          ? data.recentActivities
           : [],
       };
 

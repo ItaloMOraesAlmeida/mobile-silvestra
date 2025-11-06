@@ -13,6 +13,12 @@ import { lightTheme } from "../theme";
 export function CustomDrawerContent(props: DrawerContentComponentProps) {
   const user = useAuthStore((state) => state.user);
 
+  // Helper para verificar se uma rota está ativa
+  const isRouteActive = (routeName: string) => {
+    const currentRoute = props.state.routes[props.state.index];
+    return currentRoute.name === routeName;
+  };
+
   // Extrair a KEY do avatar (agora sempre está em user.avatarUrl)
   const getAvatarKey = (): string | null => {
     return user?.avatarUrl || null;
@@ -181,10 +187,11 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
         {...props}
         contentContainerStyle={styles.drawerContent}
       >
+        {/* Início */}
         <TouchableOpacity
           style={[
             styles.drawerItem,
-            props.state.index === 0 && styles.drawerItemActive,
+            isRouteActive("Home") && styles.drawerItemActive,
           ]}
           onPress={() => props.navigation.navigate("Home")}
         >
@@ -192,7 +199,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
             name="home"
             size={24}
             color={
-              props.state.index === 0
+              isRouteActive("Home")
                 ? lightTheme.colors.primary
                 : lightTheme.colors.gray[500]
             }
@@ -201,17 +208,18 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
           <Text
             style={[
               styles.drawerLabel,
-              props.state.index === 0 && styles.drawerLabelActive,
+              isRouteActive("Home") && styles.drawerLabelActive,
             ]}
           >
             Início
           </Text>
         </TouchableOpacity>
 
+        {/* Perfil */}
         <TouchableOpacity
           style={[
             styles.drawerItem,
-            props.state.index === 1 && styles.drawerItemActive,
+            isRouteActive("Profile") && styles.drawerItemActive,
           ]}
           onPress={() => props.navigation.navigate("Profile")}
         >
@@ -219,7 +227,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
             name="person-outline"
             size={24}
             color={
-              props.state.index === 1
+              isRouteActive("Profile")
                 ? lightTheme.colors.primary
                 : lightTheme.colors.gray[500]
             }
@@ -228,17 +236,75 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
           <Text
             style={[
               styles.drawerLabel,
-              props.state.index === 1 && styles.drawerLabelActive,
+              isRouteActive("Profile") && styles.drawerLabelActive,
             ]}
           >
             Perfil
           </Text>
         </TouchableOpacity>
 
+        {/* Grupo Pacientes */}
+        <View style={styles.groupHeader}>
+          <Text style={styles.groupTitle}>Pacientes</Text>
+        </View>
+        <TouchableOpacity
+          style={[
+            styles.groupItem,
+            isRouteActive("Patients") && styles.drawerItemActive,
+          ]}
+          onPress={() => props.navigation.navigate("Patients")}
+        >
+          <Ionicons
+            name="people"
+            size={18}
+            color={
+              isRouteActive("Patients")
+                ? lightTheme.colors.primary
+                : lightTheme.colors.gray[500]
+            }
+            style={styles.drawerIcon}
+          />
+          <Text
+            style={[
+              styles.drawerLabel,
+              isRouteActive("Patients") && styles.drawerLabelActive,
+            ]}
+          >
+            Lista de Pacientes
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.groupItem,
+            isRouteActive("PatientCreate") && styles.drawerItemActive,
+          ]}
+          onPress={() => props.navigation.navigate("PatientCreate")}
+        >
+          <Ionicons
+            name="person-add"
+            size={18}
+            color={
+              isRouteActive("PatientCreate")
+                ? lightTheme.colors.primary
+                : lightTheme.colors.gray[500]
+            }
+            style={styles.drawerIcon}
+          />
+          <Text
+            style={[
+              styles.drawerLabel,
+              isRouteActive("PatientCreate") && styles.drawerLabelActive,
+            ]}
+          >
+            Novo Paciente
+          </Text>
+        </TouchableOpacity>
+
+        {/* Configurações */}
         <TouchableOpacity
           style={[
             styles.drawerItem,
-            props.state.index === 2 && styles.drawerItemActive,
+            isRouteActive("Settings") && styles.drawerItemActive,
           ]}
           onPress={() => props.navigation.navigate("Settings")}
         >
@@ -246,7 +312,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
             name="settings-outline"
             size={24}
             color={
-              props.state.index === 2
+              isRouteActive("Settings")
                 ? lightTheme.colors.primary
                 : lightTheme.colors.gray[500]
             }
@@ -255,7 +321,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
           <Text
             style={[
               styles.drawerLabel,
-              props.state.index === 2 && styles.drawerLabelActive,
+              isRouteActive("Settings") && styles.drawerLabelActive,
             ]}
           >
             Configurações
@@ -418,6 +484,7 @@ const styles = StyleSheet.create({
     paddingVertical: lightTheme.spacing.md,
     paddingHorizontal: lightTheme.spacing.lg - 4,
     marginHorizontal: lightTheme.spacing.md - 4,
+    marginBottom: lightTheme.spacing.xs,
     borderRadius: lightTheme.borderRadius.md,
     backgroundColor: lightTheme.colors.transparent,
   },
@@ -435,5 +502,31 @@ const styles = StyleSheet.create({
   drawerLabelActive: {
     color: lightTheme.colors.primary,
     fontWeight: lightTheme.typography.fontWeight.semibold,
+  },
+  groupHeader: {
+    paddingHorizontal: lightTheme.spacing.lg - 4,
+    marginTop: lightTheme.spacing.lg,
+    marginBottom: lightTheme.spacing.xs,
+    paddingVertical: lightTheme.spacing.xs,
+  },
+  groupTitle: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[700],
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  groupItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: lightTheme.spacing.sm,
+    paddingHorizontal: lightTheme.spacing.lg + 8,
+    marginHorizontal: lightTheme.spacing.md - 4,
+    marginBottom: lightTheme.spacing.xs,
+    borderRadius: lightTheme.borderRadius.md,
+    backgroundColor: lightTheme.colors.transparent,
+    borderLeftWidth: 2,
+    borderLeftColor: lightTheme.colors.gray[200],
+    marginLeft: lightTheme.spacing.lg + 4,
   },
 });

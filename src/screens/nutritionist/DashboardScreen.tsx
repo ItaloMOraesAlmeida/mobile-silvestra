@@ -143,7 +143,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
 
           <TouchableOpacity
             style={styles.headerButton}
-            onPress={() => navigation.navigate("PatientsList")}
+            onPress={() => navigation.navigate("PatientCreate")}
             activeOpacity={0.8}
           >
             <Ionicons
@@ -551,32 +551,41 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   birthdayCardLarge: {
-    width: 120,
-    padding: lightTheme.spacing.md,
+    width: 140,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     backgroundColor: lightTheme.colors.white,
-    borderRadius: lightTheme.borderRadius.md,
+    borderRadius: 16,
     marginRight: 12,
     alignItems: "center",
-    ...lightTheme.shadows.sm,
+    justifyContent: "center",
+    ...lightTheme.shadows.md,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[100],
   },
   birthdayAvatarLarge: {
-    width: 64,
-    height: 64,
-    borderRadius: lightTheme.borderRadius.full,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: lightTheme.colors.primary,
-    marginBottom: lightTheme.spacing.sm,
+    marginBottom: 12,
   },
   birthdayName: {
-    fontSize: lightTheme.typography.fontSize.sm,
-    fontWeight: lightTheme.typography.fontWeight.medium as any,
-    color: lightTheme.colors.gray[800],
+    fontSize: 14,
+    fontWeight: "600" as any,
+    color: lightTheme.colors.gray[900],
+    textAlign: "center",
+    marginBottom: 4,
+    lineHeight: 18,
   },
   birthdayDate: {
-    fontSize: lightTheme.typography.fontSize.sm,
-    color: lightTheme.colors.gray[500],
-    marginTop: 4,
+    fontSize: 13,
+    fontWeight: "500" as any,
+    color: lightTheme.colors.primary,
+    textAlign: "center",
+    lineHeight: 16,
   },
   card: {
     backgroundColor: lightTheme.colors.white,
