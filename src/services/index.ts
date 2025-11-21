@@ -4,3 +4,6 @@ export { StorageService } from "./storage";
 export { BiometricService } from "./biometric";
 export { BiometricAuthService } from "./biometric-auth";
 export { tokenService } from "./token.service";
+export { reportService } from "./report.service";
+export { pdfGeneratorService } from "./pdf-generator.service";
+export { analyticsService } from "./api/analyticsService";

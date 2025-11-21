@@ -60,6 +60,17 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
     }
   };
 
+  // Helper para verificar role (já normalizado para lowercase)
+  const isNutritionist = () => {
+    const r = String(user?.role || "").toLowerCase();
+    return r === "nutritionist" || r === "nutricionista";
+  };
+
+  const isPatient = () => {
+    const r = String(user?.role || "").toLowerCase();
+    return r === "patient" || r === "paciente";
+  };
+
   const getRoleIcon = () => {
     const r = String(user?.role || "").toLowerCase();
     switch (r) {
@@ -122,7 +133,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
           </Text>
 
           {/* Badge de Role - Só aparece para PATIENT e NUTRITIONIST */}
-          {(user?.role === "PATIENT" || user?.role === "NUTRITIONIST") && (
+          {(isPatient() || isNutritionist()) && (
             <View style={styles.roleBadge}>
               <Ionicons
                 name={getRoleIcon()}
@@ -144,7 +155,7 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
         </View>
 
         {/* Estatísticas rápidas (opcional) */}
-        {user?.role === "PATIENT" && (
+        {isPatient() && (
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Ionicons
@@ -243,62 +254,299 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
           </Text>
         </TouchableOpacity>
 
-        {/* Grupo Pacientes */}
-        <View style={styles.groupHeader}>
-          <Text style={styles.groupTitle}>Pacientes</Text>
-        </View>
-        <TouchableOpacity
-          style={[
-            styles.groupItem,
-            isRouteActive("Patients") && styles.drawerItemActive,
-          ]}
-          onPress={() => props.navigation.navigate("Patients")}
-        >
-          <Ionicons
-            name="people"
-            size={18}
-            color={
-              isRouteActive("Patients")
-                ? lightTheme.colors.primary
-                : lightTheme.colors.gray[500]
-            }
-            style={styles.drawerIcon}
-          />
-          <Text
-            style={[
-              styles.drawerLabel,
-              isRouteActive("Patients") && styles.drawerLabelActive,
-            ]}
-          >
-            Lista de Pacientes
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.groupItem,
-            isRouteActive("PatientCreate") && styles.drawerItemActive,
-          ]}
-          onPress={() => props.navigation.navigate("PatientCreate")}
-        >
-          <Ionicons
-            name="person-add"
-            size={18}
-            color={
-              isRouteActive("PatientCreate")
-                ? lightTheme.colors.primary
-                : lightTheme.colors.gray[500]
-            }
-            style={styles.drawerIcon}
-          />
-          <Text
-            style={[
-              styles.drawerLabel,
-              isRouteActive("PatientCreate") && styles.drawerLabelActive,
-            ]}
-          >
-            Novo Paciente
-          </Text>
-        </TouchableOpacity>
+        {/* Grupo Pacientes - SÓ PARA NUTRICIONISTA */}
+        {isNutritionist() && (
+          <>
+            <View style={styles.groupHeader}>
+              <Text style={styles.groupTitle}>Pacientes</Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("Patients") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("Patients")}
+            >
+              <Ionicons
+                name="people"
+                size={18}
+                color={
+                  isRouteActive("Patients")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("Patients") && styles.drawerLabelActive,
+                ]}
+              >
+                Lista de Pacientes
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("PatientCreate") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("PatientCreate")}
+            >
+              <Ionicons
+                name="person-add"
+                size={18}
+                color={
+                  isRouteActive("PatientCreate")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("PatientCreate") && styles.drawerLabelActive,
+                ]}
+              >
+                Novo Paciente
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Grupo Minha Saúde - SÓ PARA PACIENTE */}
+        {isPatient() && (
+          <>
+            <View style={styles.groupHeader}>
+              <Text style={styles.groupTitle}>Minha Saúde</Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("MyMealPlans") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("MyMealPlans")}
+            >
+              <Ionicons
+                name="nutrition"
+                size={18}
+                color={
+                  isRouteActive("MyMealPlans")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("MyMealPlans") && styles.drawerLabelActive,
+                ]}
+              >
+                Meus Planos
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("MyMeasurements") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("MyMeasurements")}
+            >
+              <Ionicons
+                name="fitness"
+                size={18}
+                color={
+                  isRouteActive("MyMeasurements")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("MyMeasurements") && styles.drawerLabelActive,
+                ]}
+              >
+                Minhas Medições
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("MyGoals") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("MyGoals")}
+            >
+              <Ionicons
+                name="trophy"
+                size={18}
+                color={
+                  isRouteActive("MyGoals")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("MyGoals") && styles.drawerLabelActive,
+                ]}
+              >
+                Minhas Metas
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Grupo Ferramentas - SÓ PARA NUTRICIONISTA */}
+        {isNutritionist() && (
+          <>
+            <View style={styles.groupHeader}>
+              <Text style={styles.groupTitle}>Ferramentas</Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("FoodDatabase") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("FoodDatabase")}
+            >
+              <Ionicons
+                name="fast-food"
+                size={18}
+                color={
+                  isRouteActive("FoodDatabase")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("FoodDatabase") && styles.drawerLabelActive,
+                ]}
+              >
+                Banco de Alimentos
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("FoodFavorites") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("FoodFavorites")}
+            >
+              <Ionicons
+                name="star"
+                size={18}
+                color={
+                  isRouteActive("FoodFavorites")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("FoodFavorites") && styles.drawerLabelActive,
+                ]}
+              >
+                Favoritos
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("ReportList") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("ReportList")}
+            >
+              <Ionicons
+                name="document-text"
+                size={18}
+                color={
+                  isRouteActive("ReportList")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("ReportList") && styles.drawerLabelActive,
+                ]}
+              >
+                Relatórios
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Banco de Alimentos e Favoritos - PARA PACIENTE */}
+        {/* Banco de Alimentos e Favoritos - PARA PACIENTE */}
+        {isPatient() && (
+          <>
+            <TouchableOpacity
+              style={[
+                styles.drawerItem,
+                isRouteActive("FoodDatabase") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("FoodDatabase")}
+            >
+              <Ionicons
+                name="fast-food-outline"
+                size={24}
+                color={
+                  isRouteActive("FoodDatabase")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("FoodDatabase") && styles.drawerLabelActive,
+                ]}
+              >
+                Alimentos
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.drawerItem,
+                isRouteActive("FoodFavorites") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("FoodFavorites")}
+            >
+              <Ionicons
+                name="star-outline"
+                size={24}
+                color={
+                  isRouteActive("FoodFavorites")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("FoodFavorites") && styles.drawerLabelActive,
+                ]}
+              >
+                Favoritos
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         {/* Configurações */}
         <TouchableOpacity

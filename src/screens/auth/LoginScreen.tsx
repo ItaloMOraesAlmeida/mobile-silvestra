@@ -45,7 +45,6 @@ import { useOAuth, useClerk } from "@clerk/clerk-expo";
 const loginSchema = z.object({
   email: z.string().min(1, "Email é obrigatório").email("Email inválido"),
   password: z.string().min(1, "Senha é obrigatória"),
-  accessCode: z.string().optional(),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -61,7 +60,6 @@ export function LoginScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
-  const accessCodeInputRef = useRef<TextInput>(null);
 
   // Hooks do Clerk para OAuth com Google
   const { startOAuthFlow } = useOAuth({ strategy: "oauth_google" });
@@ -84,7 +82,6 @@ export function LoginScreen() {
     control,
     handleSubmit,
     formState: { errors },
-    watch,
     setValue,
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -92,20 +89,8 @@ export function LoginScreen() {
     defaultValues: {
       email: "",
       password: "",
-      accessCode: "",
     },
   });
-
-  const emailValue = watch("email");
-  const passwordValue = watch("password");
-  const accessCodeValue = watch("accessCode");
-
-  // Desabilita email/senha se accessCode preenchido
-  const isEmailPasswordDisabled = accessCodeValue && accessCodeValue.length > 0;
-  // Desabilita accessCode se email ou senha preenchidos
-  const isAccessCodeDisabled =
-    (emailValue && emailValue.length > 0) ||
-    (passwordValue && passwordValue.length > 0);
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -530,16 +515,13 @@ export function LoginScreen() {
                     styles.inputContainer,
                     focusedInput === "email" && styles.inputFocused,
                     errors.email && styles.inputError,
-                    isEmailPasswordDisabled && styles.inputDisabled,
                   ]}
                 >
                   <Ionicons
                     name="mail-outline"
                     size={20}
                     color={
-                      isEmailPasswordDisabled
-                        ? "rgba(255, 255, 255, 0.3)"
-                        : focusedInput === "email"
+                      focusedInput === "email"
                         ? lightTheme.colors.white
                         : "rgba(255, 255, 255, 0.6)"
                     }
@@ -558,7 +540,6 @@ export function LoginScreen() {
                         keyboardType="email-address"
                         autoCapitalize="none"
                         autoComplete="email"
-                        editable={!isEmailPasswordDisabled}
                         onFocus={() => {
                           setFocusedInput("email");
                           handleInputFocus(emailInputRef);
@@ -580,16 +561,13 @@ export function LoginScreen() {
                     styles.inputContainer,
                     focusedInput === "password" && styles.inputFocused,
                     errors.password && styles.inputError,
-                    isEmailPasswordDisabled && styles.inputDisabled,
                   ]}
                 >
                   <Ionicons
                     name="lock-closed-outline"
                     size={20}
                     color={
-                      isEmailPasswordDisabled
-                        ? "rgba(255, 255, 255, 0.3)"
-                        : focusedInput === "password"
+                      focusedInput === "password"
                         ? lightTheme.colors.white
                         : "rgba(255, 255, 255, 0.6)"
                     }
@@ -608,7 +586,6 @@ export function LoginScreen() {
                         secureTextEntry={!showPassword}
                         autoCapitalize="none"
                         autoComplete="password"
-                        editable={!isEmailPasswordDisabled}
                         onFocus={() => {
                           setFocusedInput("password");
                           handleInputFocus(passwordInputRef);
@@ -643,63 +620,6 @@ export function LoginScreen() {
               >
                 <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
               </TouchableOpacity>
-
-              {/* Access Code */}
-              {/* Access Code Input */}
-              <View style={styles.inputWrapper}>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    focusedInput === "accessCode" && styles.inputFocused,
-                    errors.accessCode && styles.inputError,
-                    isAccessCodeDisabled && styles.inputDisabled,
-                  ]}
-                >
-                  <Ionicons
-                    name="key-outline"
-                    size={20}
-                    color={
-                      isAccessCodeDisabled
-                        ? "rgba(255, 255, 255, 0.3)"
-                        : focusedInput === "accessCode"
-                        ? lightTheme.colors.white
-                        : "rgba(255, 255, 255, 0.6)"
-                    }
-                  />
-                  <Controller
-                    control={control}
-                    name="accessCode"
-                    render={({ field: { onChange, value } }) => (
-                      <TextInput
-                        ref={accessCodeInputRef}
-                        style={styles.input}
-                        placeholder="Código de acesso (opcional)"
-                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                        value={value}
-                        onChangeText={onChange}
-                        keyboardType="numeric"
-                        maxLength={6}
-                        autoCapitalize="none"
-                        editable={!isAccessCodeDisabled}
-                        onFocus={() => {
-                          setFocusedInput("accessCode");
-                          handleInputFocus(accessCodeInputRef);
-                        }}
-                        onBlur={() => setFocusedInput(null)}
-                      />
-                    )}
-                  />
-                </View>
-                {errors.accessCode ? (
-                  <Text style={styles.errorText}>
-                    {errors.accessCode.message}
-                  </Text>
-                ) : (
-                  <Text style={styles.accessCodeHint}>
-                    Use o código fornecido pelo seu nutricionista
-                  </Text>
-                )}
-              </View>
 
               {/* Login Button */}
               <TouchableOpacity
@@ -759,6 +679,22 @@ export function LoginScreen() {
                     </Text>
                   </>
                 )}
+              </TouchableOpacity>
+
+              {/* Patient Access Code */}
+              <TouchableOpacity
+                style={styles.accessCodeButton}
+                onPress={() => navigation.navigate("PatientCodeLogin")}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="key-outline"
+                  size={18}
+                  color={lightTheme.colors.white}
+                />
+                <Text style={styles.accessCodeButtonText}>
+                  Tenho um código de acesso
+                </Text>
               </TouchableOpacity>
 
               {/* Create Account */}
@@ -943,6 +879,23 @@ const styles = StyleSheet.create({
     fontSize: lightTheme.typography.fontSize.base - 1,
     fontFamily: "Poppins_600SemiBold",
     marginTop: lightTheme.spacing.xs,
+  },
+  accessCodeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(59, 130, 246, 0.1)",
+    borderRadius: lightTheme.borderRadius.md,
+    paddingVertical: lightTheme.spacing.md,
+    gap: lightTheme.spacing.sm,
+    marginBottom: lightTheme.spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(59, 130, 246, 0.3)",
+  },
+  accessCodeButtonText: {
+    color: lightTheme.colors.white,
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontFamily: "Poppins_600SemiBold",
   },
   createAccountContainer: {
     flexDirection: "row",

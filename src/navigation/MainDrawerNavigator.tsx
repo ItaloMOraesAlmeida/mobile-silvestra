@@ -19,11 +19,92 @@ import { CustomDrawerContent } from "../components/CustomDrawerContent";
 import { CustomHeader } from "../components/CustomHeader";
 import { PatientsListScreen } from "../screens/nutritionist/PatientsListScreen";
 import { PatientCreateScreen } from "../screens/nutritionist/PatientCreateScreen";
+import { PatientDetailsScreen } from "../screens/nutritionist/PatientDetailsScreen";
+import { PatientEditScreen } from "../screens/nutritionist/PatientEditScreen";
+import { PatientProgressScreen } from "../screens/nutritionist/PatientProgressScreen";
+import { PatientAssessmentCreateScreen } from "../screens/nutritionist/PatientAssessmentCreateScreen";
+import { PatientAssessmentDetailsScreen } from "../screens/nutritionist/PatientAssessmentDetailsScreen";
+import { MeasurementDetailsScreen } from "../screens/patient/MeasurementDetailsScreen";
+import { NotificationSettingsScreen } from "../screens/patient/NotificationSettingsScreen";
+import { GoalDetailsScreen } from "../screens/goals";
+import ReportConfigScreen from "../screens/reports/ReportConfigScreen";
+import ReportViewerScreen from "../screens/reports/ReportViewerScreen";
+import ReportHistoryScreen from "../screens/reports/ReportHistoryScreen";
+import FoodDatabaseScreen from "../screens/FoodDatabaseScreen";
+import FoodDetailsScreen from "../screens/FoodDetailsScreen";
+import FoodFavoritesScreen from "../screens/FoodFavoritesScreen";
+import CreateMealPlanScreen from "../screens/nutritionist/CreateMealPlanScreen";
+import MealPlanDetailsScreen from "../screens/MealPlanDetailsScreen";
+import ShoppingListScreen from "../screens/ShoppingListScreen";
+
+// Feature #4 - App do Paciente
+import {
+  MyMealPlansScreen,
+  MealPlanDetailsForPatientScreen,
+  MealCheckInScreen,
+  MyMeasurementsScreen,
+  MyGoalsScreen,
+} from "../screens/patient";
 
 export type MainDrawerParamList = {
   Home: undefined;
   Patients: undefined;
   PatientCreate: undefined;
+  PatientDetails: {
+    patientId: string;
+  };
+  PatientEdit: {
+    patientId: string;
+    patient: any;
+  };
+  PatientProgress: {
+    patientId: string;
+  };
+  PatientAssessmentCreate: {
+    patientId: string;
+    patientName: string;
+  };
+  PatientAssessmentDetails: {
+    patientId: string;
+    measurementId: string;
+  };
+  MeasurementDetails: {
+    measurementId: string;
+    patientId: string;
+    patientName?: string;
+  };
+  NotificationSettings: {
+    patientId: string;
+    patientName?: string;
+  };
+  GoalDetails: {
+    patientId: string;
+    goalId: string;
+    patientName?: string;
+  };
+  ReportConfig: {
+    patientId: string;
+    patientName: string;
+  };
+  ReportViewer: {
+    reportId: string;
+  };
+  ReportList: undefined;
+  FoodDatabase: undefined;
+  FoodDetails: {
+    foodId: string;
+  };
+  FoodFavorites: undefined;
+  CreateMealPlan: {
+    patientId?: string;
+    patientName?: string;
+  };
+  MealPlanDetails: {
+    planId: string;
+  };
+  ShoppingList: {
+    planId: string;
+  };
   Profile: undefined;
   Settings: undefined;
   ChangePassword: undefined;
@@ -31,12 +112,25 @@ export type MainDrawerParamList = {
   EditProfile: undefined;
   Terms: undefined;
   Privacy: undefined;
+  // Feature #4 - App do Paciente
+  MyMealPlans: undefined;
+  MealPlanDetailsForPatient: {
+    planId: string;
+  };
+  MealCheckIn: {
+    mealId: string;
+    mealName: string;
+    patientId: string;
+    planId: string;
+  };
+  MyMeasurements: undefined;
+  MyGoals: undefined;
 };
 
 const Drawer = createDrawerNavigator<MainDrawerParamList>();
 
 function createScreenWithHeader(
-  Screen: React.ComponentType,
+  Screen: React.ComponentType<any>,
   title: string,
   showBackButton: boolean = false,
   backTo?: string
@@ -44,6 +138,14 @@ function createScreenWithHeader(
   const ScreenWithHeader = (props: any) => {
     const { navigation } = props;
     const isDrawerOpen = useDrawerStatus() === "open";
+    const [onBackPressCallback, setOnBackPressCallback] = React.useState<
+      (() => boolean) | undefined
+    >(undefined);
+
+    // Função para a tela registrar seu callback
+    const registerBackHandler = React.useCallback((callback: () => boolean) => {
+      setOnBackPressCallback(() => callback);
+    }, []);
 
     return (
       <>
@@ -53,9 +155,10 @@ function createScreenWithHeader(
           isDrawerOpen={isDrawerOpen}
           showBackButton={showBackButton}
           backTo={backTo}
+          onBackPress={onBackPressCallback}
         />
-        {/* Repassa todas as props para a tela (navigation, route, etc.) */}
-        <Screen {...props} />
+        {/* Repassa todas as props para a tela + registerBackHandler */}
+        <Screen {...props} registerBackHandler={registerBackHandler} />
       </>
     );
   };
@@ -155,6 +258,255 @@ export function MainDrawerNavigator() {
         }
         options={{ drawerItemStyle: { display: "none" } }}
       />
+      <Drawer.Screen
+        name="PatientDetails"
+        component={
+          createScreenWithHeader(
+            PatientDetailsScreen as any,
+            "Detalhes do Paciente",
+            true,
+            "Patients"
+          ) as any
+        }
+        options={{ drawerItemStyle: { display: "none" } }}
+      />
+      <Drawer.Screen
+        name="PatientEdit"
+        component={
+          createScreenWithHeader(
+            PatientEditScreen as any,
+            "Editar Paciente",
+            true,
+            "PatientDetails"
+          ) as any
+        }
+        options={{ drawerItemStyle: { display: "none" } }}
+      />
+      <Drawer.Screen
+        name="PatientProgress"
+        component={
+          createScreenWithHeader(
+            PatientProgressScreen as any,
+            "Evolução do Paciente",
+            true,
+            "PatientDetails"
+          ) as any
+        }
+        options={{ drawerItemStyle: { display: "none" } }}
+      />
+      <Drawer.Screen
+        name="PatientAssessmentCreate"
+        component={
+          createScreenWithHeader(
+            PatientAssessmentCreateScreen as any,
+            "Nova Avaliação",
+            true,
+            "PatientDetails"
+          ) as any
+        }
+        options={{ drawerItemStyle: { display: "none" } }}
+      />
+      <Drawer.Screen
+        name="PatientAssessmentDetails"
+        component={
+          createScreenWithHeader(
+            PatientAssessmentDetailsScreen as any,
+            "Detalhes da Avaliação",
+            true,
+            "PatientDetails"
+          ) as any
+        }
+        options={{ drawerItemStyle: { display: "none" } }}
+      />
+      <Drawer.Screen
+        name="MeasurementDetails"
+        component={MeasurementDetailsScreen as any}
+        options={{
+          drawerItemStyle: { display: "none" },
+          headerShown: true,
+        }}
+      />
+      <Drawer.Screen
+        name="GoalDetails"
+        component={GoalDetailsScreen as any}
+        options={{
+          drawerItemStyle: { display: "none" },
+          headerShown: true,
+        }}
+      />
+      <Drawer.Screen
+        name="NotificationSettings"
+        component={
+          createScreenWithHeader(
+            NotificationSettingsScreen as any,
+            "Configurações de Notificações",
+            true,
+            "Home"
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+
+      {/* Telas de Relatórios */}
+      <Drawer.Screen
+        name="ReportList"
+        component={
+          createScreenWithHeader(
+            ReportHistoryScreen as any,
+            "Histórico de Relatórios"
+          ) as any
+        }
+        options={{
+          title: "Relatórios",
+        }}
+      />
+      <Drawer.Screen
+        name="ReportConfig"
+        component={ReportConfigScreen as any}
+        options={{
+          drawerItemStyle: { display: "none" },
+          headerShown: false,
+        }}
+      />
+      <Drawer.Screen
+        name="ReportViewer"
+        component={ReportViewerScreen as any}
+        options={{
+          drawerItemStyle: { display: "none" },
+          headerShown: false,
+        }}
+      />
+
+      {/* Banco de Alimentos TACO - Sprint 7 */}
+      <Drawer.Screen
+        name="FoodDatabase"
+        component={
+          createScreenWithHeader(
+            FoodDatabaseScreen as any,
+            "Banco de Alimentos"
+          ) as any
+        }
+        options={{
+          title: "Alimentos",
+        }}
+      />
+      <Drawer.Screen
+        name="FoodDetails"
+        component={
+          createScreenWithHeader(
+            FoodDetailsScreen as any,
+            "Detalhes do Alimento",
+            true,
+            "FoodDatabase"
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="FoodFavorites"
+        component={
+          createScreenWithHeader(
+            FoodFavoritesScreen as any,
+            "Meus Favoritos",
+            true,
+            "FoodDatabase"
+          ) as any
+        }
+        options={{
+          title: "Favoritos",
+        }}
+      />
+
+      {/* Planos Alimentares - Sprint 8-9 */}
+      <Drawer.Screen
+        name="CreateMealPlan"
+        component={
+          createScreenWithHeader(
+            CreateMealPlanScreen as any,
+            "Novo Plano Alimentar",
+            true,
+            "PatientDetails"
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="MealPlanDetails"
+        component={
+          createScreenWithHeader(
+            MealPlanDetailsScreen as any,
+            "Detalhes do Plano",
+            true,
+            "PatientDetails"
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="ShoppingList"
+        component={ShoppingListScreen as any}
+        options={{
+          drawerItemStyle: { display: "none" },
+          headerShown: false,
+        }}
+      />
+
+      {/* Feature #4 - App do Paciente */}
+      <Drawer.Screen
+        name="MyMealPlans"
+        component={
+          createScreenWithHeader(MyMealPlansScreen as any, "Meus Planos") as any
+        }
+        options={{
+          title: "Meus Planos",
+        }}
+      />
+      <Drawer.Screen
+        name="MealPlanDetailsForPatient"
+        component={MealPlanDetailsForPatientScreen as any}
+        options={{
+          drawerItemStyle: { display: "none" },
+          headerShown: false,
+        }}
+      />
+      <Drawer.Screen
+        name="MealCheckIn"
+        component={MealCheckInScreen as any}
+        options={{
+          drawerItemStyle: { display: "none" },
+          headerShown: false,
+        }}
+      />
+      <Drawer.Screen
+        name="MyMeasurements"
+        component={
+          createScreenWithHeader(
+            MyMeasurementsScreen as any,
+            "Minhas Medições"
+          ) as any
+        }
+        options={{
+          title: "Minhas Medições",
+        }}
+      />
+      <Drawer.Screen
+        name="MyGoals"
+        component={
+          createScreenWithHeader(MyGoalsScreen as any, "Minhas Metas") as any
+        }
+        options={{
+          title: "Minhas Metas",
+        }}
+      />
+
       <Drawer.Screen
         name="Settings"
         component={SettingsScreenWithHeader}

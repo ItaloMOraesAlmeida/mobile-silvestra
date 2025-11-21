@@ -9,12 +9,28 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Share,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useForm, Controller } from "react-hook-form";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
+import * as Clipboard from "expo-clipboard";
 import { lightTheme } from "../../theme";
 import { api } from "../../services/api";
+import { useNotificationStore } from "../../stores/notification.store";
+import { DEFAULT_NOTIFICATION_PREFERENCES } from "../../types/notification.types";
+import { notificationService } from "../../services/notification.service";
+import { generateAccessCode } from "../../utils/access-code.utils";
+import {
+  applyPhoneMask,
+  removePhoneMask,
+  applyCpfMask,
+  removeCpfMask,
+  applyDateMask,
+  dateToISO,
+} from "../../utils/mask.utils";
 
 type FormData = {
   email: string;
@@ -37,6 +53,14 @@ export function PatientCreateScreen({ navigation }: any) {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Estados para código de acesso
+  const [accessCode, setAccessCode] = useState<string>("");
+  const [showAccessCodeModal, setShowAccessCodeModal] = useState(false);
+  const [createdPatientData, setCreatedPatientData] = useState<any>(null);
+
+  // Notification store
+  const { setPreferences } = useNotificationStore();
 
   const { control, handleSubmit, setValue, watch } = useForm<FormData>({
     defaultValues: {
@@ -112,7 +136,7 @@ export function PatientCreateScreen({ navigation }: any) {
           setEmailStatus("available");
         }
       } catch (err: any) {
-        console.warn("Erro ao buscar usuário por email", err.message || err);
+        console.error("Erro ao buscar usuário por email:", err);
         setEmailStatus("error");
         setEmailError("Não foi possível buscar o email. Tente novamente.");
       } finally {
@@ -126,32 +150,77 @@ export function PatientCreateScreen({ navigation }: any) {
     setLoading(true);
     setSubmitError(null);
     try {
+      // Gera código de acesso único para o paciente
+      const generatedCode = generateAccessCode(8);
+
+      // Remove máscaras e converte data
+      const cleanedData = {
+        ...data,
+        phone: data.phone ? removePhoneMask(data.phone) : undefined,
+        cpf: data.cpf ? removeCpfMask(data.cpf) : undefined,
+        birthDate: data.birthDate ? dateToISO(data.birthDate) : undefined,
+      };
+
       // Monta payload: se existingUser existe, usa userId; senão envia dados para criação.
       const payload: any = existingUser
-        ? { userId: existingUser.id, profile: { notes: data.notes } }
+        ? {
+            userId: existingUser.id,
+            profile: { notes: cleanedData.notes },
+            accessCode: generatedCode,
+          }
         : {
             user: {
-              email: data.email,
-              name: data.name,
-              phone: data.phone,
-              cpf: data.cpf,
-              birthDate: data.birthDate,
-              gender: data.gender || undefined,
-              biologicalSex: data.biologicalSex || undefined,
+              email: cleanedData.email,
+              name: cleanedData.name,
+              phone: cleanedData.phone,
+              cpf: cleanedData.cpf,
+              birthDate: cleanedData.birthDate,
+              gender: cleanedData.gender || undefined,
+              biologicalSex: cleanedData.biologicalSex || undefined,
             },
-            notes: data.notes,
+            notes: cleanedData.notes,
+            accessCode: generatedCode,
           };
 
       // Chamada ao backend (assumimos contrato: POST /patients)
-      await api.post("/patients", payload);
+      const response = await api.post("/patients", payload);
 
-      // Sucesso: mostrar mensagem inline e navegar para lista
-      setSuccessMessage("Paciente cadastrado com sucesso. Redirecionando...");
-      setTimeout(() => {
-        navigation.navigate("Patients");
-      }, 900);
+      const createdPatient = response.data;
+
+      // 🔔 Configurar notificações padrão para o novo paciente
+      if (createdPatient?.id) {
+        try {
+          // Salvar preferências padrão
+          setPreferences(createdPatient.id, DEFAULT_NOTIFICATION_PREFERENCES);
+
+          // Agendar notificações baseadas nas preferências padrão
+          await notificationService.rescheduleAllNotifications(
+            createdPatient.id,
+            DEFAULT_NOTIFICATION_PREFERENCES
+          );
+        } catch (notifError) {
+          console.error("⚠️ Erro ao configurar notificações:", notifError);
+          console.error("Stack:", notifError);
+          // Não bloqueia o cadastro se notificações falharem
+        }
+      }
+
+      // Sucesso: salvar código e dados do paciente, exibir modal
+      setAccessCode(generatedCode);
+      setCreatedPatientData({
+        ...createdPatient,
+        patientName: data.name || existingUser?.name || data.email,
+      });
+      setSuccessMessage("Paciente cadastrado com sucesso!");
+      setShowAccessCodeModal(true);
     } catch (err: any) {
-      console.error(err);
+      console.error("❌ [PATIENT_CREATE] Erro ao cadastrar paciente:", err);
+      console.error("❌ Detalhes do erro:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        stack: err.stack,
+      });
       setSubmitError(
         err?.response?.data?.message ||
           err.message ||
@@ -160,6 +229,30 @@ export function PatientCreateScreen({ navigation }: any) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Função para copiar código para clipboard
+  const handleCopyCode = async () => {
+    await Clipboard.setStringAsync(accessCode);
+  };
+
+  // Função para compartilhar código
+  const handleShareCode = async () => {
+    try {
+      await Share.share({
+        message: `Seu código de acesso ao Silvestra: ${accessCode}\n\nUse este código para completar seu cadastro no aplicativo.`,
+        title: "Código de Acesso Silvestra",
+      });
+    } catch (error) {
+      console.error("Erro ao compartilhar:", error);
+    }
+  };
+
+  // Função para fechar modal e navegar
+  const handleCloseModal = () => {
+    setShowAccessCodeModal(false);
+    // Navegar com parâmetro para forçar refresh da lista
+    navigation.navigate("Patients", { refresh: true, timestamp: Date.now() });
   };
 
   return (
@@ -301,6 +394,35 @@ export function PatientCreateScreen({ navigation }: any) {
             <Text style={styles.cardTitle}>Dados Pessoais</Text>
           </View>
 
+          {/* Campo Email (read-only para visualização) */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>E-mail</Text>
+            <Controller
+              control={control}
+              name="email"
+              render={({ field: { value } }) => (
+                <View style={[styles.inputWrapper, styles.inputDisabled]}>
+                  <Ionicons
+                    name="mail"
+                    size={18}
+                    color={lightTheme.colors.gray[400]}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="E-mail do paciente"
+                    placeholderTextColor={lightTheme.colors.gray[400]}
+                    value={value}
+                    editable={false}
+                  />
+                </View>
+              )}
+            />
+            <Text style={styles.helperText}>
+              O e-mail foi definido na busca acima
+            </Text>
+          </View>
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Nome Completo</Text>
             <Controller
@@ -345,7 +467,8 @@ export function PatientCreateScreen({ navigation }: any) {
                     placeholderTextColor={lightTheme.colors.gray[400]}
                     keyboardType="phone-pad"
                     value={value}
-                    onChangeText={onChange}
+                    onChangeText={(text) => onChange(applyPhoneMask(text))}
+                    maxLength={15}
                   />
                 </View>
               )}
@@ -371,7 +494,8 @@ export function PatientCreateScreen({ navigation }: any) {
                     placeholderTextColor={lightTheme.colors.gray[400]}
                     keyboardType="number-pad"
                     value={value}
-                    onChangeText={onChange}
+                    onChangeText={(text) => onChange(applyCpfMask(text))}
+                    maxLength={14}
                   />
                 </View>
               )}
@@ -397,7 +521,8 @@ export function PatientCreateScreen({ navigation }: any) {
                     placeholderTextColor={lightTheme.colors.gray[400]}
                     keyboardType="number-pad"
                     value={value}
-                    onChangeText={onChange}
+                    onChangeText={(text) => onChange(applyDateMask(text))}
+                    maxLength={10}
                   />
                 </View>
               )}
@@ -537,6 +662,103 @@ export function PatientCreateScreen({ navigation }: any) {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Modal de Código de Acesso */}
+      <Modal
+        visible={showAccessCodeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseModal}
+      >
+        <View style={styles.modalOverlay}>
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              {/* Header do Modal */}
+              <View style={styles.modalHeader}>
+                <View style={styles.modalIconContainer}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={36}
+                    color={lightTheme.colors.success}
+                  />
+                </View>
+                <Text style={styles.modalTitle}>Paciente Cadastrado!</Text>
+                <Text style={styles.modalSubtitle}>
+                  {createdPatientData?.patientName || "Paciente"} foi cadastrado
+                  com sucesso.
+                </Text>
+              </View>
+
+              {/* Código de Acesso */}
+              <View style={styles.accessCodeSection}>
+                <View style={styles.accessCodeLabel}>
+                  <Ionicons
+                    name="key"
+                    size={20}
+                    color={lightTheme.colors.primary}
+                  />
+                  <Text style={styles.accessCodeLabelText}>
+                    Código de Acesso do Paciente
+                  </Text>
+                </View>
+
+                <View style={styles.accessCodeBox}>
+                  <Text style={styles.accessCodeText}>{accessCode}</Text>
+                </View>
+
+                <Text style={styles.accessCodeInstructions}>
+                  Compartilhe este código com o paciente. Ele será necessário
+                  para completar o cadastro e criar a senha de acesso ao
+                  aplicativo.
+                </Text>
+              </View>
+
+              {/* Botões de Ação */}
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.copyButton}
+                  onPress={handleCopyCode}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="copy-outline"
+                    size={20}
+                    color={lightTheme.colors.white}
+                  />
+                  <Text style={styles.copyButtonText}>Copiar Código</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.shareButton}
+                  onPress={handleShareCode}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name="share-outline"
+                    size={20}
+                    color={lightTheme.colors.primary}
+                  />
+                  <Text style={styles.shareButtonText}>Compartilhar</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Botão de Fechar */}
+              <TouchableOpacity
+                style={styles.closeModalButton}
+                onPress={handleCloseModal}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.closeModalButtonText}>Concluir</Text>
+                <Ionicons
+                  name="arrow-forward"
+                  size={20}
+                  color={lightTheme.colors.white}
+                />
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -668,11 +890,21 @@ const styles = StyleSheet.create({
     borderColor: lightTheme.colors.gray[200],
     paddingHorizontal: lightTheme.spacing.md,
   },
+  inputDisabled: {
+    backgroundColor: lightTheme.colors.gray[100],
+    opacity: 0.7,
+  },
   input: {
     flex: 1,
     paddingVertical: 14,
     fontSize: lightTheme.typography.fontSize.base,
     color: lightTheme.colors.gray[800],
+  },
+  helperText: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[500],
+    marginTop: 4,
+    fontStyle: "italic",
   },
   pickerWrapper: {
     flexDirection: "row",
@@ -717,6 +949,142 @@ const styles = StyleSheet.create({
   submitText: {
     color: lightTheme.colors.white,
     fontSize: lightTheme.typography.fontSize.lg,
+    fontWeight: lightTheme.typography.fontWeight.bold as any,
+  },
+  // Estilos do Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    width: "90%",
+    maxWidth: 450,
+  },
+  modalContent: {
+    backgroundColor: lightTheme.colors.white,
+    borderRadius: lightTheme.borderRadius.xl,
+    padding: lightTheme.spacing.lg,
+    ...lightTheme.shadows.lg,
+  },
+  modalHeader: {
+    alignItems: "center",
+    marginBottom: lightTheme.spacing.lg,
+  },
+  modalIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: `${lightTheme.colors.success}15`,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: lightTheme.spacing.sm,
+  },
+  modalTitle: {
+    fontSize: lightTheme.typography.fontSize.xl,
+    fontWeight: lightTheme.typography.fontWeight.bold as any,
+    color: lightTheme.colors.gray[900],
+    marginBottom: lightTheme.spacing.xs,
+    textAlign: "center",
+  },
+  modalSubtitle: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  accessCodeSection: {
+    backgroundColor: lightTheme.colors.gray[50],
+    borderRadius: lightTheme.borderRadius.lg,
+    padding: lightTheme.spacing.md,
+    marginBottom: lightTheme.spacing.lg,
+  },
+  accessCodeLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: lightTheme.spacing.sm,
+    gap: lightTheme.spacing.xs,
+  },
+  accessCodeLabelText: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+    color: lightTheme.colors.gray[700],
+  },
+  accessCodeBox: {
+    backgroundColor: lightTheme.colors.white,
+    borderRadius: lightTheme.borderRadius.md,
+    paddingVertical: lightTheme.spacing.md,
+    paddingHorizontal: lightTheme.spacing.lg,
+    marginBottom: lightTheme.spacing.sm,
+    borderWidth: 2,
+    borderColor: lightTheme.colors.primary,
+    borderStyle: "dashed",
+  },
+  accessCodeText: {
+    fontSize: 28,
+    fontWeight: lightTheme.typography.fontWeight.bold as any,
+    color: lightTheme.colors.primary,
+    textAlign: "center",
+    letterSpacing: 3,
+  },
+  accessCodeInstructions: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[600],
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: lightTheme.spacing.sm,
+    marginBottom: lightTheme.spacing.md,
+  },
+  copyButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: lightTheme.colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: lightTheme.spacing.sm,
+    borderRadius: lightTheme.borderRadius.md,
+    gap: 6,
+  },
+  copyButtonText: {
+    color: lightTheme.colors.white,
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+  },
+  shareButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: lightTheme.colors.white,
+    paddingVertical: 10,
+    paddingHorizontal: lightTheme.spacing.sm,
+    borderRadius: lightTheme.borderRadius.md,
+    borderWidth: 1.5,
+    borderColor: lightTheme.colors.primary,
+    gap: 6,
+  },
+  shareButtonText: {
+    color: lightTheme.colors.primary,
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+  },
+  closeModalButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: lightTheme.colors.success,
+    paddingVertical: 12,
+    borderRadius: lightTheme.borderRadius.md,
+    gap: lightTheme.spacing.xs,
+  },
+  closeModalButtonText: {
+    color: lightTheme.colors.white,
+    fontSize: lightTheme.typography.fontSize.base,
     fontWeight: lightTheme.typography.fontWeight.bold as any,
   },
 });

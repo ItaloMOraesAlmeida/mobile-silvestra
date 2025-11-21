@@ -37,6 +37,9 @@ export interface Patient {
   lastContactDate?: Date;
   lastEvaluationDate?: Date;
   adherenceScore?: number;
+  accessCode?: string;
+  accessCodeUsedAt?: Date;
+  accessCodeExpiresAt?: Date;
   createdAt: Date;
   updatedAt: Date;
   patient: PatientProfile;
@@ -93,9 +96,9 @@ export const usePatients = () => {
       if (filters?.page) params.append("page", filters.page.toString());
       if (filters?.limit) params.append("limit", filters.limit.toString());
 
-      const response = await api.get<PatientsResponse>(
-        `/patients?${params.toString()}`
-      );
+      const url = `/patients?${params.toString()}`;
+
+      const response = await api.get<PatientsResponse>(url);
 
       // O api.service retorna o corpo já parseado. Algumas rotas retornam
       // diretamente o array de pacientes, outras retornam um objeto { data, meta }.
@@ -243,9 +246,50 @@ export const usePatients = () => {
   /**
    * Recarrega a lista de pacientes
    */
-  const refreshPatients = useCallback(() => {
-    return getPatients({ page: 1, limit: 20 });
+  const refreshPatients = useCallback(async () => {
+    try {
+      const result = await getPatients({ page: 1, limit: 20 });
+      return result;
+    } catch (error: any) {
+      console.error("❌ refreshPatients error:", {
+        error,
+        message: error?.message,
+        stack: error?.stack,
+        response: error?.response,
+      });
+      throw error;
+    }
   }, [getPatients]);
+
+  /**
+   * Regenera o código de acesso de um paciente
+   */
+  const regenerateAccessCode = useCallback(async (patientId: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await api.patch<Patient>(
+        `/patients/${patientId}/regenerate-access-code`
+      );
+
+      // Atualiza a lista de pacientes localmente
+      setPatients((prev) =>
+        prev.map((p) =>
+          p.id === patientId ? (response as any).data || response : p
+        )
+      );
+
+      return response;
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.message || "Erro ao regenerar código de acesso";
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   return {
     patients,
@@ -259,5 +303,6 @@ export const usePatients = () => {
     searchPatients,
     filterByStatus,
     refreshPatients,
+    regenerateAccessCode,
   };
 };

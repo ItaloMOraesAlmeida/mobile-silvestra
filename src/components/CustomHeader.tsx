@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { NavigationProp } from "@react-navigation/native";
+import { useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { lightTheme } from "../theme";
 
@@ -19,6 +20,7 @@ interface CustomHeaderProps {
   isDrawerOpen?: boolean;
   showBackButton?: boolean;
   backTo?: string; // Nome da tela para onde voltar (opcional)
+  onBackPress?: () => boolean; // Callback para interceptar o botão voltar - retorna true para continuar, false para cancelar
 }
 
 export function CustomHeader({
@@ -27,7 +29,9 @@ export function CustomHeader({
   isDrawerOpen,
   showBackButton = false,
   backTo,
+  onBackPress,
 }: CustomHeaderProps) {
+  const route = useRoute();
   const toggleDrawer = () => {
     try {
       // Tenta abrir/fechar via parent (útil quando este header está em uma Stack/Tab
@@ -65,13 +69,37 @@ export function CustomHeader({
   };
 
   const handleBackPress = () => {
+    // Se há callback customizado, executa e verifica se deve continuar
+    if (onBackPress) {
+      const shouldContinue = onBackPress();
+      if (!shouldContinue) {
+        // O callback retornou false, cancela a ação de voltar
+        return;
+      }
+    }
+
     if (showBackButton) {
-      // Se backTo foi especificado, navega para lá
-      if (backTo) {
+      // Se backTo é "PatientDetails", tenta pegar o patientId da rota atual
+      if (backTo === "PatientDetails") {
+        const params = (route as any)?.params;
+        const patientId = params?.patientId;
+
+        if (patientId) {
+          // Navega para PatientDetails passando o patientId
+          navigation.navigate("PatientDetails", { patientId });
+        } else {
+          // Fallback: usa goBack()
+          navigation.goBack();
+        }
+      } else if (backTo === "Patients") {
+        // Para lista de pacientes, usa goBack()
+        navigation.goBack();
+      } else if (backTo) {
+        // Para outras telas específicas
         navigation.navigate(backTo as never);
       } else {
-        // Padrão: voltar para Settings
-        navigation.navigate("Settings" as never);
+        // Padrão: voltar
+        navigation.goBack();
       }
     } else {
       navigation.goBack();

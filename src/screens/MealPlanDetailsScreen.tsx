@@ -1,0 +1,1946 @@
+/**
+ * Tela de Detalhes do Plano Alimentar - REFATORADO
+ *
+ * Visualização completa do plano alimentar com:
+ * - Informações gerais (nome, descrição, período, status)
+ * - Metas nutricionais e progresso
+ * - Resumo nutricional completo
+ * - Lista de todas as refeições e alimentos
+ * - Ações: editar, excluir, clonar, exportar PDF
+ *
+ * Refatorado em 20/11/2025:
+ * - Substituído className por StyleSheet
+ * - Aplicado lightTheme consistente
+ * - Adicionadas metas nutricionais
+ * - Melhorada organização visual
+ */
+
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  StyleSheet,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useMealPlansStore } from "../stores/meal-plans.store";
+import { MealPlanDetailsSkeleton } from "../components/MealPlanDetailsSkeleton";
+import { ProgressVsGoalsChart } from "../components/ProgressVsGoalsChart";
+import { lightTheme } from "../theme";
+import { DayOfWeek } from "../types/meal-plan.types";
+import {
+  getPlanStatusIcon,
+  getPlanStatusColor,
+  getPlanStatusLabel,
+  getMealTypeIcon,
+  getMealTypeColor,
+  formatGrams,
+  formatCalories,
+  formatMacro,
+  formatPlanPeriod,
+  formatShortDate,
+  getDaysRemaining,
+  getProgressColor,
+  getProgressLabel,
+  getMacroColor,
+  getNutritionSummaryText,
+} from "../utils/meal-plan.utils";
+
+interface Props {
+  navigation: any;
+  route: any;
+}
+
+// Constantes para dias da semana
+const DAY_LABELS: { key: DayOfWeek; label: string; shortLabel: string }[] = [
+  { key: DayOfWeek.MONDAY, label: "Segunda-feira", shortLabel: "SEG" },
+  { key: DayOfWeek.TUESDAY, label: "Terça-feira", shortLabel: "TER" },
+  { key: DayOfWeek.WEDNESDAY, label: "Quarta-feira", shortLabel: "QUA" },
+  { key: DayOfWeek.THURSDAY, label: "Quinta-feira", shortLabel: "QUI" },
+  { key: DayOfWeek.FRIDAY, label: "Sexta-feira", shortLabel: "SEX" },
+  { key: DayOfWeek.SATURDAY, label: "Sábado", shortLabel: "SÁB" },
+  { key: DayOfWeek.SUNDAY, label: "Domingo", shortLabel: "DOM" },
+];
+
+export default function MealPlanDetailsScreen({ navigation, route }: Props) {
+  const {
+    selectedPlan,
+    loadPlanById,
+    deletePlan,
+    clonePlan,
+    exportPlanPdf,
+    generateShoppingList,
+    loading,
+    error,
+  } = useMealPlansStore();
+
+  const [expandedMeals, setExpandedMeals] = useState<Set<string>>(new Set());
+  const [expandedDays, setExpandedDays] = useState<Set<DayOfWeek>>(new Set());
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  const planId = route?.params?.planId || selectedPlan?.id;
+
+  // Carregar plano quando planId mudar
+  useEffect(() => {
+    if (planId) {
+      setIsInitialLoad(true);
+      loadPlanById(planId).finally(() => {
+        setIsInitialLoad(false);
+      });
+    }
+  }, [planId, loadPlanById]);
+
+  const toggleMealExpansion = (mealId: string) => {
+    setExpandedMeals((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(mealId)) {
+        newSet.delete(mealId);
+      } else {
+        newSet.add(mealId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleDayExpansion = (day: DayOfWeek) => {
+    setExpandedDays((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(day)) {
+        newSet.delete(day);
+      } else {
+        newSet.add(day);
+      }
+      return newSet;
+    });
+  };
+
+  // Helper function to format food quantity with measurement unit
+  const formatFoodQuantity = (item: any): string => {
+    if (item.measurementType === "CASEIRA" && item.measurementUnit) {
+      // Medida caseira: item.quantity JÁ VEM EM GRAMAS
+      // Precisamos DIVIDIR para obter quantidade em unidades
+      const totalGrams = item.quantity || 0;
+      // O campo pode ser "grams" ou "gramsEquivalent"
+      const gramsPerUnit =
+        item.measurementUnit.grams || item.measurementUnit.gramsEquivalent || 0;
+      const quantityInUnits = gramsPerUnit > 0 ? totalGrams / gramsPerUnit : 0;
+      const measureName =
+        item.measurementUnit.name ||
+        item.measurementUnit.abbreviation ||
+        "medida";
+
+      const result = `${quantityInUnits.toFixed(
+        1
+      )} ${measureName} (${totalGrams.toFixed(0)}g)`;
+      return result;
+    }
+    // Gramas: mostrar apenas gramas
+    const result = `${(item.quantity || 0).toFixed(0)}g`;
+    return result;
+  };
+
+  const handleEdit = async () => {
+    if (!selectedPlan) return;
+
+    try {
+      // Carregar plano completo no builder para edição
+      const { initBuilderForEdit } = useMealPlansStore.getState();
+      await initBuilderForEdit(selectedPlan.id);
+
+      // Navegar para o Builder em modo de edição
+      navigation.navigate("MealPlanBuilder", {
+        mode: "edit",
+        planId: selectedPlan.id,
+      });
+    } catch (err: any) {
+      Alert.alert("Erro", err.message || "Erro ao carregar plano para edição");
+    }
+  };
+
+  const handleDelete = () => {
+    if (!selectedPlan) return;
+
+    Alert.alert(
+      "Excluir Plano",
+      `Tem certeza que deseja excluir o plano "${selectedPlan.name}"? Esta ação não pode ser desfeita.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Excluir",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deletePlan(selectedPlan.id);
+              Alert.alert("Sucesso", "Plano excluído com sucesso");
+              navigation.goBack();
+            } catch (err: any) {
+              Alert.alert("Erro", err.message || "Erro ao excluir plano");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleClone = async () => {
+    if (!selectedPlan) return;
+
+    Alert.alert("Duplicar Plano", "Deseja criar uma cópia deste plano?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Duplicar",
+        onPress: async () => {
+          try {
+            const clonedPlan = await clonePlan(selectedPlan.id);
+            Alert.alert("Sucesso", `Plano duplicado: "${clonedPlan.name}"`, [
+              {
+                text: "Ver Cópia",
+                onPress: () =>
+                  navigation.replace("MealPlanDetails", {
+                    planId: clonedPlan.id,
+                  }),
+              },
+              { text: "OK" },
+            ]);
+          } catch (err: any) {
+            Alert.alert("Erro", err.message || "Erro ao duplicar plano");
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleGenerateShoppingList = async () => {
+    if (!selectedPlan) return;
+
+    try {
+      await generateShoppingList(selectedPlan.id);
+      Alert.alert("Sucesso", "Lista de compras gerada!", [
+        {
+          text: "Ver Lista",
+          onPress: () =>
+            navigation.navigate("ShoppingList", { planId: selectedPlan.id }),
+        },
+        { text: "OK" },
+      ]);
+    } catch (err: any) {
+      Alert.alert("Erro", err.message || "Erro ao gerar lista de compras");
+    }
+  };
+
+  const handleShare = async () => {
+    if (!selectedPlan) return;
+
+    const nutritionText = getNutritionSummaryText(selectedPlan.nutrition);
+    const mealsText = selectedPlan.meals
+      .map((meal) => {
+        const items = meal.items
+          .map((item) => `  • ${item.name} (${formatGrams(item.quantity)})`)
+          .join("\n");
+        return `\n${getMealTypeIcon(meal.type)} ${meal.name} - ${
+          meal.time || "Sem horário"
+        }\n${items}`;
+      })
+      .join("\n");
+
+    const message = `
+📋 Plano Alimentar: ${selectedPlan.name}
+
+📅 Período: ${formatPlanPeriod(selectedPlan.startDate, selectedPlan.endDate)}
+📊 Status: ${getPlanStatusLabel(selectedPlan.status)}
+
+🔢 Resumo Nutricional:
+${nutritionText}
+
+🍽️ Refeições:${mealsText}
+
+---
+Gerado pelo Silvestra App 🌿
+    `.trim();
+
+    try {
+      await Share.share({
+        message,
+        title: `Plano Alimentar - ${selectedPlan.name}`,
+      });
+    } catch (err) {
+      console.error("Erro ao compartilhar:", err);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!selectedPlan) return;
+
+    try {
+      Alert.alert("Exportando PDF", "Gerando PDF do plano alimentar...");
+
+      // Obter o blob do PDF do backend
+      const pdfBlob = await exportPlanPdf(selectedPlan.id);
+
+      // Criar arquivo temporário no diretório de cache
+      const fileName = `plano-${selectedPlan.id.substring(0, 8)}.pdf`;
+      const file = new File(Paths.cache, fileName);
+
+      // Converter blob para ArrayBuffer e escrever no arquivo
+      const arrayBuffer = await (pdfBlob as any).arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+
+      // Escrever arquivo usando a nova API
+      await file.write(uint8Array);
+
+      // Verificar se compartilhamento está disponível
+      const isAvailable = await Sharing.isAvailableAsync();
+
+      if (isAvailable) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: "application/pdf",
+          dialogTitle: `Plano Alimentar - ${selectedPlan.name}`,
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        Alert.alert("Sucesso", `PDF salvo em: ${file.uri}`, [{ text: "OK" }]);
+      }
+    } catch (err: any) {
+      console.error("Erro ao exportar PDF:", err);
+      Alert.alert("Erro", err.message || "Erro ao exportar PDF");
+    }
+  };
+
+  // Loading State - Skeleton
+  // Mostra skeleton durante carregamento inicial ou quando loading está ativo sem plano selecionado
+  if (isInitialLoad || (loading && !selectedPlan)) {
+    return <MealPlanDetailsSkeleton />;
+  }
+
+  // Error State
+  if (error || !selectedPlan) {
+    return (
+      <SafeAreaView style={styles.errorContainer}>
+        <Ionicons
+          name="alert-circle-outline"
+          size={64}
+          color={lightTheme.colors.error}
+        />
+        <Text
+          style={[
+            styles.errorText,
+            {
+              fontWeight: lightTheme.typography.fontWeight.semibold,
+              fontSize: lightTheme.typography.fontSize.lg,
+              marginTop: lightTheme.spacing[4],
+            },
+          ]}
+        >
+          Erro ao carregar plano
+        </Text>
+        <Text style={styles.errorText}>{error || "Plano não encontrado"}</Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.retryButton}
+        >
+          <Text style={styles.retryButtonText}>Voltar</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  const plan = selectedPlan;
+  const daysRemaining = getDaysRemaining(plan.endDate);
+
+  // Helper function to normalize dayOfWeek value
+  const normalizeDayOfWeek = (day: any): DayOfWeek => {
+    // Se for número (0-6), converte para enum
+    if (typeof day === "number") {
+      const dayMap: Record<number, DayOfWeek> = {
+        0: DayOfWeek.SUNDAY,
+        1: DayOfWeek.MONDAY,
+        2: DayOfWeek.TUESDAY,
+        3: DayOfWeek.WEDNESDAY,
+        4: DayOfWeek.THURSDAY,
+        5: DayOfWeek.FRIDAY,
+        6: DayOfWeek.SATURDAY,
+      };
+      return dayMap[day] || DayOfWeek.MONDAY;
+    }
+
+    // Se for string, garante uppercase
+    if (typeof day === "string") {
+      const upperDay = day.toUpperCase();
+      // Verifica se é um valor válido do enum
+      if (Object.values(DayOfWeek).includes(upperDay as DayOfWeek)) {
+        return upperDay as DayOfWeek;
+      }
+    }
+
+    // Fallback para Monday se não conseguir normalizar
+    console.warn(`⚠️ Invalid dayOfWeek value: ${day} (type: ${typeof day})`);
+    return DayOfWeek.MONDAY;
+  };
+
+  // Group meals by day of week
+  const mealsByDay = plan.meals.reduce((acc, meal) => {
+    const day = normalizeDayOfWeek(meal.dayOfWeek);
+    if (!acc[day]) {
+      acc[day] = [];
+    }
+    acc[day].push(meal);
+    return acc;
+  }, {} as Record<DayOfWeek, typeof plan.meals>);
+
+  // Sort meals within each day by order (or time)
+  Object.keys(mealsByDay).forEach((day) => {
+    mealsByDay[day as DayOfWeek].sort((a, b) => {
+      // Assuming meals have an 'order' field or we use time
+      if (a.order !== undefined && b.order !== undefined) {
+        return a.order - b.order;
+      }
+      if (a.time && b.time) {
+        return a.time.localeCompare(b.time);
+      }
+      return 0;
+    });
+  });
+
+  // Calcular número de dias únicos no plano
+  const uniqueDays = Object.keys(mealsByDay).length;
+
+  // Calcular progresso correto (comparar médias diárias com metas diárias)
+  const dailyAvgCalories =
+    uniqueDays > 0 ? plan.nutrition.totalCalories / uniqueDays : 0;
+  const dailyAvgProtein =
+    uniqueDays > 0 ? plan.nutrition.totalProtein / uniqueDays : 0;
+  const dailyAvgCarbs =
+    uniqueDays > 0 ? plan.nutrition.totalCarbs / uniqueDays : 0;
+  const dailyAvgFat = uniqueDays > 0 ? plan.nutrition.totalFat / uniqueDays : 0;
+
+  // Calcular progresso percentual correto
+  const caloriesProgress = plan.nutrition.targetCalories
+    ? (dailyAvgCalories / plan.nutrition.targetCalories) * 100
+    : 0;
+  const proteinProgress = plan.nutrition.targetProtein
+    ? (dailyAvgProtein / plan.nutrition.targetProtein) * 100
+    : 0;
+  const carbsProgress = plan.nutrition.targetCarbs
+    ? (dailyAvgCarbs / plan.nutrition.targetCarbs) * 100
+    : 0;
+  const fatProgress = plan.nutrition.targetFat
+    ? (dailyAvgFat / plan.nutrition.targetFat) * 100
+    : 0;
+
+  return (
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Plan Header Card */}
+        <View style={styles.headerCard}>
+          <View style={styles.headerTop}>
+            <View style={styles.headerLeft}>
+              <Text style={styles.planName}>{plan.name}</Text>
+              {plan.description && (
+                <Text style={styles.planDescription}>{plan.description}</Text>
+              )}
+            </View>
+            {plan.isTemplate && (
+              <View style={styles.templateBadge}>
+                <Ionicons
+                  name="document-text"
+                  size={12}
+                  color={lightTheme.colors.warning}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={styles.templateText}>Template</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Status & Period */}
+          <View style={styles.statusRow}>
+            <View
+              style={[
+                styles.statusBadge,
+                { backgroundColor: getPlanStatusColor(plan.status) + "20" },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  { color: getPlanStatusColor(plan.status) },
+                ]}
+              >
+                {getPlanStatusIcon(plan.status)}{" "}
+                {getPlanStatusLabel(plan.status)}
+              </Text>
+            </View>
+            <View style={styles.periodBadge}>
+              <Ionicons
+                name="calendar-outline"
+                size={12}
+                color={lightTheme.colors.gray[700]}
+                style={{ marginRight: 4 }}
+              />
+              <Text style={styles.periodText}>
+                {formatPlanPeriod(plan.startDate, plan.endDate)}
+              </Text>
+            </View>
+            {daysRemaining !== null && daysRemaining >= 0 && (
+              <View style={styles.daysRemainingBadge}>
+                <Ionicons
+                  name="time-outline"
+                  size={12}
+                  color={lightTheme.colors.primary}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={styles.daysRemainingText}>
+                  {daysRemaining} dia(s) restantes
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Quick Actions */}
+          <View style={styles.actionsRow}>
+            <TouchableOpacity onPress={handleEdit} style={styles.actionButton}>
+              <Ionicons
+                name="create-outline"
+                size={16}
+                color={lightTheme.colors.primary}
+              />
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  { color: lightTheme.colors.primary },
+                ]}
+              >
+                Editar
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleClone} style={styles.actionButton}>
+              <Ionicons
+                name="copy-outline"
+                size={16}
+                color={lightTheme.colors.success}
+              />
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  { color: lightTheme.colors.success },
+                ]}
+              >
+                Duplicar
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleDelete}
+              style={styles.actionButton}
+            >
+              <Ionicons
+                name="trash-outline"
+                size={16}
+                color={lightTheme.colors.error}
+              />
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  { color: lightTheme.colors.error },
+                ]}
+              >
+                Excluir
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Export PDF Button - Full Width */}
+          <TouchableOpacity
+            onPress={handleExportPdf}
+            style={[
+              styles.exportButton,
+              loading && styles.exportButtonDisabled,
+            ]}
+            disabled={loading}
+          >
+            <Ionicons
+              name="download-outline"
+              size={18}
+              color={lightTheme.colors.white}
+            />
+            <Text style={styles.exportButtonText}>Exportar PDF</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Metas Nutricionais - SEÇÃO MELHORADA */}
+        {(plan.nutrition.targetCalories ||
+          plan.nutrition.targetProtein ||
+          plan.nutrition.targetCarbs ||
+          plan.nutrition.targetFat ||
+          plan.nutrition.targetFiber) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              🎯 Metas Nutricionais Diárias
+            </Text>
+            <View style={styles.goalsCard}>
+              {plan.nutrition.targetCalories && (
+                <View style={styles.goalItemEnhanced}>
+                  <View style={styles.goalIconContainer}>
+                    <Ionicons
+                      name="flame"
+                      size={28}
+                      color={lightTheme.colors.primary}
+                    />
+                  </View>
+                  <View style={styles.goalContent}>
+                    <Text style={styles.goalLabelEnhanced}>
+                      Calorias (Diária)
+                    </Text>
+                    <Text style={styles.goalValueEnhanced}>
+                      {formatCalories(plan.nutrition.targetCalories)}
+                    </Text>
+                    <Text style={styles.goalProgress}>
+                      Média Atual:{" "}
+                      {formatCalories(Math.round(dailyAvgCalories))} •{" "}
+                      <Text
+                        style={{
+                          color: getProgressColor(caloriesProgress),
+                          fontWeight: "600",
+                        }}
+                      >
+                        {getProgressLabel(caloriesProgress)}
+                      </Text>
+                    </Text>
+                  </View>
+                </View>
+              )}
+              {plan.nutrition.targetProtein && (
+                <View style={styles.goalItemEnhanced}>
+                  <View style={styles.goalIconContainer}>
+                    <Ionicons
+                      name="fitness"
+                      size={28}
+                      color={getMacroColor("protein")}
+                    />
+                  </View>
+                  <View style={styles.goalContent}>
+                    <Text style={styles.goalLabelEnhanced}>
+                      Proteínas (Diária)
+                    </Text>
+                    <Text style={styles.goalValueEnhanced}>
+                      {formatMacro(plan.nutrition.targetProtein)}
+                    </Text>
+                    <Text style={styles.goalProgress}>
+                      Média Atual: {formatMacro(dailyAvgProtein)} •{" "}
+                      <Text
+                        style={{
+                          color: getProgressColor(proteinProgress),
+                          fontWeight: "600",
+                        }}
+                      >
+                        {getProgressLabel(proteinProgress)}
+                      </Text>
+                    </Text>
+                  </View>
+                </View>
+              )}
+              {plan.nutrition.targetCarbs && (
+                <View style={styles.goalItemEnhanced}>
+                  <View style={styles.goalIconContainer}>
+                    <Ionicons
+                      name="battery-charging"
+                      size={28}
+                      color={getMacroColor("carbs")}
+                    />
+                  </View>
+                  <View style={styles.goalContent}>
+                    <Text style={styles.goalLabelEnhanced}>
+                      Carboidratos (Diária)
+                    </Text>
+                    <Text style={styles.goalValueEnhanced}>
+                      {formatMacro(plan.nutrition.targetCarbs)}
+                    </Text>
+                    <Text style={styles.goalProgress}>
+                      Média Atual: {formatMacro(dailyAvgCarbs)} •{" "}
+                      <Text
+                        style={{
+                          color: getProgressColor(carbsProgress),
+                          fontWeight: "600",
+                        }}
+                      >
+                        {getProgressLabel(carbsProgress)}
+                      </Text>
+                    </Text>
+                  </View>
+                </View>
+              )}
+              {plan.nutrition.targetFat && (
+                <View style={styles.goalItemEnhanced}>
+                  <View style={styles.goalIconContainer}>
+                    <Ionicons
+                      name="water"
+                      size={28}
+                      color={getMacroColor("fat")}
+                    />
+                  </View>
+                  <View style={styles.goalContent}>
+                    <Text style={styles.goalLabelEnhanced}>
+                      Gorduras (Diária)
+                    </Text>
+                    <Text style={styles.goalValueEnhanced}>
+                      {formatMacro(plan.nutrition.targetFat)}
+                    </Text>
+                    <Text style={styles.goalProgress}>
+                      Média Atual: {formatMacro(dailyAvgFat)} •{" "}
+                      <Text
+                        style={{
+                          color: getProgressColor(fatProgress),
+                          fontWeight: "600",
+                        }}
+                      >
+                        {getProgressLabel(fatProgress)}
+                      </Text>
+                    </Text>
+                  </View>
+                </View>
+              )}
+              {plan.nutrition.targetFiber && (
+                <View style={styles.goalItemEnhanced}>
+                  <View style={styles.goalIconContainer}>
+                    <Ionicons
+                      name="leaf"
+                      size={28}
+                      color={lightTheme.colors.success}
+                    />
+                  </View>
+                  <View style={styles.goalContent}>
+                    <Text style={styles.goalLabelEnhanced}>
+                      Fibras (Diária)
+                    </Text>
+                    <Text style={styles.goalValueEnhanced}>
+                      {formatMacro(plan.nutrition.targetFiber)}
+                    </Text>
+                    <Text style={styles.goalProgress}>
+                      Média Atual:{" "}
+                      {formatMacro(
+                        uniqueDays > 0
+                          ? plan.nutrition.totalFiber / uniqueDays
+                          : 0
+                      )}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Nutrition Summary */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Resumo Nutricional</Text>
+
+          {/* Calories */}
+          <View
+            style={[
+              styles.nutritionCard,
+              { marginBottom: lightTheme.spacing[3] },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: lightTheme.spacing[2],
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize.sm,
+                    color: lightTheme.colors.gray[600],
+                    marginBottom: 4,
+                  }}
+                >
+                  🔥 Calorias Totais (Semanal)
+                </Text>
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize["3xl"],
+                    fontWeight: lightTheme.typography.fontWeight.bold,
+                    color: lightTheme.colors.gray[900],
+                  }}
+                >
+                  {formatCalories(plan.nutrition.totalCalories)}
+                </Text>
+                {uniqueDays > 0 && (
+                  <View style={{ marginTop: 8 }}>
+                    <Text
+                      style={{
+                        fontSize: lightTheme.typography.fontSize.sm,
+                        color: lightTheme.colors.gray[600],
+                      }}
+                    >
+                      Média Diária:{" "}
+                      <Text
+                        style={{
+                          fontWeight: "600",
+                          color: lightTheme.colors.gray[900],
+                        }}
+                      >
+                        {formatCalories(Math.round(dailyAvgCalories))}
+                      </Text>
+                    </Text>
+                    {plan.nutrition.targetCalories && (
+                      <Text
+                        style={{
+                          fontSize: lightTheme.typography.fontSize.sm,
+                          color: lightTheme.colors.gray[600],
+                          marginTop: 2,
+                        }}
+                      >
+                        Meta Diária:{" "}
+                        <Text
+                          style={{
+                            fontWeight: "600",
+                            color: lightTheme.colors.primary,
+                          }}
+                        >
+                          {formatCalories(plan.nutrition.targetCalories)}
+                        </Text>
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            </View>
+            {plan.nutrition.targetCalories && (
+              <>
+                <View
+                  style={{
+                    backgroundColor: lightTheme.colors.gray[200],
+                    height: 8,
+                    borderRadius: lightTheme.borderRadius.full,
+                    overflow: "hidden",
+                    marginBottom: lightTheme.spacing[2],
+                  }}
+                >
+                  <View
+                    style={{
+                      height: "100%",
+                      borderRadius: lightTheme.borderRadius.full,
+                      width: `${Math.min(caloriesProgress, 100)}%`,
+                      backgroundColor: getProgressColor(caloriesProgress),
+                    }}
+                  />
+                </View>
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize.xs,
+                    color: lightTheme.colors.gray[500],
+                    textAlign: "center",
+                  }}
+                >
+                  {getProgressLabel(caloriesProgress)}
+                </Text>
+              </>
+            )}
+          </View>
+
+          {/* Macros Grid */}
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+            {/* Proteínas */}
+            <View style={[styles.nutritionCard, { flex: 1, minWidth: "45%" }]}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginBottom: lightTheme.spacing[2],
+                }}
+              >
+                <View
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: lightTheme.borderRadius.full,
+                    marginRight: lightTheme.spacing[2],
+                    backgroundColor: getMacroColor("protein"),
+                  }}
+                />
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize.xs,
+                    color: lightTheme.colors.gray[600],
+                  }}
+                >
+                  Proteínas
+                </Text>
+              </View>
+              <View>
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize.xs,
+                    color: lightTheme.colors.gray[500],
+                    marginBottom: 2,
+                  }}
+                >
+                  Total Semanal
+                </Text>
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize["2xl"],
+                    fontWeight: lightTheme.typography.fontWeight.bold,
+                    color: lightTheme.colors.gray[900],
+                    marginBottom: lightTheme.spacing[1],
+                  }}
+                >
+                  {formatMacro(plan.nutrition.totalProtein)}
+                </Text>
+              </View>
+              {uniqueDays > 0 && (
+                <View
+                  style={{
+                    marginTop: 8,
+                    paddingTop: 8,
+                    borderTopWidth: 1,
+                    borderTopColor: lightTheme.colors.gray[100],
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: lightTheme.typography.fontSize.xs,
+                      color: lightTheme.colors.gray[600],
+                    }}
+                  >
+                    Média/dia:{" "}
+                    <Text
+                      style={{
+                        fontWeight: "600",
+                        color: lightTheme.colors.gray[900],
+                      }}
+                    >
+                      {formatMacro(dailyAvgProtein)}
+                    </Text>
+                  </Text>
+                  {plan.nutrition.targetProtein && (
+                    <Text
+                      style={{
+                        fontSize: lightTheme.typography.fontSize.xs,
+                        color: lightTheme.colors.gray[600],
+                        marginTop: 2,
+                      }}
+                    >
+                      Meta/dia:{" "}
+                      <Text
+                        style={{
+                          fontWeight: "600",
+                          color: getMacroColor("protein"),
+                        }}
+                      >
+                        {formatMacro(plan.nutrition.targetProtein)}
+                      </Text>
+                    </Text>
+                  )}
+                </View>
+              )}
+              <Text
+                style={{
+                  fontSize: lightTheme.typography.fontSize.xs,
+                  color: lightTheme.colors.gray[500],
+                  marginTop: 8,
+                }}
+              >
+                {plan.nutrition.proteinPercentage.toFixed(0)}% do total calórico
+              </Text>
+            </View>
+
+            {/* Carboidratos */}
+            <View style={[styles.nutritionCard, { flex: 1, minWidth: "45%" }]}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginBottom: lightTheme.spacing[2],
+                }}
+              >
+                <View
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: lightTheme.borderRadius.full,
+                    marginRight: lightTheme.spacing[2],
+                    backgroundColor: getMacroColor("carbs"),
+                  }}
+                />
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize.xs,
+                    color: lightTheme.colors.gray[600],
+                  }}
+                >
+                  Carboidratos
+                </Text>
+              </View>
+              <View>
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize.xs,
+                    color: lightTheme.colors.gray[500],
+                    marginBottom: 2,
+                  }}
+                >
+                  Total Semanal
+                </Text>
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize["2xl"],
+                    fontWeight: lightTheme.typography.fontWeight.bold,
+                    color: lightTheme.colors.gray[900],
+                    marginBottom: lightTheme.spacing[1],
+                  }}
+                >
+                  {formatMacro(plan.nutrition.totalCarbs)}
+                </Text>
+              </View>
+              {uniqueDays > 0 && (
+                <View
+                  style={{
+                    marginTop: 8,
+                    paddingTop: 8,
+                    borderTopWidth: 1,
+                    borderTopColor: lightTheme.colors.gray[100],
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: lightTheme.typography.fontSize.xs,
+                      color: lightTheme.colors.gray[600],
+                    }}
+                  >
+                    Média/dia:{" "}
+                    <Text
+                      style={{
+                        fontWeight: "600",
+                        color: lightTheme.colors.gray[900],
+                      }}
+                    >
+                      {formatMacro(dailyAvgCarbs)}
+                    </Text>
+                  </Text>
+                  {plan.nutrition.targetCarbs && (
+                    <Text
+                      style={{
+                        fontSize: lightTheme.typography.fontSize.xs,
+                        color: lightTheme.colors.gray[600],
+                        marginTop: 2,
+                      }}
+                    >
+                      Meta/dia:{" "}
+                      <Text
+                        style={{
+                          fontWeight: "600",
+                          color: getMacroColor("carbs"),
+                        }}
+                      >
+                        {formatMacro(plan.nutrition.targetCarbs)}
+                      </Text>
+                    </Text>
+                  )}
+                </View>
+              )}
+              <Text
+                style={{
+                  fontSize: lightTheme.typography.fontSize.xs,
+                  color: lightTheme.colors.gray[500],
+                  marginTop: 8,
+                }}
+              >
+                {plan.nutrition.carbsPercentage.toFixed(0)}% do total calórico
+              </Text>
+            </View>
+
+            {/* Gorduras */}
+            <View style={[styles.nutritionCard, { flex: 1, minWidth: "45%" }]}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginBottom: lightTheme.spacing[2],
+                }}
+              >
+                <View
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: lightTheme.borderRadius.full,
+                    marginRight: lightTheme.spacing[2],
+                    backgroundColor: getMacroColor("fat"),
+                  }}
+                />
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize.xs,
+                    color: lightTheme.colors.gray[600],
+                  }}
+                >
+                  Gorduras
+                </Text>
+              </View>
+              <View>
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize.xs,
+                    color: lightTheme.colors.gray[500],
+                    marginBottom: 2,
+                  }}
+                >
+                  Total Semanal
+                </Text>
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize["2xl"],
+                    fontWeight: lightTheme.typography.fontWeight.bold,
+                    color: lightTheme.colors.gray[900],
+                    marginBottom: lightTheme.spacing[1],
+                  }}
+                >
+                  {formatMacro(plan.nutrition.totalFat)}
+                </Text>
+              </View>
+              {uniqueDays > 0 && (
+                <View
+                  style={{
+                    marginTop: 8,
+                    paddingTop: 8,
+                    borderTopWidth: 1,
+                    borderTopColor: lightTheme.colors.gray[100],
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: lightTheme.typography.fontSize.xs,
+                      color: lightTheme.colors.gray[600],
+                    }}
+                  >
+                    Média/dia:{" "}
+                    <Text
+                      style={{
+                        fontWeight: "600",
+                        color: lightTheme.colors.gray[900],
+                      }}
+                    >
+                      {formatMacro(dailyAvgFat)}
+                    </Text>
+                  </Text>
+                  {plan.nutrition.targetFat && (
+                    <Text
+                      style={{
+                        fontSize: lightTheme.typography.fontSize.xs,
+                        color: lightTheme.colors.gray[600],
+                        marginTop: 2,
+                      }}
+                    >
+                      Meta/dia:{" "}
+                      <Text
+                        style={{
+                          fontWeight: "600",
+                          color: getMacroColor("fat"),
+                        }}
+                      >
+                        {formatMacro(plan.nutrition.targetFat)}
+                      </Text>
+                    </Text>
+                  )}
+                </View>
+              )}
+              <Text
+                style={{
+                  fontSize: lightTheme.typography.fontSize.xs,
+                  color: lightTheme.colors.gray[500],
+                  marginTop: 8,
+                }}
+              >
+                {plan.nutrition.fatPercentage.toFixed(0)}% do total calórico
+              </Text>
+            </View>
+
+            {/* Fibras */}
+            <View style={[styles.nutritionCard, { flex: 1, minWidth: "45%" }]}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginBottom: lightTheme.spacing[2],
+                }}
+              >
+                <Ionicons
+                  name="leaf-outline"
+                  size={14}
+                  color={lightTheme.colors.success}
+                />
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize.xs,
+                    color: lightTheme.colors.gray[600],
+                    marginLeft: lightTheme.spacing[1],
+                  }}
+                >
+                  Fibras
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontSize: lightTheme.typography.fontSize["2xl"],
+                  fontWeight: lightTheme.typography.fontWeight.bold,
+                  color: lightTheme.colors.gray[900],
+                  marginBottom: lightTheme.spacing[1],
+                }}
+              >
+                {formatMacro(plan.nutrition.totalFiber)}
+              </Text>
+              {plan.nutrition.targetFiber && (
+                <Text
+                  style={{
+                    fontSize: lightTheme.typography.fontSize.xs,
+                    color: lightTheme.colors.gray[400],
+                    marginTop: lightTheme.spacing[1],
+                  }}
+                >
+                  Meta: {formatMacro(plan.nutrition.targetFiber)}
+                </Text>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* Gráfico: Progresso vs Metas */}
+        <View style={styles.section}>
+          <ProgressVsGoalsChart
+            meals={plan.meals}
+            targets={{
+              targetCalories: plan.nutrition.targetCalories,
+              targetProtein: plan.nutrition.targetProtein,
+              targetCarbs: plan.nutrition.targetCarbs,
+              targetFat: plan.nutrition.targetFat,
+            }}
+            mealsByDay={mealsByDay}
+          />
+        </View>
+
+        {/* Shopping List CTA */}
+        <TouchableOpacity
+          onPress={handleGenerateShoppingList}
+          style={styles.shoppingListCTA}
+        >
+          <View style={styles.shoppingListIcon}>
+            <Ionicons
+              name="cart-outline"
+              size={24}
+              color={lightTheme.colors.success}
+            />
+          </View>
+          <View style={styles.shoppingListContent}>
+            <Text style={styles.shoppingListTitle}>Lista de Compras</Text>
+            <Text style={styles.shoppingListDescription}>
+              Gere uma lista organizada por categoria
+            </Text>
+          </View>
+          <Ionicons
+            name="chevron-forward"
+            size={24}
+            color={lightTheme.colors.success}
+          />
+        </TouchableOpacity>
+
+        {/* Meals List - Grouped by Day */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            Refeições ({plan.meals.length})
+          </Text>
+
+          {DAY_LABELS.map(({ key, label, shortLabel }) => {
+            const dayMeals = mealsByDay[key] || [];
+            if (dayMeals.length === 0) return null; // Skip days without meals
+
+            const isDayExpanded = expandedDays.has(key);
+            const dayTotalCalories = dayMeals.reduce(
+              (sum, meal) => sum + meal.nutrition.totalCalories,
+              0
+            );
+
+            return (
+              <View key={key} style={styles.dayCard}>
+                {/* Day Header */}
+                <TouchableOpacity
+                  onPress={() => toggleDayExpansion(key)}
+                  style={styles.dayHeader}
+                >
+                  <View style={styles.dayHeaderLeft}>
+                    <View style={styles.dayBadge}>
+                      <Text style={styles.dayBadgeText}>{shortLabel}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.dayName}>{label}</Text>
+                      <Text style={styles.daySubtitle}>
+                        {dayMeals.length} refeição(ões) •{" "}
+                        {formatCalories(dayTotalCalories)}
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons
+                    name={isDayExpanded ? "chevron-up" : "chevron-down"}
+                    size={24}
+                    color={lightTheme.colors.gray[500]}
+                  />
+                </TouchableOpacity>
+
+                {/* Day Meals (Expanded) */}
+                {isDayExpanded && (
+                  <View style={styles.dayContent}>
+                    {dayMeals.map((meal) => {
+                      const isExpanded = expandedMeals.has(meal.id);
+
+                      return (
+                        <View key={meal.id} style={styles.mealCard}>
+                          {/* Meal Header */}
+                          <TouchableOpacity
+                            onPress={() => toggleMealExpansion(meal.id)}
+                            style={[
+                              styles.mealHeader,
+                              {
+                                backgroundColor:
+                                  getMealTypeColor(meal.type) + "10",
+                              },
+                            ]}
+                          >
+                            <View style={styles.mealHeaderLeft}>
+                              <View style={styles.mealInfo}>
+                                <Text
+                                  style={{
+                                    fontSize: 24,
+                                    marginRight: lightTheme.spacing[2],
+                                  }}
+                                >
+                                  {getMealTypeIcon(meal.type)}
+                                </Text>
+                                <Text style={styles.mealName}>{meal.name}</Text>
+                              </View>
+                              <Text style={styles.mealTime}>
+                                {meal.time || "Sem horário"} •{" "}
+                                {meal.items.length} alimento(s) •{" "}
+                                {formatCalories(meal.nutrition.totalCalories)}
+                              </Text>
+                            </View>
+                            <Ionicons
+                              name={isExpanded ? "chevron-up" : "chevron-down"}
+                              size={24}
+                              color={lightTheme.colors.gray[500]}
+                            />
+                          </TouchableOpacity>
+
+                          {/* Meal Items (Expanded) */}
+                          {isExpanded && (
+                            <View style={styles.mealContent}>
+                              {/* Meal Nutrition Summary */}
+                              <View
+                                style={{
+                                  backgroundColor: lightTheme.colors.gray[50],
+                                  borderRadius: lightTheme.borderRadius.lg,
+                                  padding: lightTheme.spacing[3],
+                                  marginBottom: lightTheme.spacing[3],
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    fontSize: lightTheme.typography.fontSize.xs,
+                                    color: lightTheme.colors.gray[600],
+                                    marginBottom: lightTheme.spacing[2],
+                                  }}
+                                >
+                                  Resumo Nutricional
+                                </Text>
+                                <View style={styles.macrosRow}>
+                                  <View style={styles.macroBadge}>
+                                    <Ionicons
+                                      name="flame"
+                                      size={12}
+                                      color={lightTheme.colors.error}
+                                      style={{ marginRight: 4 }}
+                                    />
+                                    <Text style={styles.macroText}>
+                                      {formatCalories(
+                                        meal.nutrition.totalCalories
+                                      )}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.macroBadge}>
+                                    <Text style={styles.macroText}>
+                                      P:{" "}
+                                      {formatMacro(meal.nutrition.totalProtein)}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.macroBadge}>
+                                    <Text style={styles.macroText}>
+                                      C:{" "}
+                                      {formatMacro(meal.nutrition.totalCarbs)}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.macroBadge}>
+                                    <Text style={styles.macroText}>
+                                      G: {formatMacro(meal.nutrition.totalFat)}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.macroBadge}>
+                                    <Text style={styles.macroText}>
+                                      F:{" "}
+                                      {formatMacro(meal.nutrition.totalFiber)}
+                                    </Text>
+                                  </View>
+                                </View>
+                              </View>
+
+                              {/* Food Items */}
+                              {meal.items.map((item, index) => (
+                                <View
+                                  key={index}
+                                  style={[
+                                    styles.foodItem,
+                                    index === meal.items.length - 1 &&
+                                      styles.foodItemLast,
+                                  ]}
+                                >
+                                  <Text style={styles.foodName}>
+                                    {item.name}
+                                  </Text>
+                                  <Text style={styles.foodQuantity}>
+                                    {formatFoodQuantity(item)} • {item.category}
+                                  </Text>
+                                  <Text style={styles.foodNutrition}>
+                                    {formatCalories(item.calories)} • P:{" "}
+                                    {formatMacro(item.protein)} • C:{" "}
+                                    {formatMacro(item.carbs)} • G:{" "}
+                                    {formatMacro(item.fat)}
+                                  </Text>
+                                  {item.observation && (
+                                    <View
+                                      style={{
+                                        flexDirection: "row",
+                                        alignItems: "flex-start",
+                                        marginTop: lightTheme.spacing[1],
+                                      }}
+                                    >
+                                      <Ionicons
+                                        name="chatbubble-outline"
+                                        size={12}
+                                        color={lightTheme.colors.gray[500]}
+                                        style={{ marginRight: 4, marginTop: 2 }}
+                                      />
+                                      <Text style={styles.foodObservation}>
+                                        {item.observation}
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
+                              ))}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Notes */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Observações Privadas</Text>
+          {plan.notes ? (
+            <View style={styles.notesCard}>
+              <Text style={styles.notesText}>{plan.notes}</Text>
+            </View>
+          ) : (
+            <Text style={styles.emptyNotesText}>
+              Sem observações registradas
+            </Text>
+          )}
+        </View>
+
+        {/* Metadata */}
+        <View style={styles.metadata}>
+          <Text style={styles.metadataText}>
+            Criado em: {formatShortDate(plan.createdAt)}
+          </Text>
+          <Text style={styles.metadataText}>
+            Atualizado em: {formatShortDate(plan.updatedAt)}
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: lightTheme.colors.background,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: lightTheme.spacing[6],
+    backgroundColor: lightTheme.colors.background,
+  },
+  errorText: {
+    marginTop: lightTheme.spacing[2],
+    fontSize: lightTheme.typography.fontSize.base,
+    color: lightTheme.colors.error,
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: lightTheme.spacing[6],
+    backgroundColor: lightTheme.colors.primary,
+    paddingHorizontal: lightTheme.spacing[6],
+    paddingVertical: lightTheme.spacing[3],
+    borderRadius: lightTheme.borderRadius.xl,
+  },
+  retryButtonText: {
+    color: lightTheme.colors.white,
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: lightTheme.spacing[8],
+  },
+
+  // Header Card
+  headerCard: {
+    backgroundColor: lightTheme.colors.white,
+    marginHorizontal: lightTheme.spacing[4],
+    marginTop: lightTheme.spacing[4],
+    padding: lightTheme.spacing[4],
+    borderRadius: lightTheme.borderRadius.xl,
+    ...lightTheme.shadows.md,
+  },
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: lightTheme.spacing[3],
+  },
+  headerLeft: {
+    flex: 1,
+    marginRight: lightTheme.spacing[3],
+  },
+  planName: {
+    fontSize: lightTheme.typography.fontSize.xl,
+    fontWeight: lightTheme.typography.fontWeight.bold,
+    color: lightTheme.colors.gray[900],
+    marginBottom: lightTheme.spacing[1],
+  },
+  planDescription: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
+    marginBottom: lightTheme.spacing[2],
+  },
+  templateBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: lightTheme.colors.warning + "20",
+    paddingHorizontal: lightTheme.spacing[3],
+    paddingVertical: lightTheme.spacing[1],
+    borderRadius: lightTheme.borderRadius.full,
+  },
+  templateText: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.warning,
+  },
+
+  // Status & Period
+  statusRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: lightTheme.spacing[2],
+    marginBottom: lightTheme.spacing[3],
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: lightTheme.spacing[3],
+    paddingVertical: lightTheme.spacing[1],
+    borderRadius: lightTheme.borderRadius.full,
+  },
+  statusText: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    fontWeight: lightTheme.typography.fontWeight.medium,
+  },
+  periodBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: lightTheme.colors.gray[100],
+    paddingHorizontal: lightTheme.spacing[3],
+    paddingVertical: lightTheme.spacing[1],
+    borderRadius: lightTheme.borderRadius.full,
+  },
+  periodText: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[700],
+  },
+  daysRemainingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: lightTheme.colors.info + "20",
+    paddingHorizontal: lightTheme.spacing[3],
+    paddingVertical: lightTheme.spacing[1],
+    borderRadius: lightTheme.borderRadius.full,
+  },
+  daysRemainingText: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    fontWeight: lightTheme.typography.fontWeight.medium,
+    color: lightTheme.colors.info,
+  },
+
+  // Actions
+  actionsRow: {
+    flexDirection: "row",
+    gap: lightTheme.spacing[2],
+    marginBottom: lightTheme.spacing[2],
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: lightTheme.colors.white,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.border,
+    paddingVertical: lightTheme.spacing[2],
+    borderRadius: lightTheme.borderRadius.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionButtonText: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.medium,
+    marginLeft: lightTheme.spacing[1],
+  },
+  exportButton: {
+    backgroundColor: lightTheme.colors.primary,
+    paddingVertical: lightTheme.spacing[3],
+    borderRadius: lightTheme.borderRadius.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  exportButtonText: {
+    color: lightTheme.colors.white,
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    marginLeft: lightTheme.spacing[2],
+  },
+  exportButtonDisabled: {
+    opacity: 0.6,
+  },
+
+  // Section
+  section: {
+    marginHorizontal: lightTheme.spacing[4],
+    marginTop: lightTheme.spacing[4],
+  },
+  sectionTitle: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.gray[900],
+    marginBottom: lightTheme.spacing[3],
+  },
+
+  // Goals Card
+  goalsCard: {
+    backgroundColor: lightTheme.colors.white,
+    borderRadius: lightTheme.borderRadius.xl,
+    padding: lightTheme.spacing[4],
+    ...lightTheme.shadows.sm,
+  },
+  goalItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: lightTheme.spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: lightTheme.colors.gray[100],
+  },
+  goalItemLast: {
+    borderBottomWidth: 0,
+  },
+  goalLabel: {
+    flex: 1,
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
+    marginLeft: lightTheme.spacing[2],
+  },
+  goalValue: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.gray[900],
+  },
+
+  // Nutrition Summary
+  nutritionCard: {
+    backgroundColor: lightTheme.colors.white,
+    borderRadius: lightTheme.borderRadius.xl,
+    padding: lightTheme.spacing[4],
+    ...lightTheme.shadows.sm,
+  },
+
+  // Meals
+  mealCard: {
+    backgroundColor: lightTheme.colors.white,
+    borderRadius: lightTheme.borderRadius.xl,
+    marginBottom: lightTheme.spacing[3],
+    overflow: "hidden",
+    ...lightTheme.shadows.sm,
+  },
+  mealHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: lightTheme.spacing[4],
+  },
+  mealHeaderLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  mealIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: lightTheme.spacing[3],
+  },
+  mealInfo: {
+    flex: 1,
+  },
+  mealName: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.gray[900],
+    marginBottom: lightTheme.spacing[1],
+  },
+  mealTime: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[500],
+  },
+  mealContent: {
+    paddingHorizontal: lightTheme.spacing[4],
+    paddingBottom: lightTheme.spacing[4],
+  },
+  macrosRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: lightTheme.spacing[2],
+    marginBottom: lightTheme.spacing[3],
+  },
+  macroBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: lightTheme.colors.white,
+    paddingHorizontal: lightTheme.spacing[3],
+    paddingVertical: lightTheme.spacing[1],
+    borderRadius: lightTheme.borderRadius.full,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[200],
+  },
+  macroText: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[900],
+  },
+
+  // Shopping List CTA
+  shoppingListCTA: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+    marginHorizontal: lightTheme.spacing[4],
+    marginTop: lightTheme.spacing[6],
+    padding: lightTheme.spacing[4],
+    borderRadius: lightTheme.borderRadius.xl,
+    ...lightTheme.shadows.sm,
+  },
+  shoppingListIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: lightTheme.borderRadius.full,
+    backgroundColor: lightTheme.colors.white,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: lightTheme.spacing[3],
+  },
+  shoppingListContent: {
+    flex: 1,
+  },
+  shoppingListTitle: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: "#14532D",
+    marginBottom: lightTheme.spacing[1],
+  },
+  shoppingListDescription: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: "#15803D",
+  },
+
+  foodItem: {
+    paddingVertical: lightTheme.spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: lightTheme.colors.gray[100],
+  },
+  foodItemLast: {
+    borderBottomWidth: 0,
+  },
+  foodName: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.medium,
+    color: lightTheme.colors.gray[900],
+    marginBottom: lightTheme.spacing[1],
+  },
+  foodQuantity: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[500],
+    marginBottom: lightTheme.spacing[1],
+  },
+  foodNutrition: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[400],
+  },
+  foodObservation: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[500],
+    flex: 1,
+  },
+
+  // Notes
+  notesCard: {
+    backgroundColor: lightTheme.colors.white,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[200],
+    borderRadius: lightTheme.borderRadius.xl,
+    padding: lightTheme.spacing[4],
+    marginTop: lightTheme.spacing[3],
+  },
+  notesText: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[700],
+    lineHeight: 20,
+  },
+  emptyNotesText: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[500],
+    fontStyle: "italic",
+    marginTop: lightTheme.spacing[2],
+  },
+
+  // Day Cards (Accordion)
+  dayCard: {
+    backgroundColor: lightTheme.colors.white,
+    borderRadius: lightTheme.borderRadius.xl,
+    marginBottom: lightTheme.spacing[3],
+    overflow: "hidden",
+    ...lightTheme.shadows.sm,
+  },
+  dayHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: lightTheme.spacing[4],
+    backgroundColor: lightTheme.colors.primary + "10",
+  },
+  dayHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  dayBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: lightTheme.borderRadius.full,
+    backgroundColor: lightTheme.colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: lightTheme.spacing[3],
+  },
+  dayBadgeText: {
+    color: lightTheme.colors.white,
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.bold,
+  },
+  dayName: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.text,
+  },
+  daySubtitle: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[600],
+    marginTop: 2,
+  },
+  dayContent: {
+    padding: lightTheme.spacing[4],
+    gap: lightTheme.spacing[3],
+  },
+
+  // Metadata
+  metadata: {
+    marginHorizontal: lightTheme.spacing[4],
+    marginTop: lightTheme.spacing[4],
+    marginBottom: lightTheme.spacing[6],
+  },
+  metadataText: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[400],
+    marginBottom: lightTheme.spacing[1],
+  },
+
+  // Enhanced Goal Items
+  goalItemEnhanced: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: lightTheme.spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: lightTheme.colors.gray[100],
+  },
+  goalIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: lightTheme.borderRadius.lg,
+    backgroundColor: lightTheme.colors.gray[50],
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: lightTheme.spacing[3],
+  },
+  goalContent: {
+    flex: 1,
+  },
+  goalLabelEnhanced: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
+    marginBottom: lightTheme.spacing[1],
+  },
+  goalValueEnhanced: {
+    fontSize: lightTheme.typography.fontSize["2xl"],
+    fontWeight: lightTheme.typography.fontWeight.bold,
+    color: lightTheme.colors.gray[900],
+    marginBottom: lightTheme.spacing[1],
+  },
+  goalProgress: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[500],
+  },
+});

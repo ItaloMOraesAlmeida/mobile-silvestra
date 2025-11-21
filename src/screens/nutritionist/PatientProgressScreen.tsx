@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,11 +6,17 @@ import {
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
+  ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "../../theme";
-import { LineChart, BarChart, PieChart } from "../../components/charts";
-import { subDays, subMonths } from "date-fns";
+import { LineChart } from "../../components/charts";
+import {
+  useBodyMeasurements,
+  EvolutionData,
+} from "../../hooks/useBodyMeasurements";
+import { usePatients } from "../../hooks/usePatients";
 
 interface PatientProgressScreenProps {
   route: {
@@ -24,12 +30,26 @@ interface PatientProgressScreenProps {
 type PeriodFilter = "7d" | "30d" | "3m" | "6m" | "1y";
 
 export function PatientProgressScreen({ route }: PatientProgressScreenProps) {
-  const { patientId } = route.params;
+  const patientId = route?.params?.patientId;
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodFilter>("30d");
   const { width } = useWindowDimensions();
+  const { getEvolution } = useBodyMeasurements();
+  const { getPatientById } = usePatients();
 
-  // TODO: Carregar dados reais do paciente usando patientId
-  console.log("Patient ID:", patientId);
+  // Estados para dados do paciente
+  const [patient, setPatient] = useState<any>(null);
+  const [loadingPatient, setLoadingPatient] = useState(true);
+
+  // Estados para dados reais
+  const [loadingWeight, setLoadingWeight] = useState(true);
+  const [loadingBMI, setLoadingBMI] = useState(true);
+
+  const [weightData, setWeightData] = useState<{ date: Date; value: number }[]>(
+    []
+  );
+  const [bmiData, setBmiData] = useState<{ date: Date; value: number }[]>([]);
+
+  const [hasData, setHasData] = useState(true);
 
   const periods: { value: PeriodFilter; label: string }[] = [
     { value: "7d", label: "7 dias" },
@@ -39,379 +59,442 @@ export function PatientProgressScreen({ route }: PatientProgressScreenProps) {
     { value: "1y", label: "1 ano" },
   ];
 
-  // Dados simulados para gráficos
-  const weightData = useMemo(() => {
-    const now = new Date();
-    const points =
-      selectedPeriod === "7d" ? 7 : selectedPeriod === "30d" ? 10 : 12;
-    const data = [];
+  // Carregar dados do paciente
+  useEffect(() => {
+    loadPatientDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientId]);
 
-    for (let i = points - 1; i >= 0; i--) {
-      const date =
-        selectedPeriod === "7d"
-          ? subDays(now, i)
-          : selectedPeriod === "30d"
-          ? subDays(now, i * 3)
-          : subMonths(now, i);
-
-      // Simula perda gradual de peso
-      const baseWeight = 78.5;
-      const progressFactor = (points - i) / points;
-      const value = baseWeight - progressFactor * 3.3;
-
-      data.push({ date, value });
+  // Carregar dados de evolução após ter os dados do paciente
+  useEffect(() => {
+    if (patient) {
+      loadWeightEvolution();
+      loadBMIEvolution();
     }
-    return data;
-  }, [selectedPeriod]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patient, selectedPeriod]);
 
-  const adherenceData = useMemo(
-    () => [
-      { label: "Ótima", value: 70, color: lightTheme.colors.success },
-      { label: "Boa", value: 17, color: lightTheme.colors.info },
-      { label: "Regular", value: 10, color: lightTheme.colors.warning },
-      { label: "Baixa", value: 3, color: lightTheme.colors.error },
-    ],
-    []
-  );
+  const loadPatientDetails = async () => {
+    try {
+      setLoadingPatient(true);
+      const result = await getPatientById(patientId);
+      if (result) {
+        setPatient(result);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados do paciente:", error);
+    } finally {
+      setLoadingPatient(false);
+    }
+  };
 
-  const measurementsData = useMemo(
-    () => [
-      { label: "Cintura", value: 87, color: lightTheme.colors.primary },
-      { label: "Quadril", value: 98, color: lightTheme.colors.success },
-      { label: "Braço", value: 31, color: lightTheme.colors.info },
-      { label: "Coxa", value: 56, color: lightTheme.colors.warning },
-    ],
-    []
-  );
+  const loadWeightEvolution = async () => {
+    try {
+      setLoadingWeight(true);
 
-  const imcData = useMemo(() => {
-    const now = new Date();
-    return [
-      { date: subMonths(now, 3), value: 26.8 },
-      { date: subMonths(now, 2), value: 26.2 },
-      { date: subMonths(now, 1), value: 25.5 },
-      { date: now, value: 24.9 },
-    ];
-  }, []);
+      // Verifica se o paciente confirmou o acesso
+      if (!patient?.patient?.hasConfirmedAccess) {
+        setWeightData([]);
+        setHasData(false);
+        setLoadingWeight(false);
+        return;
+      }
+
+      const evolution = await getEvolution(patientId, "weight", selectedPeriod);
+
+      if (evolution && evolution.data.length > 0) {
+        const formattedData = evolution.data.map((item: EvolutionData) => ({
+          date: new Date(item.date),
+          value: item.value,
+        }));
+        setWeightData(formattedData);
+        setHasData(true);
+      } else {
+        setWeightData([]);
+        setHasData(false);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar evolução de peso:", error);
+      setWeightData([]);
+    } finally {
+      setLoadingWeight(false);
+    }
+  };
+
+  const loadBMIEvolution = async () => {
+    try {
+      setLoadingBMI(true);
+
+      // Verifica se o paciente confirmou o acesso
+      if (!patient?.patient?.hasConfirmedAccess) {
+        setBmiData([]);
+        setLoadingBMI(false);
+        return;
+      }
+
+      const evolution = await getEvolution(patientId, "bmi", selectedPeriod);
+
+      if (evolution && evolution.data.length > 0) {
+        const formattedData = evolution.data.map((item: EvolutionData) => ({
+          date: new Date(item.date),
+          value: item.value,
+        }));
+        setBmiData(formattedData);
+      } else {
+        setBmiData([]);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar evolução de IMC:", error);
+      setBmiData([]);
+    } finally {
+      setLoadingBMI(false);
+    }
+  };
 
   const chartWidth = width - lightTheme.spacing.xl * 2;
 
-  return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Evolução do Paciente</Text>
-        <Text style={styles.subtitle}>
-          Acompanhe o progresso ao longo do tempo
+  // Calcular estatísticas de peso
+  const weightStats = {
+    initial: weightData.length > 0 ? weightData[0].value : 0,
+    current:
+      weightData.length > 0 ? weightData[weightData.length - 1].value : 0,
+    change:
+      weightData.length > 0
+        ? weightData[weightData.length - 1].value - weightData[0].value
+        : 0,
+    changePercent:
+      weightData.length > 0 && weightData[0].value > 0
+        ? ((weightData[weightData.length - 1].value - weightData[0].value) /
+            weightData[0].value) *
+          100
+        : 0,
+  };
+
+  // Calcular estatísticas de IMC
+  const bmiStats = {
+    initial: bmiData.length > 0 ? bmiData[0].value : 0,
+    current: bmiData.length > 0 ? bmiData[bmiData.length - 1].value : 0,
+  };
+
+  const getBMIClassification = (bmi: number): string => {
+    if (bmi < 18.5) return "Abaixo do peso";
+    if (bmi < 25) return "Peso Normal";
+    if (bmi < 30) return "Sobrepeso";
+    return "Obesidade";
+  };
+
+  // Validação de patientId
+  if (!patientId) {
+    return (
+      <SafeAreaView style={styles.emptyContainer}>
+        <Ionicons
+          name="alert-circle-outline"
+          size={80}
+          color={lightTheme.colors.error}
+        />
+        <Text style={styles.emptyTitle}>Erro</Text>
+        <Text style={styles.emptyText}>
+          ID do paciente não encontrado. Por favor, retorne e tente novamente.
         </Text>
-      </View>
+      </SafeAreaView>
+    );
+  }
 
-      {/* Period Filter */}
-      <View style={styles.filterContainer}>
-        <Text style={styles.filterLabel}>Período:</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterButtons}
-        >
-          {periods.map((period) => (
-            <TouchableOpacity
-              key={period.value}
-              style={[
-                styles.filterButton,
-                selectedPeriod === period.value && styles.filterButtonActive,
-              ]}
-              onPress={() => setSelectedPeriod(period.value)}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.filterButtonText,
-                  selectedPeriod === period.value &&
-                    styles.filterButtonTextActive,
-                ]}
-              >
-                {period.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+  // Se não há dados suficientes
+  if (!hasData && !loadingWeight && !loadingBMI && !loadingPatient) {
+    // Verifica se o paciente não confirmou o acesso
+    if (!patient?.patient?.hasConfirmedAccess) {
+      return (
+        <SafeAreaView style={styles.emptyContainer}>
+          <Ionicons
+            name="lock-closed-outline"
+            size={80}
+            color={lightTheme.colors.gray[400]}
+          />
+          <Text style={styles.emptyTitle}>Acesso Pendente</Text>
+          <Text style={styles.emptyText}>
+            O paciente ainda não confirmou o código de acesso. Os dados de
+            evolução só estarão disponíveis após a confirmação.
+          </Text>
+        </SafeAreaView>
+      );
+    }
 
-      {/* Peso */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleContainer}>
-            <Ionicons
-              name="analytics"
-              size={24}
-              color={lightTheme.colors.primary}
-            />
-            <Text style={styles.sectionTitle}>Evolução de Peso</Text>
-          </View>
-          <TouchableOpacity>
-            <Ionicons
-              name="expand"
-              size={20}
-              color={lightTheme.colors.gray[400]}
-            />
-          </TouchableOpacity>
-        </View>
-
-        <LineChart
-          data={weightData}
-          width={chartWidth}
-          height={200}
-          color={lightTheme.colors.primary}
-          showDots
-          showGrid
-          showLabels
-          yAxisLabel="Peso (kg)"
-          formatValue={(v) => `${v.toFixed(1)} kg`}
+    return (
+      <SafeAreaView style={styles.emptyContainer}>
+        <Ionicons
+          name="analytics-outline"
+          size={80}
+          color={lightTheme.colors.gray[400]}
         />
+        <Text style={styles.emptyTitle}>Sem dados de evolução</Text>
+        <Text style={styles.emptyText}>
+          Ainda não há avaliações suficientes para gerar gráficos de evolução.
+        </Text>
+        <Text style={styles.emptySubtext}>
+          Crie pelo menos 2 avaliações antropométricas para começar a acompanhar
+          o progresso do paciente.
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
-        <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Peso Inicial</Text>
-            <Text style={styles.statValue}>78.5 kg</Text>
-            <Text style={styles.statDate}>há 3 meses</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Peso Atual</Text>
-            <Text
-              style={[styles.statValue, { color: lightTheme.colors.success }]}
-            >
-              75.2 kg
-            </Text>
-            <Text style={styles.statDate}>hoje</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Variação</Text>
-            <Text
-              style={[styles.statValue, { color: lightTheme.colors.success }]}
-            >
-              -3.3 kg
-            </Text>
-            <Text style={styles.statDate}>-4.2%</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Adesão */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleContainer}>
-            <Ionicons
-              name="checkmark-done"
-              size={24}
-              color={lightTheme.colors.success}
-            />
-            <Text style={styles.sectionTitle}>Adesão ao Plano</Text>
-          </View>
-          <TouchableOpacity>
-            <Ionicons
-              name="expand"
-              size={20}
-              color={lightTheme.colors.gray[400]}
-            />
-          </TouchableOpacity>
+  return (
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Evolução do Paciente</Text>
+          <Text style={styles.subtitle}>
+            Acompanhe o progresso ao longo do tempo
+          </Text>
         </View>
 
-        <PieChart
-          data={adherenceData}
-          width={chartWidth}
-          height={250}
-          showLabels
-          showPercentages
-          innerRadius={60}
-        />
-
-        <View style={styles.adherenceStats}>
-          <View style={styles.adherenceCard}>
-            <View style={styles.adherenceHeader}>
-              <Text style={styles.adherenceValue}>87%</Text>
-              <View
+        {/* Period Filter */}
+        <View style={styles.filterContainer}>
+          <Text style={styles.filterLabel}>Período:</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterButtons}
+          >
+            {periods.map((period) => (
+              <TouchableOpacity
+                key={period.value}
                 style={[
-                  styles.adherenceBadge,
-                  { backgroundColor: lightTheme.colors.success + "20" },
+                  styles.filterButton,
+                  selectedPeriod === period.value && styles.filterButtonActive,
                 ]}
+                onPress={() => setSelectedPeriod(period.value)}
+                activeOpacity={0.7}
               >
                 <Text
                   style={[
-                    styles.adherenceBadgeText,
-                    { color: lightTheme.colors.success },
+                    styles.filterButtonText,
+                    selectedPeriod === period.value &&
+                      styles.filterButtonTextActive,
                   ]}
                 >
-                  Ótima
+                  {period.label}
                 </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Peso */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons
+                name="analytics"
+                size={24}
+                color={lightTheme.colors.primary}
+              />
+              <Text style={styles.sectionTitle}>Evolução de Peso</Text>
+            </View>
+          </View>
+
+          {loadingWeight ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator
+                size="large"
+                color={lightTheme.colors.primary}
+              />
+              <Text style={styles.loadingText}>
+                Carregando dados de peso...
+              </Text>
+            </View>
+          ) : weightData.length > 0 ? (
+            <>
+              <LineChart
+                data={weightData}
+                width={chartWidth}
+                height={200}
+                color={lightTheme.colors.primary}
+                showDots
+                showGrid
+                showLabels
+                yAxisLabel="Peso (kg)"
+                formatValue={(v) => `${v.toFixed(1)} kg`}
+              />
+
+              <View style={styles.statsGrid}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Peso Inicial</Text>
+                  <Text style={styles.statValue}>
+                    {weightStats.initial.toFixed(1)} kg
+                  </Text>
+                  <Text style={styles.statDate}>primeira avaliação</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Peso Atual</Text>
+                  <Text
+                    style={[
+                      styles.statValue,
+                      {
+                        color:
+                          weightStats.change < 0
+                            ? lightTheme.colors.success
+                            : lightTheme.colors.error,
+                      },
+                    ]}
+                  >
+                    {weightStats.current.toFixed(1)} kg
+                  </Text>
+                  <Text style={styles.statDate}>última avaliação</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Variação</Text>
+                  <Text
+                    style={[
+                      styles.statValue,
+                      {
+                        color:
+                          weightStats.change < 0
+                            ? lightTheme.colors.success
+                            : lightTheme.colors.error,
+                      },
+                    ]}
+                  >
+                    {weightStats.change > 0 ? "+" : ""}
+                    {weightStats.change.toFixed(1)} kg
+                  </Text>
+                  <Text style={styles.statDate}>
+                    {weightStats.changePercent > 0 ? "+" : ""}
+                    {weightStats.changePercent.toFixed(1)}%
+                  </Text>
+                </View>
               </View>
-            </View>
-            <Text style={styles.adherenceLabel}>Adesão Média</Text>
-            <Text style={styles.adherenceSubtext}>nos últimos 30 dias</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Medidas Corporais */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleContainer}>
-            <Ionicons name="body" size={24} color={lightTheme.colors.info} />
-            <Text style={styles.sectionTitle}>Medidas Corporais</Text>
-          </View>
-          <TouchableOpacity>
-            <Ionicons
-              name="expand"
-              size={20}
-              color={lightTheme.colors.gray[400]}
-            />
-          </TouchableOpacity>
-        </View>
-
-        <BarChart
-          data={measurementsData}
-          width={chartWidth}
-          height={220}
-          showValues
-          showGrid
-          formatValue={(v) => `${v} cm`}
-        />
-
-        <View style={styles.measurementsTable}>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, styles.tableHeaderCellFirst]}>
-              Medida
-            </Text>
-            <Text style={styles.tableHeaderCell}>Inicial</Text>
-            <Text style={styles.tableHeaderCell}>Atual</Text>
-            <Text style={[styles.tableHeaderCell, styles.tableHeaderCellLast]}>
-              Var.
-            </Text>
-          </View>
-
-          {[
-            {
-              label: "Cintura",
-              initial: "92 cm",
-              current: "87 cm",
-              change: "-5 cm",
-            },
-            {
-              label: "Quadril",
-              initial: "102 cm",
-              current: "98 cm",
-              change: "-4 cm",
-            },
-            {
-              label: "Braço",
-              initial: "32 cm",
-              current: "31 cm",
-              change: "-1 cm",
-            },
-            {
-              label: "Coxa",
-              initial: "58 cm",
-              current: "56 cm",
-              change: "-2 cm",
-            },
-          ].map((measurement, index) => (
-            <View
-              key={index}
-              style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}
-            >
-              <Text style={[styles.tableCell, styles.tableCellFirst]}>
-                {measurement.label}
-              </Text>
-              <Text style={styles.tableCell}>{measurement.initial}</Text>
-              <Text style={styles.tableCell}>{measurement.current}</Text>
-              <Text
-                style={[
-                  styles.tableCell,
-                  styles.tableCellLast,
-                  styles.tableCellChange,
-                ]}
-              >
-                {measurement.change}
+            </>
+          ) : (
+            <View style={styles.noDataContainer}>
+              <Ionicons
+                name="bar-chart-outline"
+                size={48}
+                color={lightTheme.colors.gray[400]}
+              />
+              <Text style={styles.noDataText}>
+                Sem dados de peso para este período
               </Text>
             </View>
-          ))}
-        </View>
-      </View>
-
-      {/* IMC */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleContainer}>
-            <Ionicons
-              name="calculator"
-              size={24}
-              color={lightTheme.colors.warning}
-            />
-            <Text style={styles.sectionTitle}>Índice de Massa Corporal</Text>
-          </View>
-          <TouchableOpacity>
-            <Ionicons
-              name="expand"
-              size={20}
-              color={lightTheme.colors.gray[400]}
-            />
-          </TouchableOpacity>
+          )}
         </View>
 
-        <LineChart
-          data={imcData}
-          width={chartWidth}
-          height={180}
-          color={lightTheme.colors.success}
-          showDots
-          showGrid
-          showLabels
-          yAxisLabel="IMC"
-          formatValue={(v) => v.toFixed(1)}
-        />
-
-        <View style={styles.imcStats}>
-          <View style={styles.imcCard}>
-            <Text style={styles.imcLabel}>IMC Inicial</Text>
-            <Text style={styles.imcValue}>26.8</Text>
-            <Text style={styles.imcCategory}>Sobrepeso</Text>
+        {/* IMC */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Ionicons
+                name="calculator"
+                size={24}
+                color={lightTheme.colors.warning}
+              />
+              <Text style={styles.sectionTitle}>Índice de Massa Corporal</Text>
+            </View>
           </View>
+
+          {loadingBMI ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator
+                size="large"
+                color={lightTheme.colors.primary}
+              />
+              <Text style={styles.loadingText}>Carregando dados de IMC...</Text>
+            </View>
+          ) : bmiData.length > 0 ? (
+            <>
+              <LineChart
+                data={bmiData}
+                width={chartWidth}
+                height={180}
+                color={lightTheme.colors.success}
+                showDots
+                showGrid
+                showLabels
+                yAxisLabel="IMC"
+                formatValue={(v) => v.toFixed(1)}
+              />
+
+              <View style={styles.imcStats}>
+                <View style={styles.imcCard}>
+                  <Text style={styles.imcLabel}>IMC Inicial</Text>
+                  <Text style={styles.imcValue}>
+                    {bmiStats.initial.toFixed(1)}
+                  </Text>
+                  <Text style={styles.imcCategory}>
+                    {getBMIClassification(bmiStats.initial)}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="arrow-forward"
+                  size={24}
+                  color={lightTheme.colors.gray[400]}
+                />
+                <View style={styles.imcCard}>
+                  <Text style={styles.imcLabel}>IMC Atual</Text>
+                  <Text
+                    style={[
+                      styles.imcValue,
+                      {
+                        color:
+                          bmiStats.current < 25
+                            ? lightTheme.colors.success
+                            : lightTheme.colors.warning,
+                      },
+                    ]}
+                  >
+                    {bmiStats.current.toFixed(1)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.imcCategory,
+                      {
+                        color:
+                          bmiStats.current < 25
+                            ? lightTheme.colors.success
+                            : lightTheme.colors.warning,
+                      },
+                    ]}
+                  >
+                    {getBMIClassification(bmiStats.current)}
+                  </Text>
+                </View>
+              </View>
+            </>
+          ) : (
+            <View style={styles.noDataContainer}>
+              <Ionicons
+                name="calculator-outline"
+                size={48}
+                color={lightTheme.colors.gray[400]}
+              />
+              <Text style={styles.noDataText}>
+                Sem dados de IMC para este período
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Info Footer */}
+        <View style={styles.infoFooter}>
           <Ionicons
-            name="arrow-forward"
-            size={24}
-            color={lightTheme.colors.gray[400]}
+            name="information-circle"
+            size={20}
+            color={lightTheme.colors.info}
           />
-          <View style={styles.imcCard}>
-            <Text style={styles.imcLabel}>IMC Atual</Text>
-            <Text
-              style={[styles.imcValue, { color: lightTheme.colors.success }]}
-            >
-              24.9
-            </Text>
-            <Text
-              style={[styles.imcCategory, { color: lightTheme.colors.success }]}
-            >
-              Peso Normal
-            </Text>
-          </View>
+          <Text style={styles.infoText}>
+            Os gráficos exibem dados simulados para demonstração. Conecte a API
+            real para visualizar o progresso do paciente com dados atualizados.
+          </Text>
         </View>
-      </View>
 
-      {/* Info Footer */}
-      <View style={styles.infoFooter}>
-        <Ionicons
-          name="information-circle"
-          size={20}
-          color={lightTheme.colors.info}
-        />
-        <Text style={styles.infoText}>
-          Os gráficos exibem dados simulados para demonstração. Conecte a API
-          real para visualizar o progresso do paciente com dados atualizados.
-        </Text>
-      </View>
-
-      <View style={styles.bottomSpacer} />
-    </ScrollView>
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -419,6 +502,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: lightTheme.colors.gray[50],
+  },
+  scrollView: {
+    flex: 1,
   },
   header: {
     paddingHorizontal: lightTheme.spacing.xl,
@@ -684,5 +770,55 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: lightTheme.spacing["2xl"],
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: lightTheme.spacing["2xl"],
+    backgroundColor: lightTheme.colors.background,
+  },
+  emptyTitle: {
+    fontSize: lightTheme.typography.fontSize.xl,
+    fontWeight: lightTheme.typography.fontWeight.bold as any,
+    color: lightTheme.colors.gray[800],
+    marginTop: lightTheme.spacing.lg,
+    marginBottom: lightTheme.spacing.sm,
+    textAlign: "center",
+  },
+  emptyText: {
+    fontSize: lightTheme.typography.fontSize.base,
+    color: lightTheme.colors.gray[600],
+    textAlign: "center",
+    marginBottom: lightTheme.spacing.sm,
+  },
+  emptySubtext: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[500],
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  loadingContainer: {
+    padding: lightTheme.spacing["2xl"],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: lightTheme.spacing.md,
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
+  },
+  noDataContainer: {
+    padding: lightTheme.spacing["2xl"],
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: lightTheme.colors.gray[50],
+    borderRadius: lightTheme.borderRadius.lg,
+  },
+  noDataText: {
+    marginTop: lightTheme.spacing.md,
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
+    textAlign: "center",
   },
 });

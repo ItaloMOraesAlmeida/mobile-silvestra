@@ -9,6 +9,8 @@ import { RegisterScreen } from "../screens/auth/RegisterScreen";
 import { ForgotPasswordScreen } from "../screens/auth/ForgotPasswordScreen";
 import { VerifyCodeScreen } from "../screens/auth/VerifyCodeScreen";
 import { ResetPasswordScreen } from "../screens/auth/ResetPasswordScreen";
+import { PatientCodeLoginScreen } from "../screens/auth/PatientCodeLoginScreen";
+import { PatientSetPasswordScreen } from "../screens/auth/PatientSetPasswordScreen";
 import { TermsOfServiceScreen } from "../screens/legal/TermsOfServiceScreen";
 import { PrivacyPolicyScreen } from "../screens/legal/PrivacyPolicyScreen";
 import { StorageService } from "../services/storage";
@@ -21,6 +23,18 @@ export type AuthStackParamList = {
   ForgotPassword: { email?: string } | undefined;
   VerifyCode: { identifier: string };
   ResetPassword: { code: string };
+  PatientCodeLogin: undefined;
+  PatientSetPassword: {
+    patientData: {
+      id: string;
+      name: string;
+      email: string;
+      phone?: string;
+      cpf?: string;
+      birthDate?: string;
+    };
+    accessCode: string;
+  };
   TermsOfService: undefined;
   PrivacyPolicy: undefined;
 };
@@ -88,6 +102,14 @@ export function AuthNavigator() {
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="VerifyCode" component={VerifyCodeScreen} />
       <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+      <Stack.Screen
+        name="PatientCodeLogin"
+        component={PatientCodeLoginScreen}
+      />
+      <Stack.Screen
+        name="PatientSetPassword"
+        component={PatientSetPasswordScreen}
+      />
       <Stack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
     </Stack.Navigator>

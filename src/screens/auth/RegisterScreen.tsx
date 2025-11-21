@@ -410,7 +410,7 @@ export function RegisterScreen({ route }: any) {
         );
 
         // Completa a configuração de biometria no auth store
-        const { completeBiometricSetup, user } = useAuthStore.getState();
+        const { completeBiometricSetup } = useAuthStore.getState();
         completeBiometricSetup();
 
         setShowBiometricPrompt(false);
@@ -434,8 +434,7 @@ export function RegisterScreen({ route }: any) {
       setShowBiometricPrompt(false);
 
       // Mesmo com erro, redireciona (biometria é opcional)
-      const { user } = useAuthStore.getState();
-      // Mesmo com erro, redireciona para Main
+      // Redireciona para Main
       setTimeout(() => {
         navigation.reset({ index: 0, routes: [{ name: "Main" } as any] });
       }, 500);
@@ -446,7 +445,7 @@ export function RegisterScreen({ route }: any) {
     setShowBiometricPrompt(false);
 
     // Usuário recusou biometria, mas continua autenticado
-    const { skipBiometricSetup, user } = useAuthStore.getState();
+    const { skipBiometricSetup } = useAuthStore.getState();
     skipBiometricSetup();
 
     // Redireciona para a pilha Main (RoleBasedHome decide a tela específica)
