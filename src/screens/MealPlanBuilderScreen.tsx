@@ -104,6 +104,9 @@ export default function MealPlanBuilderScreen({ navigation, route }: Props) {
   const [selectedFood, setSelectedFood] = useState<any>(null);
   const [foodQuantity, setFoodQuantity] = useState("100");
 
+  // Detectar modo de edição
+  const isEditMode = !!builderState?.planId;
+
   useEffect(() => {
     searchFoods();
   }, [searchFoods]);
@@ -319,9 +322,6 @@ export default function MealPlanBuilderScreen({ navigation, route }: Props) {
             text: "OK",
             onPress: () => {
               clearBuilder();
-              console.log(
-                "✅ MealPlanBuilder: Plano salvo, voltando para tela anterior"
-              );
               navigation.goBack();
             },
           },
@@ -357,7 +357,9 @@ export default function MealPlanBuilderScreen({ navigation, route }: Props) {
       {/* Subtítulo do Passo */}
       <View style={styles.stepHeader}>
         <Text style={styles.stepHeaderText}>
-          Passo 2 de 2 - Construir Refeições
+          {isEditMode
+            ? "Editar Plano Alimentar"
+            : "Passo 2 de 2 - Construir Refeições"}
         </Text>
       </View>
 
@@ -546,26 +548,9 @@ export default function MealPlanBuilderScreen({ navigation, route }: Props) {
                   {meal.items.length > 0 ? (
                     <View style={styles.mealItemsContainer}>
                       {(() => {
-                        console.log("=================================");
-                        console.log("🍽️ REFEIÇÃO:", meal.name);
-                        console.log("📊 TOTAL DE ITEMS:", meal.items.length);
-                        console.log(
-                          "📋 ITEMS:",
-                          meal.items.map((i) => i.foodName)
-                        );
-                        console.log("=================================");
                         return null;
                       })()}
                       {meal.items.map((item, itemIndex) => {
-                        console.log(
-                          `\n🔍 [ITEM ${itemIndex}] Iniciando renderização`
-                        );
-                        console.log(`   Nome: ${item.foodName}`);
-                        console.log(
-                          `   Substituições: ${item.substitutions?.length || 0}`
-                        );
-                        console.log(`   Vai renderizar botão: SIM`);
-
                         return (
                           <View
                             key={itemIndex}
@@ -677,10 +662,6 @@ export default function MealPlanBuilderScreen({ navigation, route }: Props) {
                               <TouchableOpacity
                                 style={styles.addSubstitutionButton}
                                 onPress={() => {
-                                  console.log(
-                                    "🔄 Botão Adicionar Substituição clicado!",
-                                    { mealIndex, itemIndex }
-                                  );
                                   Alert.alert(
                                     "Clicado!",
                                     `Item ${itemIndex} na refeição ${mealIndex}`
@@ -807,7 +788,9 @@ export default function MealPlanBuilderScreen({ navigation, route }: Props) {
               <>
                 <Ionicons name="checkmark-circle" size={20} color="white" />
                 <Text style={styles.saveButtonText}>
-                  Salvar Plano Alimentar
+                  {isEditMode
+                    ? "Atualizar Plano Alimentar"
+                    : "Salvar Plano Alimentar"}
                 </Text>
               </>
             )}

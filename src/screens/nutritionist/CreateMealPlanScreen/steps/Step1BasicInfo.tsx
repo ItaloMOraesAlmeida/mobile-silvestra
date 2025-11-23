@@ -458,33 +458,52 @@ export default function Step1BasicInfo({
               >
                 <View style={styles.selectButtonContent}>
                   <View style={styles.selectButtonText}>
-                    {route?.params?.patientId && route?.params?.patientName ? (
-                      <View>
-                        <Text
-                          style={[
-                            styles.selectedPatientName,
-                            styles.selectedPatientNameDisabled,
-                          ]}
-                        >
-                          {route.params.patientName}
-                        </Text>
-                      </View>
-                    ) : selectedPatient ? (
-                      <View>
-                        <Text style={styles.selectedPatientName}>
-                          {selectedPatient.name}
-                        </Text>
-                        {selectedPatient.email && (
-                          <Text style={styles.selectedPatientEmail}>
-                            {selectedPatient.email}
+                    {(() => {
+                      if (
+                        route?.params?.patientId &&
+                        route?.params?.patientName
+                      ) {
+                        return (
+                          <View>
+                            <Text
+                              style={[
+                                styles.selectedPatientName,
+                                styles.selectedPatientNameDisabled,
+                              ]}
+                            >
+                              {route.params.patientName}
+                            </Text>
+                          </View>
+                        );
+                      } else if (builderState?.patientName) {
+                        return (
+                          <View>
+                            <Text style={styles.selectedPatientName}>
+                              {builderState.patientName}
+                            </Text>
+                          </View>
+                        );
+                      } else if (selectedPatient) {
+                        return (
+                          <View>
+                            <Text style={styles.selectedPatientName}>
+                              {selectedPatient.name}
+                            </Text>
+                            {selectedPatient.email && (
+                              <Text style={styles.selectedPatientEmail}>
+                                {selectedPatient.email}
+                              </Text>
+                            )}
+                          </View>
+                        );
+                      } else {
+                        return (
+                          <Text style={styles.placeholder}>
+                            Selecionar paciente
                           </Text>
-                        )}
-                      </View>
-                    ) : (
-                      <Text style={styles.placeholder}>
-                        Selecionar paciente
-                      </Text>
-                    )}
+                        );
+                      }
+                    })()}
                   </View>
                   {!route?.params?.patientId && (
                     <Ionicons

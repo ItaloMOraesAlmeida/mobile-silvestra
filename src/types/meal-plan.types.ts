@@ -38,7 +38,9 @@ export enum DayOfWeek {
 
 export interface MealItemSubstitution {
   id: string;
-  foodId: string;
+  foodId?: string;
+  name: string; // Nome do alimento
+  category: string; // Nome da categoria
   food?: {
     id: string;
     name: string;
@@ -61,6 +63,7 @@ export interface MealItemSubstitution {
 
 export interface FoodNutrition {
   id: string;
+  foodId?: string; // ✅ ID do alimento original (para edição)
   name: string;
   category: string;
   quantity: number; // quantidade (em gramas ou na unidade caseira)
@@ -272,6 +275,7 @@ export interface MealBuilderState {
   planName: string;
   description?: string;
   patientId: string;
+  patientName?: string; // ✅ Nome do paciente para exibição
   startDate: Date;
   endDate?: Date;
   status: PlanStatus;

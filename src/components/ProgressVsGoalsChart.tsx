@@ -146,8 +146,10 @@ export function ProgressVsGoalsChart({
         finalTargetValue = targetValue * numDays;
       }
 
-      // Usar data incremental para posicionar no eixo X
-      const date = new Date(2025, 0, index + 1);
+      // Usar timestamp único baseado no índice para posicionamento correto
+      // Criar um espaçamento uniforme entre os nutrientes no eixo X
+      const timestamp = 1704067200000 + index * 86400000; // 1 dia entre cada ponto
+      const date = new Date(timestamp);
 
       plannedData.push({
         date,

@@ -18,11 +18,13 @@ import type {
   CreateMealItemDto,
   UpdateMealItemDto,
   FoodNutrition,
+  MealItemSubstitution,
   ShoppingList,
   MealBuilderState,
 } from "../types/meal-plan.types";
 import { DayOfWeek } from "../types/meal-plan.types";
 import * as mealPlanService from "../services/meal-plan.service";
+import * as patientService from "../services/patient.service";
 
 interface MealPlansState {
   // ===== STATE =====
@@ -483,6 +485,19 @@ export const useMealPlansStore = create<MealPlansState>((set, get) => ({
       // Buscar plano completo com todas as refeições e itens
       const plan = await mealPlanService.getMealPlanById(planId);
 
+      // Buscar nome do paciente
+      let patientName: string | undefined;
+      try {
+        const response: any = await patientService.getPatientById(
+          plan.patientId
+        );
+        // A API retorna { success, data: { patient: { name } } }
+        patientName = response?.data?.patient?.name;
+        console.log("✅ Nome do paciente carregado:", patientName);
+      } catch (err) {
+        console.error("⚠️ Erro ao carregar nome do paciente:", err);
+      }
+
       // Converter meals do backend para formato do builder
       const builderMeals =
         plan.meals?.map((meal: any) => ({
@@ -496,7 +511,7 @@ export const useMealPlansStore = create<MealPlansState>((set, get) => ({
           items:
             meal.items?.map((item: FoodNutrition) => ({
               id: item.id,
-              foodId: item.id, // FoodNutrition tem id, não foodId
+              foodId: item.foodId || item.id, // ✅ Usar foodId se disponível, senão fallback para id
               foodName: item.name,
               category: item.category,
               quantity: item.quantity,
@@ -509,6 +524,24 @@ export const useMealPlansStore = create<MealPlansState>((set, get) => ({
               carbs: item.carbs,
               fat: item.fat,
               fiber: item.fiber,
+              // ✅ MAPEAR SUBSTITUIÇÕES
+              substitutions:
+                item.substitutions?.map((sub: MealItemSubstitution) => ({
+                  id: sub.id,
+                  foodId: sub.foodId || sub.food?.id,
+                  foodName: sub.name || sub.food?.name,
+                  category: sub.category || sub.food?.category?.name,
+                  quantity: sub.quantity,
+                  measurementType: sub.measurementType || "GRAMAS",
+                  measurementUnit: sub.measurementUnit,
+                  observation: sub.observation,
+                  // Valores nutricionais
+                  calories: sub.calories,
+                  protein: sub.protein,
+                  carbs: sub.carbs,
+                  fat: sub.fat,
+                  fiber: sub.fiber,
+                })) || [],
             })) || [],
         })) || [];
 
@@ -536,6 +569,7 @@ export const useMealPlansStore = create<MealPlansState>((set, get) => ({
           planName: plan.name,
           description: plan.description,
           patientId: plan.patientId,
+          patientName, // ✅ Nome do paciente
           startDate: new Date(plan.startDate),
           endDate: plan.endDate ? new Date(plan.endDate) : undefined,
           status: plan.status,
@@ -866,6 +900,20 @@ export const useMealPlansStore = create<MealPlansState>((set, get) => ({
                 ? item.measurementUnit
                 : undefined,
             observation: item.observation,
+            // ✅ NOVO: Incluir substituições
+            substitutions: item.substitutions
+              ? item.substitutions.map((sub: any) => ({
+                  foodId: sub.foodId,
+                  quantity: sub.quantity,
+                  measurementType:
+                    sub.measurementType === "gramas" ? "GRAMAS" : "CASEIRA",
+                  measurementUnit:
+                    sub.measurementType !== "gramas"
+                      ? sub.measurementUnit
+                      : undefined,
+                  observation: sub.observation,
+                }))
+              : undefined,
           })),
         })),
       };

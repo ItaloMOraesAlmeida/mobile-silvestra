@@ -93,11 +93,53 @@ export function AdvancedLineChart({
     const allDates = allDataPoints.map((d) => d.date);
     const allValues = allDataPoints.map((d) => d.value);
 
-    // Escalas
-    const xScale = d3
-      .scaleTime()
-      .domain([d3.min(allDates)!, d3.max(allDates)!] as [Date, Date])
-      .range([0, innerWidth]);
+    // Verificar se os dados têm labels customizados (significa que é um gráfico categórico, não temporal)
+    const firstSeriesWithData = series.find((s) => s.data && s.data.length > 0);
+    const hasCustomLabels = firstSeriesWithData?.data.some((d) => d.label);
+
+    // Escolher escala apropriada: ponto (categórica) ou tempo (temporal)
+    let xScale: any;
+
+    if (hasCustomLabels && firstSeriesWithData) {
+      // Gráfico categórico: usar scalePoint para distribuir uniformemente
+      const labels = firstSeriesWithData.data.map((d) => d.label || "");
+
+      xScale = d3
+        .scalePoint()
+        .domain(labels)
+        .range([0, innerWidth])
+        .padding(0.5);
+
+      // Função helper para obter X de um ponto
+      const getX = (point: DataPoint) => {
+        const label = point.label || "";
+        return xScale(label) || 0;
+      };
+
+      // Substituir xScale temporariamente para usar labels
+      const originalXScale = xScale;
+      xScale = (point: Date | DataPoint) => {
+        if (point instanceof Date) {
+          // Para compatibilidade, encontrar o ponto com essa data
+          const dataPoint = allDataPoints.find(
+            (dp) => dp.date.getTime() === point.getTime()
+          );
+          if (dataPoint?.label) {
+            return originalXScale(dataPoint.label) || 0;
+          }
+          return 0;
+        }
+        return getX(point as DataPoint);
+      };
+      xScale.domain = originalXScale.domain;
+      xScale.range = originalXScale.range;
+    } else {
+      // Gráfico temporal: usar scaleTime
+      xScale = d3
+        .scaleTime()
+        .domain([d3.min(allDates)!, d3.max(allDates)!] as [Date, Date])
+        .range([0, innerWidth]);
+    }
 
     const yMin = d3.min(allValues) || 0;
     const yMax = d3.max(allValues) || 100;
@@ -121,10 +163,22 @@ export function AdvancedLineChart({
     series.forEach((dataSeries) => {
       if (!dataSeries.data || dataSeries.data.length === 0) return;
 
-      // Gerar linha
+      // Gerar linha - usar label se disponível, senão usar date
       const line = d3
         .line<DataPoint>()
-        .x((d) => xScale(d.date) + marginLeft)
+        .x((d) => {
+          if (hasCustomLabels && d.label) {
+            // Para gráficos categóricos, usar o label diretamente
+            const pointScale = d3
+              .scalePoint()
+              .domain(firstSeriesWithData!.data.map((dp) => dp.label || ""))
+              .range([0, innerWidth])
+              .padding(0.5);
+            return (pointScale(d.label) || 0) + marginLeft;
+          }
+          // Para gráficos temporais, usar a data
+          return xScale(d.date) + marginLeft;
+        })
         .y((d) => yScale(d.value) + marginTop)
         .curve(d3.curveMonotoneX);
 
@@ -137,9 +191,23 @@ export function AdvancedLineChart({
 
       // Gerar pontos
       dataSeries.data.forEach((dataPoint) => {
+        let xPos: number;
+        if (hasCustomLabels && dataPoint.label) {
+          // Para gráficos categóricos
+          const pointScale = d3
+            .scalePoint()
+            .domain(firstSeriesWithData!.data.map((dp) => dp.label || ""))
+            .range([0, innerWidth])
+            .padding(0.5);
+          xPos = (pointScale(dataPoint.label) || 0) + marginLeft;
+        } else {
+          // Para gráficos temporais
+          xPos = xScale(dataPoint.date) + marginLeft;
+        }
+
         allPoints.push({
           seriesId: dataSeries.id,
-          x: xScale(dataPoint.date) + marginLeft,
+          x: xPos,
           y: yScale(dataPoint.value) + marginTop,
           point: dataPoint,
           color: dataSeries.color,
@@ -153,23 +221,25 @@ export function AdvancedLineChart({
       y: yScale(tick) + marginTop,
     }));
 
-    // X-axis ticks
-    // Se os dados possuem labels customizados, usar esses labels ao invés de datas
-    const firstSeriesWithData = series.find((s) => s.data && s.data.length > 0);
-    const hasCustomLabels = firstSeriesWithData?.data.some((d) => d.label);
-
+    // X-axis ticks - usar os labels dos dados se disponíveis
     let xTicks: { date: Date; x: number; label?: string }[];
 
     if (hasCustomLabels && firstSeriesWithData) {
       // Usar os labels customizados dos pontos de dados
+      const pointScale = d3
+        .scalePoint()
+        .domain(firstSeriesWithData.data.map((dp) => dp.label || ""))
+        .range([0, innerWidth])
+        .padding(0.5);
+
       xTicks = firstSeriesWithData.data.map((dataPoint) => ({
         date: dataPoint.date,
-        x: xScale(dataPoint.date) + marginLeft,
+        x: (pointScale(dataPoint.label || "") || 0) + marginLeft,
         label: dataPoint.label,
       }));
     } else {
       // Usar ticks de data padrão
-      xTicks = xScale.ticks(4).map((tick) => ({
+      xTicks = xScale.ticks(4).map((tick: Date) => ({
         date: tick,
         x: xScale(tick) + marginLeft,
       }));

@@ -131,7 +131,7 @@ const Drawer = createDrawerNavigator<MainDrawerParamList>();
 
 function createScreenWithHeader(
   Screen: React.ComponentType<any>,
-  title: string,
+  title: string | ((props: any) => string),
   showBackButton: boolean = false,
   backTo?: string
 ): React.ComponentType<any> {
@@ -147,10 +147,13 @@ function createScreenWithHeader(
       setOnBackPressCallback(() => callback);
     }, []);
 
+    // Título dinâmico: pode ser string ou função
+    const dynamicTitle = typeof title === "function" ? title(props) : title;
+
     return (
       <>
         <CustomHeader
-          title={title}
+          title={dynamicTitle}
           navigation={navigation}
           isDrawerOpen={isDrawerOpen}
           showBackButton={showBackButton}
@@ -163,7 +166,7 @@ function createScreenWithHeader(
     );
   };
 
-  ScreenWithHeader.displayName = `${title}ScreenWithHeader`;
+  ScreenWithHeader.displayName = `ScreenWithHeader`;
   return ScreenWithHeader;
 }
 
@@ -427,7 +430,10 @@ export function MainDrawerNavigator() {
         component={
           createScreenWithHeader(
             CreateMealPlanScreen as any,
-            "Novo Plano Alimentar",
+            (props: any) => {
+              const planId = props.route?.params?.planId;
+              return planId ? "Editar Plano Alimentar" : "Novo Plano Alimentar";
+            },
             true,
             "PatientDetails"
           ) as any

@@ -109,6 +109,9 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
     getMealCountByDay,
     copyMealsToDay,
   } = useMealPlansStore();
+
+  // Detectar modo de edição
+  const isEditMode = !!builderState?.planId;
   const {
     foods,
     searchFoods,
@@ -700,7 +703,7 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
         <StepHeader
           currentStep={2}
           totalSteps={2}
-          title="Construir Refeições"
+          title={isEditMode ? "Editar Plano Alimentar" : "Construir Refeições"}
           onBackPress={onPrevious}
           rightAction={{
             icon: "checkmark",

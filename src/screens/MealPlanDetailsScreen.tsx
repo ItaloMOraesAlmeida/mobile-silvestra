@@ -29,16 +29,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMealPlansStore } from "../stores/meal-plans.store";
 import { MealPlanDetailsSkeleton } from "../components/MealPlanDetailsSkeleton";
 import { ProgressVsGoalsChart } from "../components/ProgressVsGoalsChart";
-import SubstitutionItem from "../components/SubstitutionItem";
+import { MealPlanDayView } from "../components/MealPlanDayView";
+import { FoodDetailModal } from "../components/FoodDetailModal";
 import { lightTheme } from "../theme";
 import { DayOfWeek } from "../types/meal-plan.types";
 import {
   getPlanStatusIcon,
   getPlanStatusColor,
   getPlanStatusLabel,
-  getMealTypeIcon,
-  getMealTypeColor,
-  formatGrams,
   formatCalories,
   formatMacro,
   formatPlanPeriod,
@@ -47,7 +45,6 @@ import {
   getProgressColor,
   getProgressLabel,
   getMacroColor,
-  getNutritionSummaryText,
 } from "../utils/meal-plan.utils";
 
 interface Props {
@@ -72,15 +69,16 @@ export default function MealPlanDetailsScreen({ navigation, route }: Props) {
     loadPlanById,
     deletePlan,
     clonePlan,
-    exportPlanPdf,
     generateShoppingList,
     loading,
     error,
   } = useMealPlansStore();
 
-  const [expandedMeals, setExpandedMeals] = useState<Set<string>>(new Set());
-  const [expandedDays, setExpandedDays] = useState<Set<DayOfWeek>>(new Set());
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek | null>(null);
+  const [selectedFoodItem, setSelectedFoodItem] = useState<any>(null);
+  const [isFoodDetailModalVisible, setIsFoodDetailModalVisible] =
+    useState(false);
 
   const planId = route?.params?.planId || selectedPlan?.id;
 
@@ -94,53 +92,29 @@ export default function MealPlanDetailsScreen({ navigation, route }: Props) {
     }
   }, [planId, loadPlanById]);
 
-  const toggleMealExpansion = (mealId: string) => {
-    setExpandedMeals((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(mealId)) {
-        newSet.delete(mealId);
-      } else {
-        newSet.add(mealId);
+  // Inicializar com o primeiro dia que tem refeições
+  useEffect(() => {
+    if (selectedPlan && !selectedDay) {
+      const firstDayWithMeals = DAY_LABELS.find(({ key }) => {
+        const dayMeals = selectedPlan.meals.filter((m) => m.dayOfWeek === key);
+        return dayMeals.length > 0;
+      });
+      if (firstDayWithMeals) {
+        setSelectedDay(firstDayWithMeals.key);
       }
-      return newSet;
-    });
-  };
-
-  const toggleDayExpansion = (day: DayOfWeek) => {
-    setExpandedDays((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(day)) {
-        newSet.delete(day);
-      } else {
-        newSet.add(day);
-      }
-      return newSet;
-    });
-  };
-
-  // Helper function to format food quantity with measurement unit
-  const formatFoodQuantity = (item: any): string => {
-    if (item.measurementType === "CASEIRA" && item.measurementUnit) {
-      // Medida caseira: item.quantity JÁ VEM EM GRAMAS
-      // Precisamos DIVIDIR para obter quantidade em unidades
-      const totalGrams = item.quantity || 0;
-      // O campo pode ser "grams" ou "gramsEquivalent"
-      const gramsPerUnit =
-        item.measurementUnit.grams || item.measurementUnit.gramsEquivalent || 0;
-      const quantityInUnits = gramsPerUnit > 0 ? totalGrams / gramsPerUnit : 0;
-      const measureName =
-        item.measurementUnit.name ||
-        item.measurementUnit.abbreviation ||
-        "medida";
-
-      const result = `${quantityInUnits.toFixed(
-        1
-      )} ${measureName} (${totalGrams.toFixed(0)}g)`;
-      return result;
     }
-    // Gramas: mostrar apenas gramas
-    const result = `${(item.quantity || 0).toFixed(0)}g`;
-    return result;
+  }, [selectedPlan, selectedDay]);
+
+  // Used inline in MealPlanDayView component below
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleFoodItemPress = (item: any) => {
+    setSelectedFoodItem(item);
+    setIsFoodDetailModalVisible(true);
+  };
+
+  const closeFoodDetailModal = () => {
+    setIsFoodDetailModalVisible(false);
+    setTimeout(() => setSelectedFoodItem(null), 300);
   };
 
   const handleEdit = async () => {
@@ -151,10 +125,10 @@ export default function MealPlanDetailsScreen({ navigation, route }: Props) {
       const { initBuilderForEdit } = useMealPlansStore.getState();
       await initBuilderForEdit(selectedPlan.id);
 
-      // Navegar para o Builder em modo de edição
-      navigation.navigate("MealPlanBuilder", {
-        mode: "edit",
+      // Navegar para CreateMealPlan em modo de edição
+      navigation.navigate("CreateMealPlan", {
         planId: selectedPlan.id,
+        patientId: selectedPlan.patientId,
       });
     } catch (err: any) {
       Alert.alert("Erro", err.message || "Erro ao carregar plano para edição");
@@ -232,6 +206,7 @@ export default function MealPlanDetailsScreen({ navigation, route }: Props) {
     }
   };
 
+  /* TODO: Adicionar botão de compartilhar na UI
   const handleShare = async () => {
     if (!selectedPlan) return;
 
@@ -271,43 +246,34 @@ Gerado pelo Silvestra App 🌿
       console.error("Erro ao compartilhar:", err);
     }
   };
+  */
 
   const handleExportPdf = async () => {
     if (!selectedPlan) return;
 
+    // TODO: Implementar exportação de PDF
+    // Requer instalação de: expo-file-system
+    Alert.alert(
+      "Em Desenvolvimento",
+      "A funcionalidade de exportar PDF será implementada em breve.",
+      [{ text: "OK" }]
+    );
+
+    /* Código para quando expo-file-system estiver instalado:
     try {
       Alert.alert("Exportando PDF", "Gerando PDF do plano alimentar...");
-
-      // Obter o blob do PDF do backend
       const pdfBlob = await exportPlanPdf(selectedPlan.id);
-
-      // Criar arquivo temporário no diretório de cache
       const fileName = `plano-${selectedPlan.id.substring(0, 8)}.pdf`;
-      const file = new File(Paths.cache, fileName);
-
-      // Converter blob para ArrayBuffer e escrever no arquivo
-      const arrayBuffer = await (pdfBlob as any).arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-
-      // Escrever arquivo usando a nova API
-      await file.write(uint8Array);
-
-      // Verificar se compartilhamento está disponível
-      const isAvailable = await Sharing.isAvailableAsync();
-
-      if (isAvailable) {
-        await Sharing.shareAsync(file.uri, {
-          mimeType: "application/pdf",
-          dialogTitle: `Plano Alimentar - ${selectedPlan.name}`,
-          UTI: "com.adobe.pdf",
-        });
-      } else {
-        Alert.alert("Sucesso", `PDF salvo em: ${file.uri}`, [{ text: "OK" }]);
-      }
+      
+      // Usar expo-file-system para salvar e compartilhar
+      // const fileUri = FileSystem.cacheDirectory + fileName;
+      // await FileSystem.writeAsStringAsync(fileUri, base64data, {...});
+      // await Sharing.shareAsync(fileUri, {...});
     } catch (err: any) {
       console.error("Erro ao exportar PDF:", err);
       Alert.alert("Erro", err.message || "Erro ao exportar PDF");
     }
+    */
   };
 
   // Loading State - Skeleton
@@ -1253,251 +1219,72 @@ Gerado pelo Silvestra App 🌿
           />
         </TouchableOpacity>
 
-        {/* Meals List - Grouped by Day */}
+        {/* Meals List - With Day Tabs */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             Refeições ({plan.meals.length})
           </Text>
 
-          {DAY_LABELS.map(({ key, label, shortLabel }) => {
-            const dayMeals = mealsByDay[key] || [];
-            if (dayMeals.length === 0) return null; // Skip days without meals
+          {/* Day Tabs - Horizontal Scroll */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.dayTabsContainer}
+            contentContainerStyle={styles.dayTabsContent}
+          >
+            {DAY_LABELS.map(({ key, label, shortLabel }) => {
+              const dayMeals = mealsByDay[key] || [];
+              if (dayMeals.length === 0) return null;
 
-            const isDayExpanded = expandedDays.has(key);
-            const dayTotalCalories = dayMeals.reduce(
-              (sum, meal) => sum + meal.nutrition.totalCalories,
-              0
-            );
+              const isSelected = selectedDay === key;
 
-            return (
-              <View key={key} style={styles.dayCard}>
-                {/* Day Header */}
+              return (
                 <TouchableOpacity
-                  onPress={() => toggleDayExpansion(key)}
-                  style={styles.dayHeader}
+                  key={key}
+                  onPress={() => setSelectedDay(key)}
+                  style={[styles.dayTab, isSelected && styles.dayTabActive]}
                 >
-                  <View style={styles.dayHeaderLeft}>
-                    <View style={styles.dayBadge}>
-                      <Text style={styles.dayBadgeText}>{shortLabel}</Text>
-                    </View>
-                    <View>
-                      <Text style={styles.dayName}>{label}</Text>
-                      <Text style={styles.daySubtitle}>
-                        {dayMeals.length} refeição(ões) •{" "}
-                        {formatCalories(dayTotalCalories)}
-                      </Text>
-                    </View>
+                  <View style={styles.dayTabContent}>
+                    <Text
+                      style={[
+                        styles.dayTabLabel,
+                        isSelected && styles.dayTabLabelActive,
+                      ]}
+                    >
+                      {shortLabel}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.dayTabSubtitle,
+                        isSelected && styles.dayTabSubtitleActive,
+                      ]}
+                    >
+                      {dayMeals.length}
+                    </Text>
                   </View>
-                  <Ionicons
-                    name={isDayExpanded ? "chevron-up" : "chevron-down"}
-                    size={24}
-                    color={lightTheme.colors.gray[500]}
-                  />
                 </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-                {/* Day Meals (Expanded) */}
-                {isDayExpanded && (
-                  <View style={styles.dayContent}>
-                    {dayMeals.map((meal) => {
-                      const isExpanded = expandedMeals.has(meal.id);
-
-                      return (
-                        <View key={meal.id} style={styles.mealCard}>
-                          {/* Meal Header */}
-                          <TouchableOpacity
-                            onPress={() => toggleMealExpansion(meal.id)}
-                            style={[
-                              styles.mealHeader,
-                              {
-                                backgroundColor:
-                                  getMealTypeColor(meal.type) + "10",
-                              },
-                            ]}
-                          >
-                            <View style={styles.mealHeaderLeft}>
-                              <View style={styles.mealInfo}>
-                                <Text
-                                  style={{
-                                    fontSize: 24,
-                                    marginRight: lightTheme.spacing[2],
-                                  }}
-                                >
-                                  {getMealTypeIcon(meal.type)}
-                                </Text>
-                                <Text style={styles.mealName}>{meal.name}</Text>
-                              </View>
-                              <Text style={styles.mealTime}>
-                                {meal.time || "Sem horário"} •{" "}
-                                {meal.items.length} alimento(s) •{" "}
-                                {formatCalories(meal.nutrition.totalCalories)}
-                              </Text>
-                            </View>
-                            <Ionicons
-                              name={isExpanded ? "chevron-up" : "chevron-down"}
-                              size={24}
-                              color={lightTheme.colors.gray[500]}
-                            />
-                          </TouchableOpacity>
-
-                          {/* Meal Items (Expanded) */}
-                          {isExpanded && (
-                            <View style={styles.mealContent}>
-                              {/* Meal Nutrition Summary */}
-                              <View
-                                style={{
-                                  backgroundColor: lightTheme.colors.gray[50],
-                                  borderRadius: lightTheme.borderRadius.lg,
-                                  padding: lightTheme.spacing[3],
-                                  marginBottom: lightTheme.spacing[3],
-                                }}
-                              >
-                                <Text
-                                  style={{
-                                    fontSize: lightTheme.typography.fontSize.xs,
-                                    color: lightTheme.colors.gray[600],
-                                    marginBottom: lightTheme.spacing[2],
-                                  }}
-                                >
-                                  Resumo Nutricional
-                                </Text>
-                                <View style={styles.macrosRow}>
-                                  <View style={styles.macroBadge}>
-                                    <Ionicons
-                                      name="flame"
-                                      size={12}
-                                      color={lightTheme.colors.error}
-                                      style={{ marginRight: 4 }}
-                                    />
-                                    <Text style={styles.macroText}>
-                                      {formatCalories(
-                                        meal.nutrition.totalCalories
-                                      )}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.macroBadge}>
-                                    <Text style={styles.macroText}>
-                                      P:{" "}
-                                      {formatMacro(meal.nutrition.totalProtein)}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.macroBadge}>
-                                    <Text style={styles.macroText}>
-                                      C:{" "}
-                                      {formatMacro(meal.nutrition.totalCarbs)}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.macroBadge}>
-                                    <Text style={styles.macroText}>
-                                      G: {formatMacro(meal.nutrition.totalFat)}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.macroBadge}>
-                                    <Text style={styles.macroText}>
-                                      F:{" "}
-                                      {formatMacro(meal.nutrition.totalFiber)}
-                                    </Text>
-                                  </View>
-                                </View>
-                              </View>
-
-                              {/* Food Items */}
-                              {meal.items.map((item, index) => (
-                                <View key={index}>
-                                  <View
-                                    style={[
-                                      styles.foodItem,
-                                      index === meal.items.length - 1 &&
-                                        !item.substitutions?.length &&
-                                        styles.foodItemLast,
-                                    ]}
-                                  >
-                                    <Text style={styles.foodName}>
-                                      {item.name}
-                                    </Text>
-                                    <Text style={styles.foodQuantity}>
-                                      {formatFoodQuantity(item)} •{" "}
-                                      {item.category}
-                                    </Text>
-                                    <Text style={styles.foodNutrition}>
-                                      {formatCalories(item.calories)} • P:{" "}
-                                      {formatMacro(item.protein)} • C:{" "}
-                                      {formatMacro(item.carbs)} • G:{" "}
-                                      {formatMacro(item.fat)}
-                                    </Text>
-                                    {item.observation && (
-                                      <View
-                                        style={{
-                                          flexDirection: "row",
-                                          alignItems: "flex-start",
-                                          marginTop: lightTheme.spacing[1],
-                                        }}
-                                      >
-                                        <Ionicons
-                                          name="chatbubble-outline"
-                                          size={12}
-                                          color={lightTheme.colors.gray[500]}
-                                          style={{
-                                            marginRight: 4,
-                                            marginTop: 2,
-                                          }}
-                                        />
-                                        <Text style={styles.foodObservation}>
-                                          {item.observation}
-                                        </Text>
-                                      </View>
-                                    )}
-                                  </View>
-
-                                  {/* Substituições */}
-                                  {item.substitutions &&
-                                    item.substitutions.length > 0 && (
-                                      <View
-                                        style={[
-                                          styles.substitutionsContainer,
-                                          index === meal.items.length - 1 &&
-                                            styles.foodItemLast,
-                                        ]}
-                                      >
-                                        <View
-                                          style={styles.substitutionsHeader}
-                                        >
-                                          <Ionicons
-                                            name="swap-horizontal-outline"
-                                            size={14}
-                                            color={lightTheme.colors.success}
-                                            style={{ marginRight: 4 }}
-                                          />
-                                          <Text
-                                            style={styles.substitutionsTitle}
-                                          >
-                                            Opções de Substituição (
-                                            {item.substitutions.length})
-                                          </Text>
-                                        </View>
-                                        {item.substitutions.map(
-                                          (sub, subIndex) => (
-                                            <SubstitutionItem
-                                              key={subIndex}
-                                              substitution={sub}
-                                              showRemoveButton={false}
-                                            />
-                                          )
-                                        )}
-                                      </View>
-                                    )}
-                                </View>
-                              ))}
-                            </View>
-                          )}
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-            );
-          })}
+          {/* Day Content */}
+          {selectedDay && (
+            <MealPlanDayView
+              meals={mealsByDay[selectedDay] || []}
+              onFoodItemPress={(item, meal) => {
+                setSelectedFoodItem({ ...item, mealName: meal.name });
+                setIsFoodDetailModalVisible(true);
+              }}
+            />
+          )}
         </View>
+
+        {/* Food Detail Modal */}
+        <FoodDetailModal
+          visible={isFoodDetailModalVisible}
+          foodItem={selectedFoodItem}
+          onClose={closeFoodDetailModal}
+        />
 
         {/* Notes */}
         <View style={styles.section}>
@@ -1562,6 +1349,62 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: lightTheme.spacing[8],
+  },
+
+  // Day Tabs
+  dayTabsContainer: {
+    marginTop: lightTheme.spacing[3],
+    marginBottom: lightTheme.spacing[4],
+  },
+  dayTabsContent: {
+    paddingHorizontal: lightTheme.spacing[4],
+    gap: lightTheme.spacing[2],
+  },
+  dayTab: {
+    paddingVertical: lightTheme.spacing[2],
+    paddingHorizontal: lightTheme.spacing[3],
+    backgroundColor: lightTheme.colors.gray[50],
+    borderRadius: lightTheme.borderRadius.lg,
+    minWidth: 64,
+    alignItems: "center",
+  },
+  dayTabActive: {
+    backgroundColor: lightTheme.colors.primary + "15",
+  },
+  dayTabContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: lightTheme.spacing[2],
+  },
+  dayTabLabel: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.gray[700],
+  },
+  dayTabLabelActive: {
+    color: lightTheme.colors.primary,
+  },
+  dayTabSubtitle: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[400],
+    fontWeight: lightTheme.typography.fontWeight.medium,
+  },
+  dayTabSubtitleActive: {
+    color: lightTheme.colors.primary,
+    opacity: 0.8,
+  },
+  dayTabCalories: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.bold,
+    color: lightTheme.colors.error,
+    backgroundColor: lightTheme.colors.error + "10",
+    paddingHorizontal: lightTheme.spacing[3],
+    paddingVertical: lightTheme.spacing[1],
+    borderRadius: lightTheme.borderRadius.full,
+  },
+  dayTabCaloriesActive: {
+    color: lightTheme.colors.white,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
   },
 
   // Header Card
@@ -2005,5 +1848,226 @@ const styles = StyleSheet.create({
   goalProgress: {
     fontSize: lightTheme.typography.fontSize.xs,
     color: lightTheme.colors.gray[500],
+  },
+
+  // Modern Food Card Styles
+  modernFoodCard: {
+    backgroundColor: lightTheme.colors.white,
+    borderRadius: lightTheme.borderRadius.lg,
+    padding: lightTheme.spacing[4],
+    marginBottom: lightTheme.spacing[3],
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[100],
+  },
+  lastFoodCard: {
+    marginBottom: 0,
+  },
+  modernFoodHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: lightTheme.spacing[3],
+  },
+  modernFoodLeft: {
+    flex: 1,
+    marginRight: lightTheme.spacing[3],
+  },
+  modernFoodName: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.gray[900],
+    marginBottom: lightTheme.spacing[1],
+  },
+  modernFoodQuantity: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
+  },
+  modernFoodCalories: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: lightTheme.colors.error + "10",
+    paddingHorizontal: lightTheme.spacing[2],
+    paddingVertical: lightTheme.spacing[1],
+    borderRadius: lightTheme.borderRadius.md,
+    gap: 4,
+  },
+  modernCaloriesText: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.error,
+  },
+
+  // Modern Macros Grid
+  modernMacrosGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: lightTheme.spacing[2],
+    marginBottom: lightTheme.spacing[2],
+  },
+  modernMacroItem: {
+    flex: 1,
+    minWidth: "22%",
+    backgroundColor: lightTheme.colors.gray[50],
+    borderRadius: lightTheme.borderRadius.md,
+    padding: lightTheme.spacing[2],
+    alignItems: "center",
+  },
+  modernMacroLabel: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[600],
+    marginBottom: 4,
+  },
+  modernMacroValue: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.bold,
+  },
+
+  // Modern Observation
+  modernObservation: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: lightTheme.colors.info + "10",
+    borderRadius: lightTheme.borderRadius.md,
+    padding: lightTheme.spacing[2],
+    marginTop: lightTheme.spacing[2],
+    gap: lightTheme.spacing[2],
+  },
+  modernObservationText: {
+    flex: 1,
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[700],
+    lineHeight: 16,
+  },
+
+  // Modern Substitutions
+  modernSubstitutions: {
+    marginTop: lightTheme.spacing[3],
+    borderTopWidth: 1,
+    borderTopColor: lightTheme.colors.gray[200],
+    paddingTop: lightTheme.spacing[3],
+  },
+  modernSubstitutionsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: lightTheme.spacing[2],
+  },
+  modernSubstitutionsHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: lightTheme.spacing[2],
+  },
+  modernSubstitutionsTitle: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.success,
+  },
+  modernSubstitutionsList: {
+    gap: lightTheme.spacing[2],
+  },
+  modernSubstitutionItem: {
+    backgroundColor: lightTheme.colors.success + "08",
+    borderRadius: lightTheme.borderRadius.md,
+    padding: lightTheme.spacing[3],
+    borderLeftWidth: 3,
+    borderLeftColor: lightTheme.colors.success,
+  },
+  lastSubstitutionItem: {
+    marginBottom: 0,
+  },
+  modernSubstitutionContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: lightTheme.spacing[1],
+  },
+  modernSubstitutionLeft: {
+    flex: 1,
+    marginRight: lightTheme.spacing[2],
+  },
+  modernSubstitutionName: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.medium,
+    color: lightTheme.colors.gray[900],
+    marginBottom: 2,
+  },
+  modernSubstitutionQuantity: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[600],
+  },
+  modernSubstitutionCalories: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.success,
+  },
+  modernSubstitutionMacros: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: lightTheme.spacing[1],
+    marginTop: lightTheme.spacing[1],
+  },
+  modernSubMacro: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[600],
+  },
+
+  // Modern Meal Header
+  modernMealHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: lightTheme.spacing[4],
+    backgroundColor: lightTheme.colors.white,
+  },
+  modernMealHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: lightTheme.spacing[3],
+  },
+  modernMealIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: lightTheme.borderRadius.lg,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: lightTheme.spacing[3],
+  },
+  modernMealInfo: {
+    flex: 1,
+  },
+  modernMealName: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.gray[900],
+    marginBottom: 4,
+  },
+  modernMealMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  modernMealMetaText: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[500],
+  },
+  modernMealHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: lightTheme.spacing[2],
+  },
+  modernMealCalorieBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: lightTheme.colors.error + "10",
+    paddingHorizontal: lightTheme.spacing[2],
+    paddingVertical: 6,
+    borderRadius: lightTheme.borderRadius.md,
+    gap: 4,
+  },
+  modernMealCalorieText: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.error,
   },
 });

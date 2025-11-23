@@ -2,31 +2,21 @@
  * Hook para gerenciar o estado do wizard de criação de plano alimentar
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { useMealPlansStore } from "../../../../stores/meal-plans.store";
 
 export const useMealPlanWizard = (navigation: any, route: any) => {
+  // Sempre iniciar no Step 1 (tanto criação quanto edição)
   const [currentStep, setCurrentStep] = useState(1);
   const { clearBuilder } = useMealPlansStore();
-  const isInitialFocus = useRef(true);
 
-  // Resetar para Step 1 sempre que a tela ganhar foco (nova criação)
+  // Sempre resetar para Step 1 quando a tela ganhar foco
   useFocusEffect(
     useCallback(() => {
-      const { planId } = route?.params || {};
-
-      // Se for a primeira vez que ganha foco E não for edição, resetar para step 1
-      if (isInitialFocus.current && !planId) {
-        setCurrentStep(1);
-        isInitialFocus.current = false;
-      }
-
-      // Quando perder foco, preparar para próxima entrada
-      return () => {
-        isInitialFocus.current = true;
-      };
-    }, [route?.params])
+      // Sempre voltar para Step 1 ao entrar na tela
+      setCurrentStep(1);
+    }, [])
   );
 
   const handleNextStep = () => {

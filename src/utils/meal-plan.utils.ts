@@ -433,3 +433,33 @@ export const getAdherenceLabel = (score: number): string => {
   if (score >= 40) return "Regular";
   return "Baixo";
 };
+
+/**
+ * Formatar quantidade de alimento com unidade de medida
+ */
+export const formatFoodQuantity = (item: any): string => {
+  if (item.measurementType === "CASEIRA" && item.measurementUnit) {
+    const totalGrams = item.quantity || 0;
+    const measureName =
+      item.measurementUnit.name ||
+      item.measurementUnit.abbreviation ||
+      "medida";
+
+    // Usar originalQuantity se disponível (mais preciso)
+    if (item.originalQuantity !== undefined) {
+      return `${item.originalQuantity} ${measureName} (${totalGrams.toFixed(
+        0
+      )}g)`;
+    }
+
+    // Fallback: calcular dividindo gramas
+    const gramsPerUnit =
+      item.measurementUnit.grams || item.measurementUnit.gramsEquivalent || 0;
+    const quantityInUnits = gramsPerUnit > 0 ? totalGrams / gramsPerUnit : 0;
+    return `${quantityInUnits.toFixed(1)} ${measureName} (${totalGrams.toFixed(
+      0
+    )}g)`;
+  }
+  // Gramas: mostrar apenas gramas
+  return `${(item.quantity || 0).toFixed(0)}g`;
+};
