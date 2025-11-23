@@ -33,11 +33,13 @@ import Toast from "react-native-toast-message";
 import { lightTheme } from "../../../../theme";
 import { useMealPlansStore } from "../../../../stores/meal-plans.store";
 import { useFoodsStore } from "../../../../stores/foods.store";
-import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
 import { StepHeader } from "../components/StepHeader";
 import { DayOfWeek } from "../../../../types/meal-plan.types";
 import WeekDayTabs from "../components/WeekDayTabs";
 import CopyMealModal from "../components/CopyMealModal";
+import AddSubstitutionModal from "../../../../components/AddSubstitutionModal";
+import SubstitutionItem from "../../../../components/SubstitutionItem";
+import { HOUSEHOLD_MEASURES } from "../../../../constants/householdMeasures";
 
 // Types
 type MealType =
@@ -79,33 +81,6 @@ interface Props {
   navigation: any;
 }
 
-// Household measures data
-const HOUSEHOLD_MEASURES = [
-  { id: "colher_sopa", name: "Colher de Sopa", grams: 15 },
-  { id: "colher_cha", name: "Colher de Chá", grams: 5 },
-  { id: "colher_cafe", name: "Colher de Café", grams: 2 },
-  { id: "colher_sobremesa", name: "Colher de Sobremesa", grams: 10 },
-  { id: "xicara_cha", name: "Xícara de Chá", grams: 200 },
-  { id: "copo_americano", name: "Copo Americano", grams: 200 },
-  { id: "copo_200ml", name: "Copo 200ml", grams: 200 },
-  { id: "copo_300ml", name: "Copo 300ml", grams: 300 },
-  { id: "prato_raso", name: "Prato Raso", grams: 250 },
-  { id: "prato_fundo", name: "Prato Fundo", grams: 300 },
-  { id: "prato_sobremesa", name: "Prato Sobremesa", grams: 150 },
-  { id: "concha", name: "Concha", grams: 100 },
-  { id: "concha_pequena", name: "Concha Pequena", grams: 60 },
-  { id: "escumadeira", name: "Escumadeira", grams: 80 },
-  { id: "fatia", name: "Fatia", grams: 50 },
-  { id: "fatia_fina", name: "Fatia Fina", grams: 30 },
-  { id: "fatia_grossa", name: "Fatia Grossa", grams: 80 },
-  { id: "unidade", name: "Unidade", grams: 100 },
-  { id: "unidade_pequena", name: "Unidade Pequena", grams: 50 },
-  { id: "unidade_media", name: "Unidade Média", grams: 100 },
-  { id: "unidade_grande", name: "Unidade Grande", grams: 150 },
-  { id: "punhado", name: "Punhado", grams: 40 },
-  { id: "porcao", name: "Porção", grams: 100 },
-];
-
 const MEAL_TYPES = [
   { id: "breakfast", label: "Café da Manhã", icon: "sunny-outline" },
   { id: "morning_snack", label: "Lanche da Manhã", icon: "fast-food-outline" },
@@ -117,7 +92,6 @@ const MEAL_TYPES = [
 ];
 
 export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
-  const keyboardHeight = useKeyboardHeight();
   const insets = useSafeAreaInsets();
 
   // Store hooks
@@ -126,6 +100,7 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
     addMealToBuilder,
     removeMealFromBuilder,
     addItemToMeal,
+    updateItemInMeal,
     removeItemFromMeal,
     savePlanFromBuilder,
     setCurrentDay,
@@ -150,6 +125,15 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
   const [showConfirmRemoveMeal, setShowConfirmRemoveMeal] = useState(false);
   const [showConfirmRemoveFood, setShowConfirmRemoveFood] = useState(false);
   const [showCopyMealModal, setShowCopyMealModal] = useState(false);
+  const [showAddSubstitutionModal, setShowAddSubstitutionModal] =
+    useState(false);
+  const [substitutionTarget, setSubstitutionTarget] = useState<{
+    mealIndex: number;
+    foodIndex: number;
+  } | null>(null);
+  const [expandedSubstitutions, setExpandedSubstitutions] = useState<
+    Set<string>
+  >(new Set());
 
   // Form states
   const [currentMealId, setCurrentMealId] = useState<string | null>(null);
@@ -167,7 +151,10 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
   const [selectedMeasurement, setSelectedMeasurement] = useState<
     "gramas" | HouseholdMeasure
   >("gramas");
-  const [showMeasurementPicker, setShowMeasurementPicker] = useState(false);
+  const [foodModalStep, setFoodModalStep] = useState<"search" | "configure">(
+    "search"
+  );
+  const [showMeasuresModal, setShowMeasuresModal] = useState(false);
   const [foodsPage, setFoodsPage] = useState(1);
   const [hasMoreFoods, setHasMoreFoods] = useState(true);
 
@@ -176,6 +163,13 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
   const [foodToRemove, setFoodToRemove] = useState<{
     mealIndex: number;
     foodIndex: number;
+  } | null>(null);
+
+  // Food selection modal for substitutions
+  const [showFoodSelectionModal, setShowFoodSelectionModal] = useState(false);
+  const [foodsForSubstitution, setFoodsForSubstitution] = useState<{
+    mealIndex: number;
+    items: any[];
   } | null>(null);
 
   // Loading states
@@ -372,12 +366,18 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
     setMealForm({ name: "", type: "breakfast", time: "", observation: "" });
   };
 
-  const handleOpenFoodSearch = (mealIndex: number) => {
-    setCurrentMealId(mealIndex.toString());
-    setSearchQuery("");
+  // Helper para resetar estados do modal de alimentos
+  const resetFoodModal = () => {
     setSelectedFood(null);
     setFoodQuantity("");
     setSelectedMeasurement("gramas");
+    setFoodModalStep("search");
+    setSearchQuery("");
+  };
+
+  const handleOpenFoodSearch = (mealIndex: number) => {
+    setCurrentMealId(mealIndex.toString());
+    resetFoodModal();
     setShowFoodSearchModal(true);
   };
 
@@ -385,6 +385,13 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
     setSelectedFood(food);
     setFoodQuantity("");
     setSelectedMeasurement("gramas");
+    setFoodModalStep("configure"); // Muda para tela de configuração
+  };
+
+  const handleCloseFoodModal = () => {
+    setShowFoodSearchModal(false);
+    setCurrentMealId(null);
+    resetFoodModal();
   };
 
   const convertToGrams = (
@@ -393,7 +400,7 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
   ): number => {
     if (measurement === "gramas") return quantity;
     const measure = HOUSEHOLD_MEASURES.find((m) => m.id === measurement);
-    return measure ? quantity * measure.grams : quantity;
+    return measure ? quantity * measure.gramsEquivalent : quantity;
   };
 
   const calculateFoodNutrition = (food: any, quantityInGrams: number) => {
@@ -459,8 +466,8 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
       visibilityTime: 2000,
     });
 
-    setShowFoodSearchModal(false);
-    setCurrentMealId(null);
+    // Limpar todos os estados do modal
+    handleCloseFoodModal();
   };
 
   const handleRemoveMeal = () => {
@@ -477,6 +484,100 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
       setShowConfirmRemoveFood(false);
       setFoodToRemove(null);
     }
+  };
+
+  // 🔄 Handlers para gerenciar substituições
+  const handleAddSubstitution = (
+    food: any,
+    quantity: number,
+    measurementType: "gramas" | "caseira",
+    measurementUnit: any,
+    observation: string
+  ) => {
+    if (!substitutionTarget || !builderState) return;
+
+    const { mealIndex, foodIndex } = substitutionTarget;
+    const currentDay = builderState.currentDay;
+    const currentItem =
+      builderState.mealsByDay[currentDay][mealIndex].items[foodIndex];
+
+    // Calcular quantidade em gramas e nutrição
+    let gramsAmount = quantity;
+    if (measurementType === "caseira" && measurementUnit) {
+      gramsAmount = quantity * (measurementUnit.gramsEquivalent || 0);
+    }
+    const factor = gramsAmount / 100;
+
+    const substitution = {
+      id: `temp-sub-${Date.now()}`,
+      foodId: food.id,
+      foodName: food.name,
+      category: food.category?.name || "Sem categoria",
+      quantity: gramsAmount,
+      originalQuantity: measurementType === "caseira" ? quantity : undefined, // Quantidade original para medidas caseiras
+      measurementType:
+        measurementType === "gramas" ? "gramas" : measurementType,
+      measurementUnit:
+        measurementType === "caseira" ? measurementUnit : undefined,
+      observation,
+      calories: Math.round((food.energyKcal || 0) * factor),
+      protein: parseFloat(((food.protein || 0) * factor).toFixed(1)),
+      carbs: parseFloat(((food.carbohydrate || 0) * factor).toFixed(1)),
+      fat: parseFloat(((food.lipids || 0) * factor).toFixed(1)),
+      fiber: parseFloat(((food.fiber || 0) * factor).toFixed(1)),
+    };
+
+    // Atualizar item com nova substituição
+    const updatedItem = {
+      ...currentItem,
+      substitutions: [...(currentItem.substitutions || []), substitution],
+    };
+
+    updateItemInMeal(mealIndex, foodIndex, updatedItem);
+
+    // Limpar estado e fechar modal
+    setSubstitutionTarget(null);
+    setShowAddSubstitutionModal(false);
+
+    Toast.show({
+      type: "success",
+      text1: "Substituição adicionada! 🔄",
+      text2: `${food.name} pode substituir este alimento`,
+      position: "top",
+      visibilityTime: 2000,
+    });
+  };
+
+  const handleRemoveSubstitution = (
+    mealIdx: number,
+    foodIdx: number,
+    subIdx: number
+  ) => {
+    if (!builderState) return;
+
+    const currentDay = builderState.currentDay;
+    const currentItem =
+      builderState.mealsByDay[currentDay][mealIdx].items[foodIdx];
+
+    const updatedSubstitutions = [...(currentItem.substitutions || [])];
+    const removedSub = updatedSubstitutions.splice(subIdx, 1);
+
+    const updatedItem = {
+      ...currentItem,
+      substitutions: updatedSubstitutions,
+    };
+
+    updateItemInMeal(mealIdx, foodIdx, updatedItem);
+
+    Toast.show({
+      type: "info",
+      text1: "Substituição removida",
+      text2: removedSub?.[0]?.foodName
+        ? `${removedSub[0].foodName} removido`
+        : undefined,
+      position: "top",
+      visibilityTime: 2000,
+    });
   };
 
   const handleLoadMoreFoods = async () => {
@@ -644,7 +745,7 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
             </View>
 
             {/* Nutrition Cards */}
-            <View style={styles.nutritionGrid}>
+            <View style={styles.nutritionCardsGrid}>
               <View style={styles.nutritionCard}>
                 <Ionicons name="flame" size={20} color="#FF6B6B" />
                 <View style={styles.nutritionInfo}>
@@ -749,34 +850,138 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
 
                 {/* Foods in meal */}
                 {(meal.items || []).map((item: any, itemIndex: number) => (
-                  <View key={itemIndex} style={styles.foodItem}>
-                    <View style={styles.foodInfo}>
-                      <Text style={styles.foodName}>{item.foodName}</Text>
-                      <Text style={styles.foodQuantity}>
-                        {item.measurementType !== "gramas" &&
-                        item.originalQuantity
-                          ? `${item.originalQuantity} ${
-                              HOUSEHOLD_MEASURES.find(
-                                (m) => m.id === item.measurementType
-                              )?.name || item.measurementType
-                            } (${item.quantity?.toFixed(0) || 0}g)`
-                          : `${item.quantity?.toFixed(0) || 0}g`}
-                      </Text>
-                      <Text style={styles.foodNutrition}>
-                        {item.calories?.toFixed(0) || 0} kcal | P:{" "}
-                        {item.protein?.toFixed(1) || 0}g | C:{" "}
-                        {item.carbs?.toFixed(1) || 0}g | G:{" "}
-                        {item.fat?.toFixed(1) || 0}g
-                      </Text>
+                  <View key={itemIndex}>
+                    {/* Food Item */}
+                    <View style={styles.foodItem}>
+                      <View style={styles.foodInfo}>
+                        <Text style={styles.foodName}>{item.foodName}</Text>
+                        <Text style={styles.foodQuantity}>
+                          {item.measurementType !== "gramas" &&
+                          item.originalQuantity &&
+                          item.measurementUnit
+                            ? `${item.originalQuantity} ${
+                                item.measurementUnit.name
+                              } (${item.quantity?.toFixed(0) || 0}g)`
+                            : `${item.quantity?.toFixed(0) || 0}g`}
+                        </Text>
+                        <Text style={styles.foodNutrition}>
+                          {item.calories?.toFixed(0) || 0} kcal | P:{" "}
+                          {item.protein?.toFixed(1) || 0}g | C:{" "}
+                          {item.carbs?.toFixed(1) || 0}g | G:{" "}
+                          {item.fat?.toFixed(1) || 0}g
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setFoodToRemove({ mealIndex, foodIndex: itemIndex });
+                          setShowConfirmRemoveFood(true);
+                        }}
+                      >
+                        <Ionicons
+                          name="close-circle"
+                          size={20}
+                          color="#FF6B6B"
+                        />
+                      </TouchableOpacity>
                     </View>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setFoodToRemove({ mealIndex, foodIndex: itemIndex });
-                        setShowConfirmRemoveFood(true);
-                      }}
-                    >
-                      <Ionicons name="close-circle" size={20} color="#FF6B6B" />
-                    </TouchableOpacity>
+
+                    {/* Substitutions List - Accordion */}
+                    {item.substitutions && item.substitutions.length > 0 && (
+                      <View
+                        style={{
+                          marginTop: 8,
+                          marginBottom: 4,
+                          borderWidth: 1,
+                          borderColor: "#E9D5FF",
+                          borderRadius: 8,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <TouchableOpacity
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            paddingHorizontal: 12,
+                            paddingVertical: 10,
+                            backgroundColor: "#FAF5FF",
+                          }}
+                          onPress={() => {
+                            const key = `${mealIndex}-${itemIndex}`;
+                            setExpandedSubstitutions((prev) => {
+                              const newSet = new Set(prev);
+                              if (newSet.has(key)) {
+                                newSet.delete(key);
+                              } else {
+                                newSet.add(key);
+                              }
+                              return newSet;
+                            });
+                          }}
+                        >
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
+                          >
+                            <Ionicons
+                              name="swap-horizontal"
+                              size={16}
+                              color="#8B5CF6"
+                            />
+                            <Text
+                              style={{
+                                fontSize: 13,
+                                fontWeight: "600",
+                                color: "#8B5CF6",
+                              }}
+                            >
+                              Substituições ({item.substitutions.length})
+                            </Text>
+                          </View>
+                          <Ionicons
+                            name={
+                              expandedSubstitutions.has(
+                                `${mealIndex}-${itemIndex}`
+                              )
+                                ? "chevron-up"
+                                : "chevron-down"
+                            }
+                            size={18}
+                            color="#8B5CF6"
+                          />
+                        </TouchableOpacity>
+
+                        {expandedSubstitutions.has(
+                          `${mealIndex}-${itemIndex}`
+                        ) && (
+                          <View
+                            style={{ padding: 12, backgroundColor: "#FFFFFF" }}
+                          >
+                            {item.substitutions.map(
+                              (sub: any, subIdx: number) => {
+                                return (
+                                  <SubstitutionItem
+                                    key={subIdx}
+                                    substitution={sub}
+                                    onRemove={() =>
+                                      handleRemoveSubstitution(
+                                        mealIndex,
+                                        itemIndex,
+                                        subIdx
+                                      )
+                                    }
+                                    showRemoveButton={true}
+                                  />
+                                );
+                              }
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    )}
                   </View>
                 ))}
 
@@ -788,6 +993,59 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
                   <Ionicons name="add" size={18} color="#4A90E2" />
                   <Text style={styles.addFoodText}>Adicionar Alimento</Text>
                 </TouchableOpacity>
+
+                {/* 🔄 Add Substitution Button */}
+                {meal.items && meal.items.length > 0 && (
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: "#F5F3FF",
+                      borderWidth: 1.5,
+                      borderStyle: "dashed",
+                      borderColor: "#8B5CF6",
+                      borderRadius: 8,
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      marginTop: 12,
+                    }}
+                    onPress={() => {
+                      // Se houver apenas 1 alimento, abre o modal diretamente
+                      if (meal.items.length === 1) {
+                        setSubstitutionTarget({
+                          mealIndex,
+                          foodIndex: 0,
+                        });
+                        setShowAddSubstitutionModal(true);
+                        return;
+                      }
+
+                      // Se houver múltiplos alimentos, mostra modal customizado
+                      setFoodsForSubstitution({
+                        mealIndex,
+                        items: meal.items,
+                      });
+                      setShowFoodSelectionModal(true);
+                    }}
+                  >
+                    <Ionicons
+                      name="swap-horizontal-outline"
+                      size={20}
+                      color="#8B5CF6"
+                    />
+                    <Text
+                      style={{
+                        marginLeft: 8,
+                        fontSize: 14,
+                        fontWeight: "600",
+                        color: "#8B5CF6",
+                      }}
+                    >
+                      Gerenciar Substituições
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ))}
 
@@ -812,10 +1070,12 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
           transparent
           onRequestClose={() => setShowAddMealModal(false)}
         >
-          <View style={styles.modalOverlay}>
-            <View
-              style={[styles.modalContent, { marginBottom: keyboardHeight }]}
-            >
+          <KeyboardAvoidingView
+            style={styles.modalOverlay}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+          >
+            <View style={styles.modalContentMeal}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Nova Refeição</Text>
                 <TouchableOpacity onPress={() => setShowAddMealModal(false)}>
@@ -823,7 +1083,11 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+              >
                 <Text style={styles.inputLabel}>Nome da Refeição *</Text>
                 <TextInput
                   style={styles.input}
@@ -910,7 +1174,7 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
                 </TouchableOpacity>
               </ScrollView>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* Food Search Modal */}
@@ -918,343 +1182,450 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
           visible={showFoodSearchModal}
           animationType="slide"
           transparent
-          onRequestClose={() => setShowFoodSearchModal(false)}
+          onRequestClose={handleCloseFoodModal}
         >
           <View style={styles.modalOverlay}>
-            <View
-              style={[styles.modalContent, { marginBottom: keyboardHeight }]}
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+              style={{ flex: 1, justifyContent: "flex-end" }}
             >
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Adicionar Alimento</Text>
-                <TouchableOpacity onPress={() => setShowFoodSearchModal(false)}>
-                  <Ionicons name="close" size={24} color="#333" />
-                </TouchableOpacity>
-              </View>
-
-              <TextInput
-                style={styles.searchInput}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Buscar alimento..."
-                placeholderTextColor={lightTheme.colors.gray[400]}
-                autoCapitalize="none"
-              />
-
-              {/* Recent Searches - Feature 1 */}
-              {!searchQuery.trim() &&
-                !selectedFood &&
-                Array.isArray(recentSearches) &&
-                recentSearches.length > 0 && (
-                  <View style={styles.recentSearchesContainer}>
-                    <View style={styles.recentSearchesHeader}>
-                      <Text style={styles.recentSearchesTitle}>
-                        Buscas recentes
-                      </Text>
-                      <TouchableOpacity onPress={() => clearRecentSearches?.()}>
-                        <Text style={styles.clearRecentText}>Limpar</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.recentSearchesList}>
-                      {recentSearches.map((term) => (
-                        <TouchableOpacity
-                          key={term}
-                          onPress={() => {
-                            setSearchQuery(term);
-                            addRecentSearch?.(term);
-                          }}
-                          style={styles.recentSearchItem}
-                        >
-                          <Ionicons
-                            name="time-outline"
-                            size={14}
-                            color="#666"
-                          />
-                          <Text style={styles.recentSearchText}>{term}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                )}
-
-              {!selectedFood ? (
-                <FlatList
-                  data={filteredFoods}
-                  keyExtractor={(item: any) => item.id}
-                  renderItem={({ item }) => (
+              <View
+                style={[
+                  styles.modalContentFood,
+                  { paddingBottom: insets.bottom || lightTheme.spacing[2] },
+                ]}
+              >
+                {/* Header com navegação */}
+                <View style={styles.modalHeader}>
+                  {foodModalStep === "configure" && (
                     <TouchableOpacity
-                      style={styles.foodSearchItem}
-                      onPress={() => handleSelectFood(item)}
+                      onPress={() => {
+                        setFoodModalStep("search");
+                        setSelectedFood(null);
+                      }}
+                      style={{ padding: lightTheme.spacing[2] }}
                     >
-                      <Text style={styles.foodSearchName}>{item.name}</Text>
-                      <Text style={styles.foodSearchInfo}>
-                        {item.energyKcal?.toFixed(0) || 0} kcal/100g
-                      </Text>
+                      <Ionicons
+                        name="arrow-back"
+                        size={24}
+                        color={lightTheme.colors.gray[700]}
+                      />
                     </TouchableOpacity>
                   )}
-                  ListEmptyComponent={
-                    loadingFoods ? (
-                      <ActivityIndicator
-                        size="large"
-                        color="#4A90E2"
-                        style={{ marginTop: 20 }}
-                      />
-                    ) : (
-                      <Text style={styles.emptySearchText}>
-                        Nenhum alimento encontrado
-                      </Text>
-                    )
-                  }
-                  ListFooterComponent={
-                    filteredFoods.length > 0 && hasMoreFoods ? (
-                      <TouchableOpacity
-                        style={styles.loadMoreButton}
-                        onPress={handleLoadMoreFoods}
-                        disabled={loadingFoods}
-                      >
-                        {loadingFoods ? (
-                          <ActivityIndicator size="small" color="#4A90E2" />
-                        ) : (
-                          <>
-                            <Ionicons
-                              name="arrow-down-circle-outline"
-                              size={20}
-                              color="#4A90E2"
-                            />
-                            <Text style={styles.loadMoreText}>
-                              Carregar mais alimentos
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    ) : null
-                  }
-                />
-              ) : (
-                <ScrollView>
-                  <View style={styles.selectedFoodCard}>
-                    <Text style={styles.selectedFoodName}>
-                      {selectedFood.name}
-                    </Text>
-                    <Text style={styles.selectedFoodInfo}>
-                      {selectedFood.energyKcal?.toFixed(0) || 0} kcal | P:{" "}
-                      {selectedFood.protein?.toFixed(1) || 0}g | C:{" "}
-                      {selectedFood.carbohydrate?.toFixed(1) || 0}g | G:{" "}
-                      {selectedFood.lipids?.toFixed(1) || 0}g (por 100g)
-                    </Text>
+                  {foodModalStep !== "configure" && (
+                    <View style={{ width: 40 }} />
+                  )}
+                  <Text
+                    style={[
+                      styles.modalTitle,
+                      { flex: 1, textAlign: "center" },
+                    ]}
+                  >
+                    {foodModalStep === "search"
+                      ? "Selecionar Alimento"
+                      : "Configurar Alimento"}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={handleCloseFoodModal}
+                    style={{ padding: lightTheme.spacing[2] }}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={24}
+                      color={lightTheme.colors.gray[700]}
+                    />
+                  </TouchableOpacity>
+                </View>
 
-                    <Text style={styles.inputLabel}>Quantidade *</Text>
+                {/* Step 1: Search Food */}
+                {foodModalStep === "search" && (
+                  <>
                     <TextInput
-                      style={styles.input}
-                      value={foodQuantity}
-                      onChangeText={setFoodQuantity}
-                      placeholder="Ex: 150"
+                      style={styles.searchInput}
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      placeholder="Buscar alimento..."
                       placeholderTextColor={lightTheme.colors.gray[400]}
-                      keyboardType="numeric"
+                      autoCapitalize="none"
                     />
 
-                    {/* Toggle Visual para Tipo de Medida */}
-                    <Text style={styles.inputLabel}>Tipo de Medida</Text>
-                    <View style={styles.measurementToggleContainer}>
-                      <TouchableOpacity
-                        style={[
-                          styles.measurementToggleButton,
-                          selectedMeasurement === "gramas" &&
-                            styles.measurementToggleButtonActive,
-                        ]}
-                        onPress={() => {
-                          setSelectedMeasurement("gramas");
-                          setShowMeasurementPicker(false);
-                        }}
-                      >
-                        <Ionicons
-                          name="scale-outline"
-                          size={20}
-                          color={
-                            selectedMeasurement === "gramas"
-                              ? "#FFF"
-                              : "#4A90E2"
-                          }
-                        />
-                        <Text
-                          style={[
-                            styles.measurementToggleText,
-                            selectedMeasurement === "gramas" &&
-                              styles.measurementToggleTextActive,
-                          ]}
-                        >
-                          Gramas
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.measurementToggleButton,
-                          selectedMeasurement !== "gramas" &&
-                            styles.measurementToggleButtonActive,
-                        ]}
-                        onPress={() => {
-                          if (selectedMeasurement === "gramas") {
-                            setSelectedMeasurement("colher_sopa");
-                          }
-                          setShowMeasurementPicker(!showMeasurementPicker);
-                        }}
-                      >
-                        <Ionicons
-                          name="restaurant-outline"
-                          size={20}
-                          color={
-                            selectedMeasurement !== "gramas"
-                              ? "#FFF"
-                              : "#4A90E2"
-                          }
-                        />
-                        <Text
-                          style={[
-                            styles.measurementToggleText,
-                            selectedMeasurement !== "gramas" &&
-                              styles.measurementToggleTextActive,
-                          ]}
-                        >
-                          Medida Caseira
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Picker Horizontal de Medidas Caseiras */}
-                    {selectedMeasurement !== "gramas" && (
-                      <ScrollView
-                        style={styles.measurementPickerHorizontal}
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                      >
-                        {HOUSEHOLD_MEASURES.map((measure) => (
-                          <TouchableOpacity
-                            key={measure.id}
-                            style={[
-                              styles.measurementOptionChip,
-                              selectedMeasurement === measure.id &&
-                                styles.measurementOptionChipActive,
-                            ]}
-                            onPress={() => {
-                              setSelectedMeasurement(
-                                measure.id as HouseholdMeasure
-                              );
-                            }}
-                          >
-                            <Ionicons
-                              name="restaurant-outline"
-                              size={16}
-                              color={
-                                selectedMeasurement === measure.id
-                                  ? lightTheme.colors.white
-                                  : lightTheme.colors.primary
-                              }
-                            />
-                            <Text
-                              style={[
-                                styles.measurementOptionChipText,
-                                selectedMeasurement === measure.id &&
-                                  styles.measurementOptionChipTextActive,
-                              ]}
+                    {/* Recent Searches - Feature 1 */}
+                    {!searchQuery.trim() &&
+                      !selectedFood &&
+                      Array.isArray(recentSearches) &&
+                      recentSearches.length > 0 && (
+                        <View style={styles.recentSearchesContainer}>
+                          <View style={styles.recentSearchesHeader}>
+                            <Text style={styles.recentSearchesTitle}>
+                              Buscas recentes
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() => clearRecentSearches?.()}
                             >
-                              {measure.name}{" "}
-                              <Text
-                                style={[
-                                  styles.measurementOptionChipGrams,
-                                  selectedMeasurement === measure.id &&
-                                    styles.measurementOptionChipGramsActive,
-                                ]}
+                              <Text style={styles.clearRecentText}>Limpar</Text>
+                            </TouchableOpacity>
+                          </View>
+                          <View style={styles.recentSearchesList}>
+                            {recentSearches.map((term) => (
+                              <TouchableOpacity
+                                key={term}
+                                onPress={() => {
+                                  setSearchQuery(term);
+                                  addRecentSearch?.(term);
+                                }}
+                                style={styles.recentSearchItem}
                               >
-                                ({measure.grams}g)
-                              </Text>
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    )}
-
-                    {/* Nutrition Preview em Tempo Real */}
-                    {nutritionPreview && (
-                      <View style={styles.nutritionPreviewContainer}>
-                        <View style={styles.nutritionPreviewHeader}>
-                          <Ionicons
-                            name="stats-chart"
-                            size={18}
-                            color="#4A90E2"
-                          />
-                          <Text style={styles.nutritionPreviewTitle}>
-                            Valor Nutricional (estimado)
-                          </Text>
+                                <Ionicons
+                                  name="time-outline"
+                                  size={14}
+                                  color="#666"
+                                />
+                                <Text style={styles.recentSearchText}>
+                                  {term}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
                         </View>
-                        <View style={styles.nutritionPreviewGrid}>
-                          <View style={styles.nutritionPreviewItem}>
-                            <Text style={styles.nutritionPreviewValue}>
-                              {nutritionPreview.calories.toFixed(0)}
+                      )}
+
+                    <FlatList
+                      data={filteredFoods}
+                      keyExtractor={(item: any) => item.id}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={styles.foodSearchItem}
+                          onPress={() => handleSelectFood(item)}
+                        >
+                          <Text style={styles.foodSearchName}>{item.name}</Text>
+                          <Text style={styles.foodSearchInfo}>
+                            {item.energyKcal?.toFixed(0) || 0} kcal/100g
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                      ListEmptyComponent={
+                        loadingFoods ? (
+                          <ActivityIndicator
+                            size="large"
+                            color="#4A90E2"
+                            style={{ marginTop: 20 }}
+                          />
+                        ) : (
+                          <Text style={styles.emptySearchText}>
+                            Nenhum alimento encontrado
+                          </Text>
+                        )
+                      }
+                      ListFooterComponent={
+                        filteredFoods.length > 0 && hasMoreFoods ? (
+                          <TouchableOpacity
+                            style={styles.loadMoreButton}
+                            onPress={handleLoadMoreFoods}
+                            disabled={loadingFoods}
+                          >
+                            {loadingFoods ? (
+                              <ActivityIndicator size="small" color="#4A90E2" />
+                            ) : (
+                              <>
+                                <Ionicons
+                                  name="arrow-down-circle-outline"
+                                  size={20}
+                                  color="#4A90E2"
+                                />
+                                <Text style={styles.loadMoreText}>
+                                  Carregar mais alimentos
+                                </Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+                        ) : null
+                      }
+                    />
+                  </>
+                )}
+
+                {/* Step 2: Configure Food */}
+                {foodModalStep === "configure" && selectedFood && (
+                  <>
+                    <ScrollView
+                      style={styles.configContainer}
+                      contentContainerStyle={styles.configScrollContent}
+                      keyboardShouldPersistTaps="handled"
+                      nestedScrollEnabled={true}
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {/* Selected Food Card - Azul claro igual AddSubstitutionModal */}
+                      <View style={styles.selectedFoodCard}>
+                        <View style={styles.selectedFoodHeader}>
+                          <Ionicons
+                            name="restaurant"
+                            size={24}
+                            color={lightTheme.colors.primary}
+                          />
+                          <View style={styles.selectedFoodInfoContainer}>
+                            <Text style={styles.selectedFoodName}>
+                              {selectedFood.name}
                             </Text>
-                            <Text style={styles.nutritionPreviewLabel}>
-                              kcal
-                            </Text>
-                          </View>
-                          <View style={styles.nutritionPreviewItem}>
-                            <Text style={styles.nutritionPreviewValue}>
-                              {nutritionPreview.protein.toFixed(1)}g
-                            </Text>
-                            <Text style={styles.nutritionPreviewLabel}>
-                              Proteína
-                            </Text>
-                          </View>
-                          <View style={styles.nutritionPreviewItem}>
-                            <Text style={styles.nutritionPreviewValue}>
-                              {nutritionPreview.carbs.toFixed(1)}g
-                            </Text>
-                            <Text style={styles.nutritionPreviewLabel}>
-                              Carbos
-                            </Text>
-                          </View>
-                          <View style={styles.nutritionPreviewItem}>
-                            <Text style={styles.nutritionPreviewValue}>
-                              {nutritionPreview.fat.toFixed(1)}g
-                            </Text>
-                            <Text style={styles.nutritionPreviewLabel}>
-                              Gorduras
-                            </Text>
-                          </View>
-                          <View style={styles.nutritionPreviewItem}>
-                            <Text style={styles.nutritionPreviewValue}>
-                              {nutritionPreview.fiber.toFixed(1)}g
-                            </Text>
-                            <Text style={styles.nutritionPreviewLabel}>
-                              Fibras
+                            <Text style={styles.selectedFoodCategory}>
+                              {selectedFood.category?.name || "Sem categoria"}
                             </Text>
                           </View>
                         </View>
                       </View>
-                    )}
 
-                    <View
-                      style={[
-                        styles.buttonRow,
-                        { marginBottom: insets.bottom + 12 },
-                      ]}
-                    >
+                      {/* Quantity Input + Toggle - mesma linha */}
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Quantidade *</Text>
+                        <View style={styles.quantityRow}>
+                          <TextInput
+                            style={styles.quantityInput}
+                            value={foodQuantity}
+                            onChangeText={setFoodQuantity}
+                            placeholder="0"
+                            placeholderTextColor={lightTheme.colors.gray[400]}
+                            keyboardType="numeric"
+                          />
+                          <View style={styles.measurementToggle}>
+                            <TouchableOpacity
+                              style={[
+                                styles.measurementButton,
+                                selectedMeasurement === "gramas" &&
+                                  styles.measurementButtonActive,
+                              ]}
+                              onPress={() => setSelectedMeasurement("gramas")}
+                            >
+                              <Text
+                                style={[
+                                  styles.measurementButtonText,
+                                  selectedMeasurement === "gramas" &&
+                                    styles.measurementButtonTextActive,
+                                ]}
+                              >
+                                Gramas
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[
+                                styles.measurementButton,
+                                selectedMeasurement !== "gramas" &&
+                                  styles.measurementButtonActive,
+                              ]}
+                              onPress={() =>
+                                setSelectedMeasurement("colher_sopa")
+                              }
+                            >
+                              <Text
+                                style={[
+                                  styles.measurementButtonText,
+                                  selectedMeasurement !== "gramas" &&
+                                    styles.measurementButtonTextActive,
+                                ]}
+                              >
+                                Caseira
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Household Measures Modal Suspenso */}
+                      {selectedMeasurement !== "gramas" && (
+                        <View style={styles.inputGroup}>
+                          <Text style={styles.label}>Medida Caseira *</Text>
+                          <TouchableOpacity
+                            style={styles.measurementSelector}
+                            onPress={() => setShowMeasuresModal(true)}
+                          >
+                            <View style={styles.measurementSelectorContent}>
+                              <Text style={styles.measurementSelectorText}>
+                                {HOUSEHOLD_MEASURES.find(
+                                  (m) => m.id === selectedMeasurement
+                                )?.name || "Selecione uma medida"}{" "}
+                                (
+                                {HOUSEHOLD_MEASURES.find(
+                                  (m) => m.id === selectedMeasurement
+                                )?.gramsEquivalent || 0}
+                                g)
+                              </Text>
+                              <Ionicons
+                                name="chevron-down"
+                                size={20}
+                                color={lightTheme.colors.gray[500]}
+                              />
+                            </View>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+
+                      {/* Observation - Campo Opcional */}
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Observação (Opcional)</Text>
+                        <TextInput
+                          style={styles.observationInput}
+                          value={mealForm.observation}
+                          onChangeText={(text) =>
+                            setMealForm({ ...mealForm, observation: text })
+                          }
+                          placeholder="Ex: Observações sobre este alimento"
+                          placeholderTextColor={lightTheme.colors.gray[400]}
+                          multiline
+                          numberOfLines={3}
+                        />
+                      </View>
+
+                      {/* Nutrition Preview */}
+                      {nutritionPreview && (
+                        <View style={styles.nutritionPreview}>
+                          <Text style={styles.nutritionPreviewTitle}>
+                            Valores Nutricionais
+                          </Text>
+                          <View style={styles.nutritionGrid}>
+                            <View style={styles.nutritionItem}>
+                              <Ionicons
+                                name="flame"
+                                size={16}
+                                color={lightTheme.colors.primary}
+                              />
+                              <Text style={styles.nutritionValue}>
+                                {nutritionPreview.calories.toFixed(0)}
+                              </Text>
+                              <Text style={styles.nutritionLabel}>kcal</Text>
+                            </View>
+                            <View style={styles.nutritionItem}>
+                              <Text style={styles.nutritionValue}>
+                                {nutritionPreview.protein.toFixed(1)}g
+                              </Text>
+                              <Text style={styles.nutritionLabel}>
+                                Proteínas
+                              </Text>
+                            </View>
+                            <View style={styles.nutritionItem}>
+                              <Text style={styles.nutritionValue}>
+                                {nutritionPreview.carbs.toFixed(1)}g
+                              </Text>
+                              <Text style={styles.nutritionLabel}>Carbos</Text>
+                            </View>
+                            <View style={styles.nutritionItem}>
+                              <Text style={styles.nutritionValue}>
+                                {nutritionPreview.fat.toFixed(1)}g
+                              </Text>
+                              <Text style={styles.nutritionLabel}>
+                                Gorduras
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      )}
+                    </ScrollView>
+
+                    {/* Action Buttons - FORA do ScrollView */}
+                    <View style={styles.actions}>
                       <TouchableOpacity
-                        style={styles.secondaryButton}
-                        onPress={() => setSelectedFood(null)}
+                        style={styles.cancelButton}
+                        onPress={() => {
+                          setFoodModalStep("search");
+                          setSelectedFood(null);
+                        }}
                       >
-                        <Text style={styles.secondaryButtonText}>Voltar</Text>
+                        <Text style={styles.cancelButtonText}>Voltar</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={styles.primaryButton}
+                        style={styles.addButton}
                         onPress={handleAddFood}
                       >
-                        <Text style={styles.primaryButtonText}>Adicionar</Text>
+                        <Ionicons
+                          name="add-circle"
+                          size={20}
+                          color={lightTheme.colors.white}
+                        />
+                        <Text style={styles.addButtonText}>Adicionar</Text>
                       </TouchableOpacity>
                     </View>
-                  </View>
-                </ScrollView>
-              )}
-            </View>
+                  </>
+                )}
+              </View>
+            </KeyboardAvoidingView>
           </View>
+        </Modal>
+
+        {/* Modal de Seleção de Medidas Caseiras */}
+        <Modal
+          visible={showMeasuresModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowMeasuresModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.measuresModalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowMeasuresModal(false)}
+          >
+            <View
+              style={[
+                styles.measuresModalContent,
+                {
+                  paddingBottom: Math.max(insets.bottom, lightTheme.spacing[4]),
+                },
+              ]}
+              onStartShouldSetResponder={() => true}
+            >
+              {/* Header */}
+              <View style={styles.measuresModalHeader}>
+                <Text style={styles.measuresModalTitle}>Selecionar Medida</Text>
+                <TouchableOpacity
+                  onPress={() => setShowMeasuresModal(false)}
+                  style={styles.measuresModalCloseButton}
+                >
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={lightTheme.colors.gray[700]}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Lista de Medidas */}
+              <FlatList
+                data={HOUSEHOLD_MEASURES}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.measureItem,
+                      selectedMeasurement === item.id &&
+                        styles.measureItemSelected,
+                    ]}
+                    onPress={() => {
+                      setSelectedMeasurement(item.id as HouseholdMeasure);
+                      setShowMeasuresModal(false);
+                    }}
+                  >
+                    <View style={styles.measureItemContent}>
+                      <Text
+                        style={[
+                          styles.measureItemName,
+                          selectedMeasurement === item.id &&
+                            styles.measureItemNameSelected,
+                        ]}
+                      >
+                        {item.name}
+                      </Text>
+                      <Text style={styles.measureItemGrams}>
+                        {item.gramsEquivalent}g
+                      </Text>
+                    </View>
+                    {selectedMeasurement === item.id && (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={24}
+                        color={lightTheme.colors.primary}
+                      />
+                    )}
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </TouchableOpacity>
         </Modal>
 
         {/* Confirm Remove Meal Modal */}
@@ -1332,6 +1703,97 @@ export default function Step2MealBuilder({ onPrevious, navigation }: Props) {
           onCopy={handleCopyMeals}
         />
 
+        {/* Food Selection Modal for Substitutions */}
+        <Modal
+          visible={showFoodSelectionModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setShowFoodSelectionModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View
+              style={[
+                styles.foodSelectionModalContent,
+                { paddingBottom: insets.bottom || lightTheme.spacing[4] },
+              ]}
+            >
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Selecione o Alimento</Text>
+                <TouchableOpacity
+                  onPress={() => setShowFoodSelectionModal(false)}
+                >
+                  <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.foodSelectionSubtitle}>
+                Escolha qual alimento deseja adicionar substituições:
+              </Text>
+
+              <FlatList
+                data={foodsForSubstitution?.items || []}
+                keyExtractor={(item, index) => `food-${index}`}
+                renderItem={({ item, index }) => (
+                  <TouchableOpacity
+                    style={styles.foodSelectionItem}
+                    onPress={() => {
+                      setSubstitutionTarget({
+                        mealIndex: foodsForSubstitution?.mealIndex || 0,
+                        foodIndex: index,
+                      });
+                      setShowFoodSelectionModal(false);
+                      setShowAddSubstitutionModal(true);
+                    }}
+                  >
+                    <View style={styles.foodSelectionItemContent}>
+                      <Ionicons
+                        name="restaurant"
+                        size={24}
+                        color={lightTheme.colors.primary}
+                      />
+                      <View style={styles.foodSelectionItemInfo}>
+                        <Text style={styles.foodSelectionItemName}>
+                          {item.foodName}
+                        </Text>
+                        <Text style={styles.foodSelectionItemQuantity}>
+                          {item.quantity?.toFixed(0)}g
+                        </Text>
+                      </View>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={lightTheme.colors.gray[400]}
+                    />
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.emptyText}>
+                    Nenhum alimento disponível
+                  </Text>
+                }
+              />
+
+              <TouchableOpacity
+                style={styles.foodSelectionCancelButton}
+                onPress={() => setShowFoodSelectionModal(false)}
+              >
+                <Text style={styles.foodSelectionCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Add Substitution Modal */}
+        <AddSubstitutionModal
+          visible={showAddSubstitutionModal}
+          onClose={() => {
+            setShowAddSubstitutionModal(false);
+            setSubstitutionTarget(null);
+          }}
+          onAdd={handleAddSubstitution}
+        />
+
         {/* Toast Component */}
         <Toast />
       </SafeAreaView>
@@ -1407,7 +1869,7 @@ const styles = StyleSheet.create({
     fontSize: lightTheme.typography.fontSize.sm,
     color: lightTheme.colors.gray[600],
   },
-  nutritionGrid: {
+  nutritionCardsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     padding: lightTheme.spacing[3],
@@ -1579,14 +2041,35 @@ const styles = StyleSheet.create({
     backgroundColor: lightTheme.colors.white,
     borderTopLeftRadius: lightTheme.borderRadius["2xl"],
     borderTopRightRadius: lightTheme.borderRadius["2xl"],
-    padding: lightTheme.spacing[5],
+    height: "90%",
     maxHeight: "90%",
+  },
+  modalContentMeal: {
+    backgroundColor: lightTheme.colors.white,
+    borderTopLeftRadius: lightTheme.borderRadius["2xl"],
+    borderTopRightRadius: lightTheme.borderRadius["2xl"],
+    maxHeight: "90%",
+  },
+  modalContentFood: {
+    backgroundColor: lightTheme.colors.white,
+    borderTopLeftRadius: lightTheme.borderRadius["2xl"],
+    borderTopRightRadius: lightTheme.borderRadius["2xl"],
+    height: "80%",
+    maxHeight: "80%",
+    paddingTop: lightTheme.spacing[2],
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: lightTheme.spacing[5],
+    paddingHorizontal: lightTheme.spacing[4],
+    paddingVertical: lightTheme.spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: lightTheme.colors.gray[200],
+  },
+  modalScrollContent: {
+    padding: lightTheme.spacing[4],
+    paddingTop: lightTheme.spacing[2],
   },
   modalTitle: {
     fontSize: lightTheme.typography.fontSize.xl,
@@ -1671,6 +2154,8 @@ const styles = StyleSheet.create({
     padding: lightTheme.spacing[3],
     fontSize: lightTheme.typography.fontSize.base,
     color: lightTheme.colors.gray[900],
+    marginHorizontal: lightTheme.spacing[4],
+    marginTop: lightTheme.spacing[4],
     marginBottom: lightTheme.spacing[4],
   },
   foodSearchItem: {
@@ -1695,16 +2180,17 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   selectedFoodCard: {
-    padding: lightTheme.spacing[4],
-    backgroundColor: lightTheme.colors.gray[50],
+    backgroundColor: "#EFF6FF", // Azul claro (cor de alimento)
+    borderWidth: 1,
+    borderColor: "#BFDBFE", // Azul borda
     borderRadius: lightTheme.borderRadius.lg,
+    padding: lightTheme.spacing[3],
     marginBottom: lightTheme.spacing[4],
   },
   selectedFoodName: {
-    fontSize: lightTheme.typography.fontSize.lg,
+    fontSize: lightTheme.typography.fontSize.base,
     fontWeight: lightTheme.typography.fontWeight.semibold,
     color: lightTheme.colors.gray[900],
-    marginBottom: lightTheme.spacing[2],
   },
   selectedFoodInfo: {
     fontSize: lightTheme.typography.fontSize.sm,
@@ -1977,5 +2463,259 @@ const styles = StyleSheet.create({
     fontSize: lightTheme.typography.fontSize.sm,
     fontWeight: lightTheme.typography.fontWeight.semibold,
     color: lightTheme.colors.primary,
+  },
+  // Novos estilos para modal igual ao AddSubstitutionModal
+  configContainer: {
+    flex: 1,
+  },
+  configScrollContent: {
+    padding: lightTheme.spacing[4],
+    paddingBottom: lightTheme.spacing[20],
+  },
+  selectedFoodHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  selectedFoodInfoContainer: {
+    marginLeft: lightTheme.spacing[3],
+    flex: 1,
+  },
+  selectedFoodCategory: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
+    marginTop: 2,
+  },
+  inputGroup: {
+    marginBottom: lightTheme.spacing[4],
+  },
+  label: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.medium,
+    color: lightTheme.colors.gray[700],
+    marginBottom: lightTheme.spacing[2],
+  },
+  quantityRow: {
+    flexDirection: "row",
+    gap: lightTheme.spacing[3],
+  },
+  quantityInput: {
+    flex: 1,
+    backgroundColor: lightTheme.colors.gray[100],
+    borderRadius: lightTheme.borderRadius.lg,
+    paddingHorizontal: lightTheme.spacing[4],
+    paddingVertical: lightTheme.spacing[3],
+    fontSize: lightTheme.typography.fontSize.base,
+    color: lightTheme.colors.gray[900],
+  },
+  measurementToggle: {
+    flexDirection: "row",
+    backgroundColor: lightTheme.colors.gray[100],
+    borderRadius: lightTheme.borderRadius.lg,
+    padding: 4,
+  },
+  measurementButtonActive: {
+    backgroundColor: lightTheme.colors.primary,
+  },
+  measurementButtonTextActive: {
+    color: lightTheme.colors.white,
+  },
+  measurementSelector: {
+    backgroundColor: lightTheme.colors.gray[100],
+    borderRadius: lightTheme.borderRadius.lg,
+    paddingHorizontal: lightTheme.spacing[4],
+    paddingVertical: lightTheme.spacing[3],
+  },
+  measurementSelectorContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  measurementSelectorText: {
+    fontSize: lightTheme.typography.fontSize.base,
+    color: lightTheme.colors.gray[900],
+    flex: 1,
+  },
+  measurementSelectorPlaceholder: {
+    color: lightTheme.colors.gray[400],
+  },
+  observationInput: {
+    backgroundColor: lightTheme.colors.gray[100],
+    borderRadius: lightTheme.borderRadius.lg,
+    paddingHorizontal: lightTheme.spacing[4],
+    paddingVertical: lightTheme.spacing[3],
+    fontSize: lightTheme.typography.fontSize.base,
+    color: lightTheme.colors.gray[900],
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  nutritionPreview: {
+    backgroundColor: lightTheme.colors.gray[50],
+    borderRadius: lightTheme.borderRadius.lg,
+    padding: lightTheme.spacing[4],
+    marginBottom: lightTheme.spacing[4],
+  },
+  nutritionGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  nutritionItem: {
+    alignItems: "center",
+  },
+  actions: {
+    flexDirection: "row",
+    gap: lightTheme.spacing[3],
+    padding: lightTheme.spacing[4],
+    borderTopWidth: 1,
+    borderTopColor: lightTheme.colors.gray[200],
+    backgroundColor: lightTheme.colors.white,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: lightTheme.spacing[3],
+    borderRadius: lightTheme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[300],
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.medium,
+    color: lightTheme.colors.gray[700],
+  },
+  addButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: lightTheme.spacing[3],
+    borderRadius: lightTheme.borderRadius.lg,
+    backgroundColor: lightTheme.colors.primary,
+    gap: lightTheme.spacing[2],
+  },
+  addButtonText: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.white,
+  },
+  // Estilos do Modal de Medidas Caseiras
+  measuresModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  measuresModalContent: {
+    backgroundColor: lightTheme.colors.white,
+    borderTopLeftRadius: lightTheme.borderRadius["2xl"],
+    borderTopRightRadius: lightTheme.borderRadius["2xl"],
+    maxHeight: "70%",
+    paddingTop: lightTheme.spacing[4],
+  },
+  measuresModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: lightTheme.spacing[6],
+    paddingBottom: lightTheme.spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: lightTheme.colors.gray[200],
+  },
+  measuresModalTitle: {
+    fontSize: lightTheme.typography.fontSize.lg,
+    fontWeight: lightTheme.typography.fontWeight.bold,
+    color: lightTheme.colors.gray[900],
+  },
+  measuresModalCloseButton: {
+    padding: lightTheme.spacing[1],
+  },
+  measureItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: lightTheme.spacing[4],
+    paddingHorizontal: lightTheme.spacing[4],
+    borderRadius: lightTheme.borderRadius.lg,
+    marginVertical: lightTheme.spacing[1],
+    marginHorizontal: lightTheme.spacing[4],
+    backgroundColor: lightTheme.colors.white,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[200],
+  },
+  measureItemSelected: {
+    backgroundColor: "#F5F3FF",
+    borderColor: lightTheme.colors.primary,
+  },
+  measureItemContent: {
+    flex: 1,
+  },
+  measureItemName: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.medium,
+    color: lightTheme.colors.gray[900],
+    marginBottom: 2,
+  },
+  measureItemNameSelected: {
+    color: lightTheme.colors.primary,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+  },
+  measureItemGrams: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[500],
+  },
+  // Food Selection Modal styles
+  foodSelectionModalContent: {
+    backgroundColor: lightTheme.colors.white,
+    borderTopLeftRadius: lightTheme.borderRadius["2xl"],
+    borderTopRightRadius: lightTheme.borderRadius["2xl"],
+    height: "70%",
+    maxHeight: "70%",
+    padding: lightTheme.spacing[4],
+  },
+  foodSelectionSubtitle: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
+    marginBottom: lightTheme.spacing[4],
+    paddingHorizontal: lightTheme.spacing[2],
+  },
+  foodSelectionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: lightTheme.spacing[4],
+    backgroundColor: lightTheme.colors.white,
+    borderRadius: lightTheme.borderRadius.lg,
+    marginBottom: lightTheme.spacing[3],
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[200],
+  },
+  foodSelectionItemContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: lightTheme.spacing[3],
+    flex: 1,
+  },
+  foodSelectionItemInfo: {
+    flex: 1,
+  },
+  foodSelectionItemName: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.medium,
+    color: lightTheme.colors.gray[900],
+    marginBottom: lightTheme.spacing[1],
+  },
+  foodSelectionItemQuantity: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[500],
+  },
+  foodSelectionCancelButton: {
+    padding: lightTheme.spacing[4],
+    backgroundColor: lightTheme.colors.gray[100],
+    borderRadius: lightTheme.borderRadius.lg,
+    alignItems: "center",
+    marginTop: lightTheme.spacing[3],
+  },
+  foodSelectionCancelText: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.medium,
+    color: lightTheme.colors.gray[700],
   },
 });

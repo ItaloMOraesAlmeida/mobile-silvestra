@@ -36,6 +36,29 @@ export enum DayOfWeek {
 
 // ========== CORE TYPES ==========
 
+export interface MealItemSubstitution {
+  id: string;
+  foodId: string;
+  food?: {
+    id: string;
+    name: string;
+    category: {
+      id: string;
+      name: string;
+    };
+  };
+  quantity: number;
+  measurementType: "GRAMAS" | "CASEIRA";
+  measurementUnit?: HouseholdMeasure;
+  observation?: string;
+  // Valores nutricionais calculados
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+}
+
 export interface FoodNutrition {
   id: string;
   name: string;
@@ -49,6 +72,7 @@ export interface FoodNutrition {
   fat: number;
   fiber: number;
   observation?: string;
+  substitutions?: MealItemSubstitution[]; // ✅ NOVO: Array de substituições
 }
 
 export interface MealNutritionSummary {
@@ -146,12 +170,21 @@ export interface ShoppingList {
 
 // ========== DTOs PARA API ==========
 
+export interface CreateMealItemSubstitutionDto {
+  foodId: string;
+  quantity: number;
+  measurementType?: "GRAMAS" | "CASEIRA";
+  measurementUnit?: HouseholdMeasure;
+  observation?: string;
+}
+
 export interface CreateMealItemDto {
   foodId: string;
   quantity: number;
   measurementType?: MeasurementType;
   measurementUnit?: HouseholdMeasure;
   observation?: string;
+  substitutions?: CreateMealItemSubstitutionDto[]; // ✅ NOVO: Array de substituições
 }
 
 export interface CreateMealDto {
@@ -287,6 +320,24 @@ export interface HouseholdMeasure {
   gramsEquivalent: number; // equivalência em gramas
 }
 
+export interface SubstitutionBuilderItem {
+  id: string; // ID temporário para o builder
+  foodId: string;
+  foodName: string;
+  category: string;
+  quantity: number;
+  originalQuantity?: number; // Quantidade original para medidas caseiras (ex: 2 copos)
+  measurementType: MeasurementType; // 'gramas' ou 'caseira'
+  measurementUnit?: HouseholdMeasure;
+  observation?: string;
+  // Valores nutricionais calculados
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+}
+
 export interface FoodBuilderItem {
   id: string; // ID temporário para o builder
   foodId: string;
@@ -302,4 +353,5 @@ export interface FoodBuilderItem {
   carbs: number;
   fat: number;
   fiber: number;
+  substitutions?: SubstitutionBuilderItem[]; // ✅ NOVO: Array de substituições no builder
 }

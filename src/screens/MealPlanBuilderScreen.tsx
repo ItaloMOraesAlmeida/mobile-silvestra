@@ -30,6 +30,8 @@ import { lightTheme } from "../theme";
 import { useMealPlansStore } from "../stores/meal-plans.store";
 import { useFoodsStore } from "../stores/foods.store";
 import type { MealType, FoodBuilderItem } from "../types/meal-plan.types";
+import SubstitutionItem from "../components/SubstitutionItem";
+import AddSubstitutionModal from "../components/AddSubstitutionModal";
 import {
   MEAL_TYPES_INFO,
   getMealTypeIcon,
@@ -59,6 +61,8 @@ export default function MealPlanBuilderScreen({ navigation, route }: Props) {
     removeMealFromBuilder,
     addItemToMeal,
     removeItemFromMeal,
+    addSubstitutionToItem,
+    removeSubstitutionFromItem,
     savePlanFromBuilder,
     clearBuilder,
     loading,
@@ -69,9 +73,15 @@ export default function MealPlanBuilderScreen({ navigation, route }: Props) {
   // Modals
   const [showAddMealModal, setShowAddMealModal] = useState(false);
   const [showFoodSearchModal, setShowFoodSearchModal] = useState(false);
+  const [showAddSubstitutionModal, setShowAddSubstitutionModal] =
+    useState(false);
   const [selectedMealIndex, setSelectedMealIndex] = useState<number | null>(
     null
   );
+  const [substitutionTarget, setSubstitutionTarget] = useState<{
+    mealIndex: number;
+    itemIndex: number;
+  } | null>(null);
 
   // Meal form
   const [mealName, setMealName] = useState("");
@@ -217,6 +227,7 @@ export default function MealPlanBuilderScreen({ navigation, route }: Props) {
       foodName: selectedFood.name,
       category: selectedFood.category?.name || "Outros",
       quantity,
+      measurementType: "gramas",
       observation: "",
       calories: (selectedFood.energyKcal || 0) * factor,
       protein: (selectedFood.protein || 0) * factor,
@@ -235,6 +246,57 @@ export default function MealPlanBuilderScreen({ navigation, route }: Props) {
 
   const handleRemoveFoodItem = (mealIndex: number, itemIndex: number) => {
     removeItemFromMeal(mealIndex, itemIndex);
+  };
+
+  const handleAddSubstitution = (
+    food: any,
+    quantity: number,
+    measurementType: "gramas" | "caseira",
+    measurementUnit: any,
+    observation: string
+  ) => {
+    if (!substitutionTarget) return;
+
+    const { mealIndex, itemIndex } = substitutionTarget;
+
+    // Calcular nutrição da substituição
+    let gramsAmount = quantity;
+    if (measurementType === "caseira" && measurementUnit) {
+      const gramsPerUnit =
+        measurementUnit.grams || measurementUnit.gramsEquivalent || 0;
+      gramsAmount = quantity * gramsPerUnit;
+    }
+
+    const factor = gramsAmount / 100;
+
+    const substitution = {
+      id: `temp-sub-${Date.now()}`,
+      foodId: food.id,
+      foodName: food.name,
+      category: food.category?.name || "Sem categoria",
+      quantity,
+      measurementType,
+      measurementUnit,
+      observation,
+      calories: Math.round(food.calories * factor),
+      protein: parseFloat((food.protein * factor).toFixed(1)),
+      carbs: parseFloat((food.carbs * factor).toFixed(1)),
+      fat: parseFloat((food.fat * factor).toFixed(1)),
+      fiber: parseFloat((food.fiber * factor).toFixed(1)),
+    };
+
+    addSubstitutionToItem(mealIndex, itemIndex, substitution);
+
+    // Reset
+    setSubstitutionTarget(null);
+  };
+
+  const handleRemoveSubstitution = (
+    mealIndex: number,
+    itemIndex: number,
+    substitutionIndex: number
+  ) => {
+    removeSubstitutionFromItem(mealIndex, itemIndex, substitutionIndex);
   };
 
   const handleSavePlan = async () => {
@@ -483,37 +545,195 @@ export default function MealPlanBuilderScreen({ navigation, route }: Props) {
                   {/* Meal Items */}
                   {meal.items.length > 0 ? (
                     <View style={styles.mealItemsContainer}>
+                      {(() => {
+                        console.log("=================================");
+                        console.log("🍽️ REFEIÇÃO:", meal.name);
+                        console.log("📊 TOTAL DE ITEMS:", meal.items.length);
+                        console.log(
+                          "📋 ITEMS:",
+                          meal.items.map((i) => i.foodName)
+                        );
+                        console.log("=================================");
+                        return null;
+                      })()}
                       {meal.items.map((item, itemIndex) => {
+                        console.log(
+                          `\n🔍 [ITEM ${itemIndex}] Iniciando renderização`
+                        );
+                        console.log(`   Nome: ${item.foodName}`);
+                        console.log(
+                          `   Substituições: ${item.substitutions?.length || 0}`
+                        );
+                        console.log(`   Vai renderizar botão: SIM`);
+
                         return (
-                          <View key={itemIndex} style={styles.mealItemRow}>
-                            <View style={styles.mealItemContent}>
-                              <Text style={styles.mealItemName}>
-                                {item.foodName}
-                              </Text>
-                              <Text style={styles.mealItemInfo}>
-                                {formatGrams(item.quantity)} •{" "}
-                                {formatCalories(item.calories)}
-                              </Text>
-                              <Text style={styles.mealItemMacros}>
-                                P: {formatMacro(item.protein)} • C:{" "}
-                                {formatMacro(item.carbs)} • G:{" "}
-                                {formatMacro(item.fat)}
+                          <View
+                            key={itemIndex}
+                            style={{
+                              backgroundColor: "#FFF",
+                              borderWidth: 3,
+                              borderColor: "#F00",
+                            }}
+                          >
+                            <Text
+                              style={{
+                                backgroundColor: "#FF0",
+                                padding: 10,
+                                fontSize: 16,
+                                fontWeight: "bold",
+                              }}
+                            >
+                              ⚠️ INÍCIO DO ITEM {itemIndex}: {item.foodName}
+                            </Text>
+
+                            {/* Main Food Item */}
+                            <View style={styles.mealItemRow}>
+                              <View style={styles.mealItemContent}>
+                                <Text style={styles.mealItemName}>
+                                  {item.foodName}
+                                </Text>
+                                <Text style={styles.mealItemInfo}>
+                                  {formatGrams(item.quantity)} •{" "}
+                                  {formatCalories(item.calories)}
+                                </Text>
+                                <Text style={styles.mealItemMacros}>
+                                  P: {formatMacro(item.protein)} • C:{" "}
+                                  {formatMacro(item.carbs)} • G:{" "}
+                                  {formatMacro(item.fat)}
+                                </Text>
+                              </View>
+                              <TouchableOpacity
+                                onPress={() =>
+                                  handleRemoveFoodItem(mealIndex, itemIndex)
+                                }
+                              >
+                                <Ionicons
+                                  name="close-circle"
+                                  size={20}
+                                  color="#EF4444"
+                                />
+                              </TouchableOpacity>
+                            </View>
+
+                            {/* TESTE VISUAL - REMOVER DEPOIS */}
+                            <View
+                              style={{
+                                backgroundColor: "#FF0000",
+                                padding: 20,
+                                margin: 10,
+                                alignItems: "center",
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  color: "#FFF",
+                                  fontSize: 18,
+                                  fontWeight: "bold",
+                                }}
+                              >
+                                ⚠️ TESTE: SE VOCÊ VÊ ISTO, O BOTÃO DEVE APARECER
+                                ABAIXO
                               </Text>
                             </View>
-                            <TouchableOpacity
-                              onPress={() =>
-                                handleRemoveFoodItem(mealIndex, itemIndex)
-                              }
+
+                            {/* Substitutions List */}
+                            {item.substitutions &&
+                              item.substitutions.length > 0 && (
+                                <View style={styles.substitutionsContainer}>
+                                  <Text style={styles.substitutionsHeader}>
+                                    🔄 Substituições (
+                                    {item.substitutions.length})
+                                  </Text>
+                                  {item.substitutions.map((sub, subIndex) => (
+                                    <SubstitutionItem
+                                      key={subIndex}
+                                      substitution={sub}
+                                      onRemove={() =>
+                                        handleRemoveSubstitution(
+                                          mealIndex,
+                                          itemIndex,
+                                          subIndex
+                                        )
+                                      }
+                                      showRemoveButton={true}
+                                    />
+                                  ))}
+                                </View>
+                              )}
+
+                            {/* Add Substitution Button */}
+                            <View
+                              style={{ padding: 8, backgroundColor: "#0F0" }}
                             >
-                              <Ionicons
-                                name="close-circle"
-                                size={20}
-                                color="#EF4444"
-                              />
-                            </TouchableOpacity>
+                              <Text
+                                style={{
+                                  fontSize: 10,
+                                  color: "#999",
+                                  marginBottom: 4,
+                                }}
+                              >
+                                DEBUG: Botão de Substituição (Item {itemIndex})
+                              </Text>
+                              <TouchableOpacity
+                                style={styles.addSubstitutionButton}
+                                onPress={() => {
+                                  console.log(
+                                    "🔄 Botão Adicionar Substituição clicado!",
+                                    { mealIndex, itemIndex }
+                                  );
+                                  Alert.alert(
+                                    "Clicado!",
+                                    `Item ${itemIndex} na refeição ${mealIndex}`
+                                  );
+                                  setSubstitutionTarget({
+                                    mealIndex,
+                                    itemIndex,
+                                  });
+                                  setShowAddSubstitutionModal(true);
+                                }}
+                              >
+                                <Ionicons
+                                  name="swap-horizontal-outline"
+                                  size={20}
+                                  color={lightTheme.colors.success}
+                                />
+                                <Text style={styles.addSubstitutionButtonText}>
+                                  Adicionar Substituição
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+
+                            <Text
+                              style={{
+                                backgroundColor: "#F0F",
+                                padding: 10,
+                                fontSize: 16,
+                                fontWeight: "bold",
+                              }}
+                            >
+                              ✅ FIM DO ITEM {itemIndex}: {item.foodName}
+                            </Text>
                           </View>
                         );
                       })}
+
+                      <View
+                        style={{
+                          backgroundColor: "#0FF",
+                          padding: 20,
+                          margin: 10,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 20,
+                            fontWeight: "bold",
+                            textAlign: "center",
+                          }}
+                        >
+                          🎯 TODOS OS {meal.items.length} ITEMS RENDERIZADOS
+                        </Text>
+                      </View>
 
                       {/* Add Food Button */}
                       <TouchableOpacity
@@ -783,6 +1003,16 @@ export default function MealPlanBuilderScreen({ navigation, route }: Props) {
           </View>
         </View>
       </Modal>
+
+      {/* Add Substitution Modal */}
+      <AddSubstitutionModal
+        visible={showAddSubstitutionModal}
+        onClose={() => {
+          setShowAddSubstitutionModal(false);
+          setSubstitutionTarget(null);
+        }}
+        onAdd={handleAddSubstitution}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -1065,6 +1295,42 @@ const styles = StyleSheet.create({
   mealItemMacros: {
     fontSize: lightTheme.typography.fontSize.xs,
     color: lightTheme.colors.gray[400],
+  },
+
+  // Substitutions
+  substitutionsContainer: {
+    paddingLeft: lightTheme.spacing[4],
+    paddingVertical: lightTheme.spacing[2],
+    backgroundColor: lightTheme.colors.gray[50],
+    borderBottomWidth: 1,
+    borderBottomColor: lightTheme.colors.gray[100],
+  },
+  substitutionsHeader: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+    color: lightTheme.colors.success,
+    marginBottom: lightTheme.spacing[2],
+  },
+  addSubstitutionButton: {
+    marginTop: lightTheme.spacing[2],
+    marginHorizontal: lightTheme.spacing[3],
+    marginBottom: lightTheme.spacing[2],
+    paddingVertical: lightTheme.spacing[3],
+    paddingHorizontal: lightTheme.spacing[4],
+    borderWidth: 1.5,
+    borderStyle: "dashed" as any,
+    borderColor: lightTheme.colors.success,
+    borderRadius: lightTheme.borderRadius.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F0FDF4",
+  },
+  addSubstitutionButtonText: {
+    color: lightTheme.colors.success,
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+    marginLeft: 6,
   },
 
   // Add Food Button

@@ -29,6 +29,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMealPlansStore } from "../stores/meal-plans.store";
 import { MealPlanDetailsSkeleton } from "../components/MealPlanDetailsSkeleton";
 import { ProgressVsGoalsChart } from "../components/ProgressVsGoalsChart";
+import SubstitutionItem from "../components/SubstitutionItem";
 import { lightTheme } from "../theme";
 import { DayOfWeek } from "../types/meal-plan.types";
 import {
@@ -1401,45 +1402,89 @@ Gerado pelo Silvestra App 🌿
 
                               {/* Food Items */}
                               {meal.items.map((item, index) => (
-                                <View
-                                  key={index}
-                                  style={[
-                                    styles.foodItem,
-                                    index === meal.items.length - 1 &&
-                                      styles.foodItemLast,
-                                  ]}
-                                >
-                                  <Text style={styles.foodName}>
-                                    {item.name}
-                                  </Text>
-                                  <Text style={styles.foodQuantity}>
-                                    {formatFoodQuantity(item)} • {item.category}
-                                  </Text>
-                                  <Text style={styles.foodNutrition}>
-                                    {formatCalories(item.calories)} • P:{" "}
-                                    {formatMacro(item.protein)} • C:{" "}
-                                    {formatMacro(item.carbs)} • G:{" "}
-                                    {formatMacro(item.fat)}
-                                  </Text>
-                                  {item.observation && (
-                                    <View
-                                      style={{
-                                        flexDirection: "row",
-                                        alignItems: "flex-start",
-                                        marginTop: lightTheme.spacing[1],
-                                      }}
-                                    >
-                                      <Ionicons
-                                        name="chatbubble-outline"
-                                        size={12}
-                                        color={lightTheme.colors.gray[500]}
-                                        style={{ marginRight: 4, marginTop: 2 }}
-                                      />
-                                      <Text style={styles.foodObservation}>
-                                        {item.observation}
-                                      </Text>
-                                    </View>
-                                  )}
+                                <View key={index}>
+                                  <View
+                                    style={[
+                                      styles.foodItem,
+                                      index === meal.items.length - 1 &&
+                                        !item.substitutions?.length &&
+                                        styles.foodItemLast,
+                                    ]}
+                                  >
+                                    <Text style={styles.foodName}>
+                                      {item.name}
+                                    </Text>
+                                    <Text style={styles.foodQuantity}>
+                                      {formatFoodQuantity(item)} •{" "}
+                                      {item.category}
+                                    </Text>
+                                    <Text style={styles.foodNutrition}>
+                                      {formatCalories(item.calories)} • P:{" "}
+                                      {formatMacro(item.protein)} • C:{" "}
+                                      {formatMacro(item.carbs)} • G:{" "}
+                                      {formatMacro(item.fat)}
+                                    </Text>
+                                    {item.observation && (
+                                      <View
+                                        style={{
+                                          flexDirection: "row",
+                                          alignItems: "flex-start",
+                                          marginTop: lightTheme.spacing[1],
+                                        }}
+                                      >
+                                        <Ionicons
+                                          name="chatbubble-outline"
+                                          size={12}
+                                          color={lightTheme.colors.gray[500]}
+                                          style={{
+                                            marginRight: 4,
+                                            marginTop: 2,
+                                          }}
+                                        />
+                                        <Text style={styles.foodObservation}>
+                                          {item.observation}
+                                        </Text>
+                                      </View>
+                                    )}
+                                  </View>
+
+                                  {/* Substituições */}
+                                  {item.substitutions &&
+                                    item.substitutions.length > 0 && (
+                                      <View
+                                        style={[
+                                          styles.substitutionsContainer,
+                                          index === meal.items.length - 1 &&
+                                            styles.foodItemLast,
+                                        ]}
+                                      >
+                                        <View
+                                          style={styles.substitutionsHeader}
+                                        >
+                                          <Ionicons
+                                            name="swap-horizontal-outline"
+                                            size={14}
+                                            color={lightTheme.colors.success}
+                                            style={{ marginRight: 4 }}
+                                          />
+                                          <Text
+                                            style={styles.substitutionsTitle}
+                                          >
+                                            Opções de Substituição (
+                                            {item.substitutions.length})
+                                          </Text>
+                                        </View>
+                                        {item.substitutions.map(
+                                          (sub, subIndex) => (
+                                            <SubstitutionItem
+                                              key={subIndex}
+                                              substitution={sub}
+                                              showRemoveButton={false}
+                                            />
+                                          )
+                                        )}
+                                      </View>
+                                    )}
                                 </View>
                               ))}
                             </View>
@@ -1824,6 +1869,24 @@ const styles = StyleSheet.create({
     fontSize: lightTheme.typography.fontSize.xs,
     color: lightTheme.colors.gray[500],
     flex: 1,
+  },
+
+  // Substituições
+  substitutionsContainer: {
+    paddingLeft: lightTheme.spacing[4],
+    paddingVertical: lightTheme.spacing[2],
+    borderBottomWidth: 1,
+    borderBottomColor: lightTheme.colors.gray[100],
+  },
+  substitutionsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: lightTheme.spacing[2],
+  },
+  substitutionsTitle: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.success,
   },
 
   // Notes

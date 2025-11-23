@@ -68,6 +68,24 @@ interface MealPlansState {
   updateMealItem: (itemId: string, data: UpdateMealItemDto) => Promise<void>;
   deleteMealItem: (itemId: string) => Promise<void>;
 
+  // ===== ACTIONS - MEAL ITEM SUBSTITUTIONS =====
+  addSubstitutionToItem: (
+    mealIndex: number,
+    itemIndex: number,
+    substitution: any
+  ) => void;
+  removeSubstitutionFromItem: (
+    mealIndex: number,
+    itemIndex: number,
+    substitutionIndex: number
+  ) => void;
+  updateSubstitutionInItem: (
+    mealIndex: number,
+    itemIndex: number,
+    substitutionIndex: number,
+    substitution: any
+  ) => void;
+
   // ===== ACTIONS - SHOPPING LIST =====
   generateShoppingList: (planId: string) => Promise<void>;
   toggleShoppingItem: (itemId: string) => Promise<void>;
@@ -701,6 +719,90 @@ export const useMealPlansStore = create<MealPlansState>((set, get) => ({
             [currentDay]: updatedMeals,
           },
           meals: updatedMeals, // Atualiza atalho também
+        },
+      });
+    }
+  },
+
+  // ===== SUBSTITUTIONS ACTIONS =====
+
+  addSubstitutionToItem: (mealIndex, itemIndex, substitution) => {
+    const { builderState } = get();
+    if (builderState) {
+      const currentDay = builderState.currentDay;
+      const updatedMeals = [...builderState.mealsByDay[currentDay]];
+      const item = updatedMeals[mealIndex].items[itemIndex];
+
+      // Inicializa array de substituições se não existir
+      if (!item.substitutions) {
+        item.substitutions = [];
+      }
+
+      item.substitutions.push(substitution);
+
+      set({
+        builderState: {
+          ...builderState,
+          mealsByDay: {
+            ...builderState.mealsByDay,
+            [currentDay]: updatedMeals,
+          },
+          meals: updatedMeals,
+        },
+      });
+    }
+  },
+
+  removeSubstitutionFromItem: (mealIndex, itemIndex, substitutionIndex) => {
+    const { builderState } = get();
+    if (builderState) {
+      const currentDay = builderState.currentDay;
+      const updatedMeals = [...builderState.mealsByDay[currentDay]];
+      const item = updatedMeals[mealIndex].items[itemIndex];
+
+      if (item.substitutions) {
+        item.substitutions = item.substitutions.filter(
+          (_, i) => i !== substitutionIndex
+        );
+      }
+
+      set({
+        builderState: {
+          ...builderState,
+          mealsByDay: {
+            ...builderState.mealsByDay,
+            [currentDay]: updatedMeals,
+          },
+          meals: updatedMeals,
+        },
+      });
+    }
+  },
+
+  updateSubstitutionInItem: (
+    mealIndex,
+    itemIndex,
+    substitutionIndex,
+    substitution
+  ) => {
+    const { builderState } = get();
+    if (builderState) {
+      const currentDay = builderState.currentDay;
+      const updatedMeals = [...builderState.mealsByDay[currentDay]];
+      const item = updatedMeals[mealIndex].items[itemIndex];
+
+      if (item.substitutions && item.substitutions[substitutionIndex]) {
+        item.substitutions[substitutionIndex] = substitution;
+      }
+
+      set({
+        builderState: {
+          ...builderState,
+          mealsByDay: {
+            ...builderState.mealsByDay,
+            [currentDay]: updatedMeals,
+          },
+          meals: updatedMeals,
         },
       });
     }
