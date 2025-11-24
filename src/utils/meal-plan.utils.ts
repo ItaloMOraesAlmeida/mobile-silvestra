@@ -92,25 +92,25 @@ export const PLAN_STATUS_INFO: Record<PlanStatus, PlanStatusInfo> = {
   DRAFT: {
     status: PlanStatus.DRAFT,
     label: "Rascunho",
-    color: "#9E9E9E",
+    color: "#FF9800", // Laranja vibrante - destaque para trabalho em andamento
     icon: "create-outline",
   },
   ACTIVE: {
     status: PlanStatus.ACTIVE,
     label: "Ativo",
-    color: "#4CAF50",
+    color: "#10B981", // Verde vibrante - plano em vigor
     icon: "checkmark-circle",
   },
   COMPLETED: {
     status: PlanStatus.COMPLETED,
     label: "Concluído",
-    color: "#2196F3",
+    color: "#3B82F6", // Azul vibrante - plano finalizado
     icon: "checkmark-done-circle",
   },
   ARCHIVED: {
     status: PlanStatus.ARCHIVED,
     label: "Arquivado",
-    color: "#757575",
+    color: "#6B7280", // Cinza mais escuro - arquivado
     icon: "archive",
   },
 };

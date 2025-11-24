@@ -11,7 +11,6 @@ import type {
   CreateMealPlanDto,
   UpdateMealPlanDto,
   FilterMealPlanDto,
-  PlanStatus,
   Meal,
   CreateMealDto,
   UpdateMealDto,
@@ -22,7 +21,7 @@ import type {
   ShoppingList,
   MealBuilderState,
 } from "../types/meal-plan.types";
-import { DayOfWeek } from "../types/meal-plan.types";
+import { DayOfWeek, PlanStatus } from "../types/meal-plan.types";
 import * as mealPlanService from "../services/meal-plan.service";
 import * as patientService from "../services/patient.service";
 
@@ -52,6 +51,16 @@ interface MealPlansState {
   loadPlanById: (id: string, forceRefresh?: boolean) => Promise<void>;
   createPlan: (data: CreateMealPlanDto) => Promise<MealPlan>;
   updatePlan: (id: string, data: UpdateMealPlanDto) => Promise<void>;
+  updatePlanStatus: (
+    id: string,
+    newStatus: PlanStatus,
+    startDate?: Date,
+    endDate?: Date
+  ) => Promise<void>;
+  checkActivePlan: (
+    patientId: string,
+    excludePlanId?: string
+  ) => Promise<boolean>;
   deletePlan: (id: string) => Promise<void>;
   clonePlan: (id: string, newPatientId?: string) => Promise<MealPlan>;
   exportPlanPdf: (id: string) => Promise<string>;
@@ -215,6 +224,85 @@ export const useMealPlansStore = create<MealPlansState>((set, get) => ({
         error: error.message || "Erro ao atualizar plano",
         loading: false,
       });
+    }
+  },
+
+  updatePlanStatus: async (
+    id: string,
+    newStatus: PlanStatus,
+    startDate?: Date,
+    endDate?: Date
+  ) => {
+    set({ loading: true, error: null });
+    try {
+      const { selectedPlan } = get();
+      if (!selectedPlan) {
+        throw new Error("Nenhum plano selecionado");
+      }
+
+      // Preparar dados de atualização
+      const updateData: UpdateMealPlanDto = {
+        status: newStatus,
+        ...(startDate && { startDate: startDate.toISOString() }),
+        ...(endDate && { endDate: endDate.toISOString() }),
+      };
+
+      // Se estiver ativando, desativar outros planos ativos do mesmo paciente
+      if (newStatus === PlanStatus.ACTIVE) {
+        const { plans } = get();
+        const activePlansForPatient = plans.filter(
+          (p) =>
+            p.patientId === selectedPlan.patientId &&
+            p.id !== id &&
+            p.status === PlanStatus.ACTIVE
+        );
+
+        // Desativar planos ativos (colocar como COMPLETED)
+        for (const activePlan of activePlansForPatient) {
+          await mealPlanService.updateMealPlan(activePlan.id, {
+            status: PlanStatus.COMPLETED,
+          });
+        }
+      }
+
+      // Atualizar o plano atual
+      await get().updatePlan(id, updateData);
+      set({ loading: false });
+    } catch (error: any) {
+      set({
+        error: error.message || "Erro ao atualizar status do plano",
+        loading: false,
+      });
+      throw error;
+    }
+  },
+
+  checkActivePlan: async (patientId: string, excludePlanId?: string) => {
+    try {
+      const { plans } = get();
+
+      // Verificar se já tem plano ativo carregado na lista
+      const hasActivePlan = plans.some(
+        (p) =>
+          p.patientId === patientId &&
+          p.status === PlanStatus.ACTIVE &&
+          p.id !== excludePlanId
+      );
+
+      if (hasActivePlan) {
+        return true;
+      }
+
+      // Se não encontrou na lista, buscar no backend
+      const allPlans = await mealPlanService.getMealPlans({
+        patientId,
+        status: PlanStatus.ACTIVE,
+      });
+
+      return allPlans.some((p) => p.id !== excludePlanId);
+    } catch (error) {
+      console.error("Erro ao verificar plano ativo:", error);
+      return false;
     }
   },
 

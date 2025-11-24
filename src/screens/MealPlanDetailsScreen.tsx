@@ -21,18 +21,21 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  Alert,
   StyleSheet,
+  Modal,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import Toast from "react-native-toast-message";
 import { useMealPlansStore } from "../stores/meal-plans.store";
 import { MealPlanDetailsSkeleton } from "../components/MealPlanDetailsSkeleton";
 import { ProgressVsGoalsChart } from "../components/ProgressVsGoalsChart";
 import { MealPlanDayView } from "../components/MealPlanDayView";
 import { FoodDetailModal } from "../components/FoodDetailModal";
+import { MealPlanStatusManager } from "../components/MealPlanStatusManager";
 import { lightTheme } from "../theme";
-import { DayOfWeek } from "../types/meal-plan.types";
+import { DayOfWeek, PlanStatus } from "../types/meal-plan.types";
 import {
   getPlanStatusIcon,
   getPlanStatusColor,
@@ -70,6 +73,8 @@ export default function MealPlanDetailsScreen({ navigation, route }: Props) {
     deletePlan,
     clonePlan,
     generateShoppingList,
+    updatePlanStatus,
+    checkActivePlan,
     loading,
     error,
   } = useMealPlansStore();
@@ -79,6 +84,8 @@ export default function MealPlanDetailsScreen({ navigation, route }: Props) {
   const [selectedFoodItem, setSelectedFoodItem] = useState<any>(null);
   const [isFoodDetailModalVisible, setIsFoodDetailModalVisible] =
     useState(false);
+  const [isStatusManagerVisible, setIsStatusManagerVisible] = useState(false);
+  const [showEditConfirmModal, setShowEditConfirmModal] = useState(false);
 
   const planId = route?.params?.planId || selectedPlan?.id;
 
@@ -120,7 +127,32 @@ export default function MealPlanDetailsScreen({ navigation, route }: Props) {
   const handleEdit = async () => {
     if (!selectedPlan) return;
 
+    // Se o plano não estiver em rascunho, mostrar modal de confirmação
+    if (selectedPlan.status !== PlanStatus.DRAFT) {
+      setShowEditConfirmModal(true);
+    } else {
+      // Já é rascunho, pode editar diretamente
+      proceedToEdit();
+    }
+  };
+
+  const proceedToEdit = async () => {
+    if (!selectedPlan) return;
+
     try {
+      // Se não for rascunho, alterar status para DRAFT
+      if (selectedPlan.status !== PlanStatus.DRAFT) {
+        await updatePlanStatus(selectedPlan.id, PlanStatus.DRAFT);
+
+        Toast.show({
+          type: "info",
+          text1: "Status alterado para Rascunho",
+          text2: "O plano pode ser editado agora",
+          position: "top",
+          visibilityTime: 2000,
+        });
+      }
+
       // Carregar plano completo no builder para edição
       const { initBuilderForEdit } = useMealPlansStore.getState();
       await initBuilderForEdit(selectedPlan.id);
@@ -131,7 +163,13 @@ export default function MealPlanDetailsScreen({ navigation, route }: Props) {
         patientId: selectedPlan.patientId,
       });
     } catch (err: any) {
-      Alert.alert("Erro", err.message || "Erro ao carregar plano para edição");
+      Toast.show({
+        type: "error",
+        text1: "Erro ao editar plano",
+        text2: err.message || "Tente novamente",
+        position: "top",
+        visibilityTime: 3000,
+      });
     }
   };
 
@@ -274,6 +312,46 @@ Gerado pelo Silvestra App 🌿
       Alert.alert("Erro", err.message || "Erro ao exportar PDF");
     }
     */
+  };
+
+  const handleOpenStatusManager = () => {
+    setIsStatusManagerVisible(true);
+  };
+
+  const handleStatusChange = async (
+    newStatus: PlanStatus,
+    startDate?: Date,
+    endDate?: Date
+  ) => {
+    if (!selectedPlan) return;
+
+    try {
+      await updatePlanStatus(selectedPlan.id, newStatus, startDate, endDate);
+
+      Toast.show({
+        type: "success",
+        text1: "Status atualizado! 🎉",
+        text2: "O status do plano foi alterado com sucesso",
+        position: "top",
+        visibilityTime: 3000,
+      });
+
+      // Recarregar o plano para mostrar as mudanças
+      await loadPlanById(selectedPlan.id, true);
+    } catch (error: any) {
+      Toast.show({
+        type: "error",
+        text1: "Erro ao alterar status",
+        text2: error.message || "Tente novamente em alguns instantes",
+        position: "top",
+        visibilityTime: 4000,
+      });
+    }
+  };
+
+  const handleCheckActivePlan = async (): Promise<boolean> => {
+    if (!selectedPlan) return false;
+    return await checkActivePlan(selectedPlan.patientId, selectedPlan.id);
   };
 
   // Loading State - Skeleton
@@ -430,16 +508,24 @@ Gerado pelo Silvestra App 🌿
             <View
               style={[
                 styles.statusBadge,
-                { backgroundColor: getPlanStatusColor(plan.status) + "20" },
+                {
+                  backgroundColor: getPlanStatusColor(plan.status) + "15",
+                  borderColor: getPlanStatusColor(plan.status),
+                },
               ]}
             >
+              <Ionicons
+                name={getPlanStatusIcon(plan.status) as any}
+                size={16}
+                color={getPlanStatusColor(plan.status)}
+                style={{ marginRight: 6 }}
+              />
               <Text
                 style={[
                   styles.statusText,
                   { color: getPlanStatusColor(plan.status) },
                 ]}
               >
-                {getPlanStatusIcon(plan.status)}{" "}
                 {getPlanStatusLabel(plan.status)}
               </Text>
             </View>
@@ -486,6 +572,24 @@ Gerado pelo Silvestra App 🌿
                 Editar
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleOpenStatusManager}
+              style={styles.actionButton}
+            >
+              <Ionicons
+                name="swap-horizontal-outline"
+                size={16}
+                color={lightTheme.colors.warning}
+              />
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  { color: lightTheme.colors.warning },
+                ]}
+              >
+                Status
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={handleClone} style={styles.actionButton}>
               <Ionicons
                 name="copy-outline"
@@ -498,7 +602,7 @@ Gerado pelo Silvestra App 🌿
                   { color: lightTheme.colors.success },
                 ]}
               >
-                Duplicar
+                Copiar
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -1286,6 +1390,68 @@ Gerado pelo Silvestra App 🌿
           onClose={closeFoodDetailModal}
         />
 
+        {/* Edit Confirmation Modal */}
+        <Modal
+          visible={showEditConfirmModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowEditConfirmModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowEditConfirmModal(false)}
+          >
+            <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Ionicons
+                  name="create-outline"
+                  size={32}
+                  color={lightTheme.colors.primary}
+                />
+                <Text style={styles.modalTitle}>Editar Plano</Text>
+              </View>
+
+              <Text style={styles.modalDescription}>
+                Ao editar este plano, ele será automaticamente alterado para o
+                status <Text style={styles.statusHighlight}>Rascunho</Text>.
+                Deseja continuar?
+              </Text>
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalButtonSecondary}
+                  onPress={() => setShowEditConfirmModal(false)}
+                >
+                  <Text style={styles.modalButtonSecondaryText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalButtonPrimary}
+                  onPress={() => {
+                    setShowEditConfirmModal(false);
+                    proceedToEdit();
+                  }}
+                >
+                  <Text style={styles.modalButtonPrimaryText}>Continuar</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* Status Manager Modal */}
+        <MealPlanStatusManager
+          visible={isStatusManagerVisible}
+          currentStatus={plan.status}
+          planId={plan.id}
+          patientId={plan.patientId}
+          currentStartDate={new Date(plan.startDate)}
+          currentEndDate={plan.endDate ? new Date(plan.endDate) : undefined}
+          onClose={() => setIsStatusManagerVisible(false)}
+          onStatusChange={handleStatusChange}
+          onCheckActivePlan={handleCheckActivePlan}
+        />
+
         {/* Notes */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Observações Privadas</Text>
@@ -1461,13 +1627,15 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: lightTheme.spacing[3],
-    paddingVertical: lightTheme.spacing[1],
+    paddingHorizontal: lightTheme.spacing[4],
+    paddingVertical: lightTheme.spacing[2],
     borderRadius: lightTheme.borderRadius.full,
+    borderWidth: 1.5,
   },
   statusText: {
-    fontSize: lightTheme.typography.fontSize.xs,
-    fontWeight: lightTheme.typography.fontWeight.medium,
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.bold,
+    letterSpacing: 0.3,
   },
   periodBadge: {
     flexDirection: "row",
@@ -2069,5 +2237,84 @@ const styles = StyleSheet.create({
     fontSize: lightTheme.typography.fontSize.xs,
     fontWeight: lightTheme.typography.fontWeight.semibold,
     color: lightTheme.colors.error,
+  },
+
+  // Edit Confirmation Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: lightTheme.spacing[4],
+  },
+  modalContent: {
+    backgroundColor: lightTheme.colors.background,
+    borderRadius: lightTheme.borderRadius.xl,
+    padding: lightTheme.spacing[6],
+    width: "100%",
+    maxWidth: 400,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: "column",
+    alignItems: "center",
+    marginBottom: lightTheme.spacing[4],
+    gap: lightTheme.spacing[2],
+  },
+  modalTitle: {
+    fontSize: lightTheme.typography.fontSize["2xl"],
+    fontWeight: lightTheme.typography.fontWeight.bold,
+    color: lightTheme.colors.gray[900],
+    textAlign: "center",
+  },
+  modalDescription: {
+    fontSize: lightTheme.typography.fontSize.base,
+    color: lightTheme.colors.gray[600],
+    lineHeight: 22,
+    marginBottom: lightTheme.spacing[6],
+    textAlign: "center",
+  },
+  statusHighlight: {
+    fontWeight: lightTheme.typography.fontWeight.bold,
+    color: "#FF9800", // DRAFT color
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: lightTheme.spacing[3],
+  },
+  modalButtonSecondary: {
+    flex: 1,
+    paddingVertical: lightTheme.spacing[3],
+    paddingHorizontal: lightTheme.spacing[4],
+    borderRadius: lightTheme.borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: lightTheme.colors.gray[300],
+    backgroundColor: lightTheme.colors.background,
+    alignItems: "center",
+  },
+  modalButtonSecondaryText: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: lightTheme.colors.gray[700],
+  },
+  modalButtonPrimary: {
+    flex: 1,
+    paddingVertical: lightTheme.spacing[3],
+    paddingHorizontal: lightTheme.spacing[4],
+    borderRadius: lightTheme.borderRadius.lg,
+    backgroundColor: lightTheme.colors.primary,
+    alignItems: "center",
+  },
+  modalButtonPrimaryText: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold,
+    color: "#FFFFFF",
   },
 });
