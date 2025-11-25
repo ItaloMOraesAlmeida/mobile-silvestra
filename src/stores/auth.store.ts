@@ -91,7 +91,12 @@ export const useAuthStore = create<AuthState>()(
       pendingBiometricSetup: null,
 
       setUser: (user: User) => {
-        set({ user, isAuthenticated: true });
+        // Normalize role casing to lowercase for consistent checks across the app
+        const normalizedUser = {
+          ...user,
+          role: user.role?.toLowerCase(),
+        } as User;
+        set({ user: normalizedUser, isAuthenticated: true });
       },
 
       setTokens: (tokens: AuthTokens) => {
@@ -109,7 +114,11 @@ export const useAuthStore = create<AuthState>()(
             password,
           });
 
-          const { user, tokens } = response.data;
+          const { user: rawUser, tokens } = response.data;
+          const user = {
+            ...rawUser,
+            role: rawUser.role?.toLowerCase(),
+          } as User;
 
           // NÃO define isAuthenticated = true ainda!
           // Apenas salva os dados temporariamente para o modal de biometria
@@ -178,7 +187,11 @@ export const useAuthStore = create<AuthState>()(
             idToken,
           });
 
-          const { user, tokens } = response.data;
+          const { user: rawUser, tokens } = response.data;
+          const user = {
+            ...rawUser,
+            role: rawUser.role?.toLowerCase(),
+          } as User;
 
           // Para Google, autenticamos direto (sem modal de biometria)
           set({
@@ -226,8 +239,15 @@ export const useAuthStore = create<AuthState>()(
           ]);
 
           // A resposta vem com { data: { user, tokens, needsProfileCompletion }, success }
-          const { user, tokens, needsProfileCompletion } =
-            response.data || response;
+          const {
+            user: rawUser,
+            tokens,
+            needsProfileCompletion,
+          } = response.data || response;
+
+          const user = rawUser
+            ? ({ ...rawUser, role: rawUser.role?.toLowerCase() } as User)
+            : null;
 
           // Salvar tokens e user no store
           set({
@@ -269,7 +289,11 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await api.post("/auth/complete-profile", data);
 
-          const { user } = response.data;
+          const { user: rawUser } = response.data;
+          const user = {
+            ...rawUser,
+            role: rawUser.role?.toLowerCase(),
+          } as User;
 
           // Atualizar apenas o usuário
           // NÃO marca como autenticado aqui, pois precisamos mostrar o modal de biometria primeiro
@@ -341,7 +365,11 @@ export const useAuthStore = create<AuthState>()(
           });
 
           // API retorna { user, tokens }
-          const { user, tokens: newTokens } = response.data;
+          const { user: rawUser, tokens: newTokens } = response.data;
+          const user = {
+            ...rawUser,
+            role: rawUser.role?.toLowerCase(),
+          } as User;
 
           set({
             user,

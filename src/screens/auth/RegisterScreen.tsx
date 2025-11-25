@@ -410,7 +410,7 @@ export function RegisterScreen({ route }: any) {
         );
 
         // Completa a configuração de biometria no auth store
-        const { completeBiometricSetup, user } = useAuthStore.getState();
+        const { completeBiometricSetup } = useAuthStore.getState();
         completeBiometricSetup();
 
         setShowBiometricPrompt(false);
@@ -424,26 +424,9 @@ export function RegisterScreen({ route }: any) {
           topOffset: 60,
         });
 
-        // Redireciona para a tela apropriada baseado no role do usuário
+        // Redireciona para a pilha Main (RoleBasedHome decide a tela específica)
         setTimeout(() => {
-          if (user) {
-            if (user.role === "nutritionist") {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Nutritionist" } as any],
-              });
-            } else if (user.role === "patient") {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Patient" } as any],
-              });
-            } else {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Main" } as any],
-              });
-            }
-          }
+          navigation.reset({ index: 0, routes: [{ name: "Main" } as any] });
         }, 500); // Aguarda meio segundo para o toast aparecer
       }
     } catch (error) {
@@ -451,26 +434,9 @@ export function RegisterScreen({ route }: any) {
       setShowBiometricPrompt(false);
 
       // Mesmo com erro, redireciona (biometria é opcional)
-      const { user } = useAuthStore.getState();
+      // Redireciona para Main
       setTimeout(() => {
-        if (user) {
-          if (user.role === "nutritionist") {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Nutritionist" } as any],
-            });
-          } else if (user.role === "patient") {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Patient" } as any],
-            });
-          } else {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Main" } as any],
-            });
-          }
-        }
+        navigation.reset({ index: 0, routes: [{ name: "Main" } as any] });
       }, 500);
     }
   };
@@ -479,29 +445,12 @@ export function RegisterScreen({ route }: any) {
     setShowBiometricPrompt(false);
 
     // Usuário recusou biometria, mas continua autenticado
-    const { skipBiometricSetup, user } = useAuthStore.getState();
+    const { skipBiometricSetup } = useAuthStore.getState();
     skipBiometricSetup();
 
-    // Redireciona para a tela apropriada baseado no role do usuário
+    // Redireciona para a pilha Main (RoleBasedHome decide a tela específica)
     setTimeout(() => {
-      if (user) {
-        if (user.role === "nutritionist") {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Nutritionist" } as any],
-          });
-        } else if (user.role === "patient") {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Patient" } as any],
-          });
-        } else {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Main" } as any],
-          });
-        }
-      }
+      navigation.reset({ index: 0, routes: [{ name: "Main" } as any] });
     }, 300); // Aguarda um pouco antes de redirecionar
   };
 

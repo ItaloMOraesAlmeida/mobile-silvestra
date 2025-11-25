@@ -35,6 +35,8 @@ interface RequestConfig {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   headers?: Record<string, string>;
   body?: any;
+  // Opcional: permitir passar signal para cancelar fetch
+  signal?: AbortSignal;
 }
 
 /**
@@ -75,6 +77,8 @@ async function request<T = any>(
         : config.body
         ? JSON.stringify(config.body)
         : undefined,
+      // Passa signal se fornecido (suporta AbortController)
+      ...(config.signal ? { signal: config.signal } : {}),
     });
 
     const data = await response.json();
@@ -120,7 +124,28 @@ async function request<T = any>(
     }
 
     return data;
-  } catch (error) {
+  } catch (error: any) {
+    // Se for um erro de rede (sem response)
+    if (!error.response && error instanceof Error) {
+      console.error("🌐 Network error:", {
+        message: error.message,
+        url,
+        method: config.method,
+      });
+
+      // Verificar tipo de erro
+      if (
+        error.message.includes("Network request failed") ||
+        error.message.includes("Failed to fetch")
+      ) {
+        throw new Error("Sem conexão com o servidor. Verifique sua internet.");
+      }
+
+      if (error.message.includes("timeout")) {
+        throw new Error("Tempo de conexão esgotado. Tente novamente.");
+      }
+    }
+
     // Re-lançar o erro para ser tratado pelo componente
     throw error;
   }
@@ -130,27 +155,36 @@ async function request<T = any>(
  * API service com métodos HTTP
  */
 export const api = {
-  get: <T = any>(endpoint: string, headers?: Record<string, string>) =>
-    request<T>(endpoint, { method: "GET", headers }),
+  get: <T = any>(
+    endpoint: string,
+    headers?: Record<string, string>,
+    signal?: AbortSignal
+  ) => request<T>(endpoint, { method: "GET", headers, signal }),
 
   post: <T = any>(
     endpoint: string,
     body?: any,
-    headers?: Record<string, string>
-  ) => request<T>(endpoint, { method: "POST", body, headers }),
+    headers?: Record<string, string>,
+    signal?: AbortSignal
+  ) => request<T>(endpoint, { method: "POST", body, headers, signal }),
 
   put: <T = any>(
     endpoint: string,
     body?: any,
-    headers?: Record<string, string>
-  ) => request<T>(endpoint, { method: "PUT", body, headers }),
+    headers?: Record<string, string>,
+    signal?: AbortSignal
+  ) => request<T>(endpoint, { method: "PUT", body, headers, signal }),
 
   patch: <T = any>(
     endpoint: string,
     body?: any,
-    headers?: Record<string, string>
-  ) => request<T>(endpoint, { method: "PATCH", body, headers }),
+    headers?: Record<string, string>,
+    signal?: AbortSignal
+  ) => request<T>(endpoint, { method: "PATCH", body, headers, signal }),
 
-  delete: <T = any>(endpoint: string, headers?: Record<string, string>) =>
-    request<T>(endpoint, { method: "DELETE", headers }),
+  delete: <T = any>(
+    endpoint: string,
+    headers?: Record<string, string>,
+    signal?: AbortSignal
+  ) => request<T>(endpoint, { method: "DELETE", headers, signal }),
 };
