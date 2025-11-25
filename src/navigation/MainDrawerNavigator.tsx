@@ -22,6 +22,7 @@ import { PatientCreateScreen } from "../screens/nutritionist/PatientCreateScreen
 import { PatientDetailsScreen } from "../screens/nutritionist/PatientDetailsScreen";
 import { PatientEditScreen } from "../screens/nutritionist/PatientEditScreen";
 import { PatientProgressScreen } from "../screens/nutritionist/PatientProgressScreen";
+import { PatientEvolutionScreen } from "../screens/nutritionist/PatientEvolutionScreen";
 import { PatientAssessmentCreateScreen } from "../screens/nutritionist/PatientAssessmentCreateScreen";
 import { PatientAssessmentDetailsScreen } from "../screens/nutritionist/PatientAssessmentDetailsScreen";
 import { MeasurementDetailsScreen } from "../screens/patient/MeasurementDetailsScreen";
@@ -58,6 +59,9 @@ export type MainDrawerParamList = {
     patient: any;
   };
   PatientProgress: {
+    patientId: string;
+  };
+  PatientEvolution: {
     patientId: string;
   };
   PatientAssessmentCreate: {
@@ -290,6 +294,18 @@ export function MainDrawerNavigator() {
         component={
           createScreenWithHeader(
             PatientProgressScreen as any,
+            "Evolução do Paciente",
+            true,
+            "PatientDetails"
+          ) as any
+        }
+        options={{ drawerItemStyle: { display: "none" } }}
+      />
+      <Drawer.Screen
+        name="PatientEvolution"
+        component={
+          createScreenWithHeader(
+            PatientEvolutionScreen as any,
             "Evolução do Paciente",
             true,
             "PatientDetails"

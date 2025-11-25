@@ -92,14 +92,6 @@ export function PatientProgressScreen({ route }: PatientProgressScreenProps) {
     try {
       setLoadingWeight(true);
 
-      // Verifica se o paciente confirmou o acesso
-      if (!patient?.patient?.hasConfirmedAccess) {
-        setWeightData([]);
-        setHasData(false);
-        setLoadingWeight(false);
-        return;
-      }
-
       const evolution = await getEvolution(patientId, "weight", selectedPeriod);
 
       if (evolution && evolution.data.length > 0) {
@@ -124,13 +116,6 @@ export function PatientProgressScreen({ route }: PatientProgressScreenProps) {
   const loadBMIEvolution = async () => {
     try {
       setLoadingBMI(true);
-
-      // Verifica se o paciente confirmou o acesso
-      if (!patient?.patient?.hasConfirmedAccess) {
-        setBmiData([]);
-        setLoadingBMI(false);
-        return;
-      }
 
       const evolution = await getEvolution(patientId, "bmi", selectedPeriod);
 
@@ -202,24 +187,6 @@ export function PatientProgressScreen({ route }: PatientProgressScreenProps) {
 
   // Se não há dados suficientes
   if (!hasData && !loadingWeight && !loadingBMI && !loadingPatient) {
-    // Verifica se o paciente não confirmou o acesso
-    if (!patient?.patient?.hasConfirmedAccess) {
-      return (
-        <SafeAreaView style={styles.emptyContainer}>
-          <Ionicons
-            name="lock-closed-outline"
-            size={80}
-            color={lightTheme.colors.gray[400]}
-          />
-          <Text style={styles.emptyTitle}>Acesso Pendente</Text>
-          <Text style={styles.emptyText}>
-            O paciente ainda não confirmou o código de acesso. Os dados de
-            evolução só estarão disponíveis após a confirmação.
-          </Text>
-        </SafeAreaView>
-      );
-    }
-
     return (
       <SafeAreaView style={styles.emptyContainer}>
         <Ionicons

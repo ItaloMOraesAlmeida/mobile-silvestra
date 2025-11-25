@@ -144,7 +144,6 @@ export function PatientDetailsScreen({
     try {
       // Verificar se o paciente já confirmou o acesso antes de buscar avaliações
       if (!patient?.patient?.hasConfirmedAccess) {
-        console.log("⚠️ Paciente não confirmou acesso, measurements vazios");
         setMeasurements([]);
         return;
       }
@@ -1079,7 +1078,7 @@ export function PatientDetailsScreen({
             style={styles.actionButtonPrimary}
             activeOpacity={0.7}
             onPress={() =>
-              navigation.navigate("PatientProgress", { patientId })
+              navigation.navigate("PatientEvolution", { patientId })
             }
           >
             <Ionicons
