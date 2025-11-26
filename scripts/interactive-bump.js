@@ -57,18 +57,42 @@ const getRemoteVersion = (branchName) => {
 
 const getRecentBranches = () => {
   try {
-    execSync("git fetch --all --quiet", { stdio: "ignore" });
-    // Busca branches remotas ordenadas por data de commit (mais recentes primeiro)
-    const output = execSync(
-      'git branch -r --sort=-committerdate --format="%(refname:short)"',
-      { encoding: "utf8" }
+    // 1. Atualiza referências (SEM prune, para segurança total das suas branches locais)
+    execSync('git fetch --all --quiet', { stdio: 'ignore' });
+
+    // 2. Busca a lista da verdade diretamente do GitHub (o que realmente existe lá)
+    // Formato saída: "HASH refs/heads/nome-da-branch"
+    const lsRemoteOutput = execSync('git ls-remote --heads origin', { encoding: 'utf8' });
+    
+    // Cria um conjunto (Set) de branches válidas no formato 'origin/nome-da-branch'
+    const validRemoteBranches = new Set(
+      lsRemoteOutput
+        .split('\n')
+        .map(line => {
+          const parts = line.split(/\s+/); // Divide por espaços/tabs
+          if (parts.length < 2) return null;
+          // Converte 'refs/heads/minha-branch' para 'origin/minha-branch'
+          return parts[1].replace('refs/heads/', 'origin/');
+        })
+        .filter(Boolean)
     );
-    return output
-      .split("\n")
-      .map((b) => b.trim())
-      .filter((b) => b && !b.includes("HEAD"));
+
+    // 3. Busca branches locais ordenadas por data (cache local)
+    const sortedOutput = execSync('git branch -r --sort=-committerdate --format="%(refname:short)"', { encoding: 'utf8' });
+    const sortedLocalCache = sortedOutput.split('\n').map(b => b.trim()).filter(b => b && !b.includes('HEAD'));
+
+    // 4. Filtra: Mantém a ordenação de data, mas EXCLUI as que não estão na lista do 'ls-remote'
+    // Assim, branches deletadas no GitHub não aparecem, mas nada é apagado na sua máquina.
+    return sortedLocalCache.filter(branch => validRemoteBranches.has(branch));
+
   } catch (e) {
-    return [];
+    // Em caso de erro (ex: sem internet), retorna o cache local puro como fallback
+    try {
+        const output = execSync('git branch -r --sort=-committerdate --format="%(refname:short)"', { encoding: 'utf8' });
+        return output.split('\n').map(b => b.trim()).filter(b => b && !b.includes('HEAD'));
+    } catch (err) {
+        return [];
+    }
   }
 };
 
