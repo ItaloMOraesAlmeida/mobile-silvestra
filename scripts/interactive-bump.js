@@ -245,7 +245,7 @@ const run = async () => {
 
     if (!shouldUpdate) {
       console.log(
-        chalk.yellow("\n⏩Continuando commit sem alterar versão...\n")
+        chalk.yellow("\n⏩ Continuando commit sem alterar versão...\n")
       );
       process.exit(0);
     }
