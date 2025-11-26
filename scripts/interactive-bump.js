@@ -127,18 +127,19 @@ const showInitialDashboard = async () => {
   const mainVersion = getRemoteVersion("main") || chalk.gray("Não encontrada");
 
   console.log(
-    chalk.white(`📦 Versão Local Atual:   `) + chalk.bold.yellow(currentVersion)
+    chalk.white(`📦 Versão Local Atual:     `) +
+      chalk.bold.yellow(currentVersion)
   );
   console.log(chalk.dim("---------------------"));
   console.log(
-    chalk.white(`🏆 Versão em Main:       `) + chalk.bold.green(mainVersion)
+    chalk.white(`🏆 Versão em Main:         `) + chalk.bold.green(mainVersion)
   );
   console.log(
-    chalk.white(`🚀 Versão em Homolog:    `) +
+    chalk.white(`🚀 Versão em Homolog:      `) +
       chalk.bold.magenta(homologVersion)
   );
   console.log(
-    chalk.white(`🛠️  Versão em Development:    `) +
+    chalk.white(`🛠️  Versão em Development:  `) +
       chalk.bold.cyan(developVersion)
   );
   console.log(chalk.dim("--------------------------------------------------"));
