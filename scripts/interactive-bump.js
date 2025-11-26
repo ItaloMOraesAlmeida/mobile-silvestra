@@ -31,7 +31,7 @@ const handleInterruption = () => {
     )
   );
   console.log(
-    chalk.dim("--------------------------------------------------\n")
+    chalk.dim("---------------------------------------------------\n")
   );
 
   // Sai com código 0 para o Husky/Git entenderem que está tudo bem e prosseguirem com o commit
@@ -86,7 +86,7 @@ const run = async () => {
         chalk.bold.magenta(homologVersion)
     );
     console.log(
-      chalk.dim("--------------------------------------------------")
+      chalk.dim("---------------------------------------------------")
     );
 
     // Pergunta 1: Deseja alterar a versão?
@@ -162,13 +162,13 @@ const run = async () => {
     }
 
     console.log(
-      chalk.dim("\n--------------------------------------------------")
+      chalk.dim("\n---------------------------------------------------")
     );
     console.log(chalk.bold.white("🔍 Resumo das Alterações:"));
     console.log(`   De:   ${chalk.red(currentVersion)}`);
     console.log(`   Para: ${chalk.green(newVersion)}`);
     console.log(
-      chalk.dim("--------------------------------------------------")
+      chalk.dim("---------------------------------------------------")
     );
 
     // Pergunta 3: Confirmação final
