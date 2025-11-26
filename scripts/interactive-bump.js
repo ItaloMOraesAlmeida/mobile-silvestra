@@ -14,37 +14,31 @@ const pkg = require(packagePath);
 const app = require(appPath);
 
 // --- TRATAMENTO DE INTERRUPÇÃO (CTRL+C) ---
-// Captura o sinal SIGINT para evitar o erro feio do Husky e permitir continuar o commit
-const handleInterruption = () => {
-  console.log("\n"); // Pula linha para não ficar grudado no ^C
-  console.log(chalk.bgYellow.black(" ⚠️  INTERRUPÇÃO DETECTADA (Ctrl+C) "));
-  console.log(
-    chalk.yellow(
-      "   O processo de atualização de versão foi cancelado pelo usuário."
-    )
-  );
-  console.log(
+// Definido logo no início para garantir captura
+process.on("SIGINT", () => {
+  // Usamos console.error para garantir que a saída não seja engolida por buffers de pipe
+  // e adicionamos quebras de linha extras para separar da UI do inquirer
+  process.stderr.write("\n\n");
+  console.error(chalk.bgYellow.black(" ⚠️  INTERRUPÇÃO DETECTADA (Ctrl+C) "));
+  console.error(chalk.yellow("   Você cancelou a atualização de versão."));
+  console.error(
     chalk.green(
-      `   ✅ O commit continuará normalmente utilizando a versão atual: ${chalk.bold(
+      `   ✅ O commit SERÁ REALIZADO normally mantendo a versão: ${chalk.bold(
         pkg.version
       )}`
     )
   );
-  console.log(
-    chalk.dim("---------------------------------------------------\n")
+  console.error(
+    chalk.dim("--------------------------------------------------\n")
   );
 
-  // Sai com código 0 para o Husky/Git entenderem que está tudo bem e prosseguirem com o commit
+  // Sai com código 0: Sucesso para o Git continuar
   process.exit(0);
-};
-
-process.on("SIGINT", handleInterruption);
+});
 
 // Função genérica para pegar versão remota de uma branch específica
 const getRemoteVersion = (branchName) => {
   try {
-    // Tenta buscar informações do remote sem baixar todo o histórico pesado
-    // Usa 'origin' como remote padrão
     execSync(`git fetch origin ${branchName} --quiet`, { stdio: "ignore" });
     const remotePackage = execSync(
       `git show origin/${branchName}:package.json`,
@@ -66,12 +60,10 @@ const run = async () => {
 
     const currentVersion = pkg.version;
 
-    // Busca versões remotas
     const developVersion =
-      getRemoteVersion("development") ||
-      chalk.gray("Não encontrada/Acesso falhou");
+      getRemoteVersion("development") || chalk.gray("Não encontrada");
     const homologVersion =
-      getRemoteVersion("homolog") || chalk.gray("Não encontrada/Acesso falhou");
+      getRemoteVersion("homolog") || chalk.gray("Não encontrada");
 
     console.log(
       chalk.white(`📦 Versão Local Atual:   `) +
@@ -86,7 +78,7 @@ const run = async () => {
         chalk.bold.magenta(homologVersion)
     );
     console.log(
-      chalk.dim("---------------------------------------------------")
+      chalk.dim("--------------------------------------------------")
     );
 
     // Pergunta 1: Deseja alterar a versão?
@@ -101,7 +93,7 @@ const run = async () => {
 
     if (!shouldUpdate) {
       console.log(
-        chalk.yellow("\n⏩ Continuando commit sem alterar versão...\n")
+        chalk.yellow("\n⏩Continuando commit sem alterar versão...\n")
       );
       process.exit(0);
     }
@@ -111,7 +103,7 @@ const run = async () => {
     const minor = semver.inc(currentVersion, "minor");
     const major = semver.inc(currentVersion, "major");
 
-    // Definir padrão para custom version (usa develop, se existir, senão local)
+    // Definir padrão para custom version
     const defaultCustomVersion =
       developVersion && semver.valid(developVersion)
         ? developVersion
@@ -162,13 +154,13 @@ const run = async () => {
     }
 
     console.log(
-      chalk.dim("\n---------------------------------------------------")
+      chalk.dim("\n--------------------------------------------------")
     );
     console.log(chalk.bold.white("🔍 Resumo das Alterações:"));
     console.log(`   De:   ${chalk.red(currentVersion)}`);
     console.log(`   Para: ${chalk.green(newVersion)}`);
     console.log(
-      chalk.dim("---------------------------------------------------")
+      chalk.dim("--------------------------------------------------")
     );
 
     // Pergunta 3: Confirmação final
@@ -218,12 +210,17 @@ const run = async () => {
     // Atualizar Arquivos
     updateFiles(newVersion);
   } catch (error) {
-    // Captura erros forçados do Inquirer se o SIGINT não pegar a tempo
-    if (error.isTtyError) {
-      console.log(chalk.red("Erro: O terminal não suporta interatividade."));
+    // Se o erro for "Force closed" (comum no inquirer ao dar Ctrl+C), o handler SIGINT deve pegar,
+    // mas por garantia tratamos aqui também se a promise rejeitar antes do sinal.
+    if (error.message && error.message.includes("force closed")) {
+      // Já tratado pelo SIGINT, mas caso escape:
+      process.kill(process.pid, "SIGINT");
+    } else if (error.isTtyError) {
+      console.error(chalk.red("Erro: Terminal não suporta interatividade."));
     } else {
-      // Se for outro erro, pode ser interrupção
-      handleInterruption();
+      // Erros reais
+      console.error(error);
+      process.exit(1);
     }
   }
 };
@@ -236,8 +233,7 @@ const updateFiles = (version) => {
   fs.writeFileSync(packagePath, JSON.stringify(pkg, null, 2) + "\n");
   console.log(chalk.green("   ✅ package.json atualizado."));
 
-  // 2. App.json (Com lógica de VersionCode Android)
-  // Lógica: 1.2.3 -> 1002003 (Major * 1M + Minor * 1K + Patch)
+  // 2. App.json
   const parsed = semver.parse(version);
   const versionCode =
     parsed.major * 1000000 + parsed.minor * 1000 + parsed.patch;
