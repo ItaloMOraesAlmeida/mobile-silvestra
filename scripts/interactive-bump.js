@@ -4,6 +4,7 @@ const { execSync } = require("child_process");
 const inquirer = require("inquirer");
 const chalk = require("chalk");
 const semver = require("semver");
+const readline = require("readline");
 
 // Caminhos dos arquivos
 const packagePath = path.resolve(__dirname, "../package.json");
@@ -14,34 +15,38 @@ const pkg = require(packagePath);
 const app = require(appPath);
 
 // --- TRATAMENTO DE INTERRUPÇÃO (CTRL+C) ---
-// Definido logo no início para garantir captura
-process.on("SIGINT", () => {
-  // Usamos console.error para garantir que a saída não seja engolida por buffers de pipe
-  // e adicionamos quebras de linha extras para separar da UI do inquirer
+const handleInterruption = () => {
+  // Restaura o terminal se estiver em modo raw
+  if (process.stdin.isTTY) process.stdin.setRawMode(false);
+  process.stdin.pause();
+
   process.stderr.write("\n\n");
   console.error(chalk.bgYellow.black(" ⚠️  INTERRUPÇÃO DETECTADA (Ctrl+C) "));
   console.error(chalk.yellow("   Você cancelou a atualização de versão."));
   console.error(
     chalk.green(
-      `   ✅ O commit SERÁ REALIZADO normally mantendo a versão: ${chalk.bold(
+      `   ✅ O commit SERÁ REALIZADO normalmente mantendo a versão: ${chalk.bold(
         pkg.version
       )}`
     )
   );
   console.error(
-    chalk.dim("---------------------------------------------------\n")
+    chalk.dim("--------------------------------------------------\n")
   );
-
-  // Sai com código 0: Sucesso para o Git continuar
   process.exit(0);
-});
+};
 
-// Função genérica para pegar versão remota de uma branch específica
+process.on("SIGINT", handleInterruption);
+
+// --- FUNÇÕES AUXILIARES GIT ---
+
 const getRemoteVersion = (branchName) => {
   try {
-    execSync(`git fetch origin ${branchName} --quiet`, { stdio: "ignore" });
+    // Remove 'origin/' se já vier com ele para evitar duplicação no fetch
+    const cleanBranch = branchName.replace("origin/", "");
+    execSync(`git fetch origin ${cleanBranch} --quiet`, { stdio: "ignore" });
     const remotePackage = execSync(
-      `git show origin/${branchName}:package.json`,
+      `git show origin/${cleanBranch}:package.json`,
       { encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] }
     );
     return JSON.parse(remotePackage).version;
@@ -50,38 +55,141 @@ const getRemoteVersion = (branchName) => {
   }
 };
 
-// Função principal
+const getRecentBranches = () => {
+  try {
+    execSync("git fetch --all --quiet", { stdio: "ignore" });
+    // Busca branches remotas ordenadas por data de commit (mais recentes primeiro)
+    const output = execSync(
+      'git branch -r --sort=-committerdate --format="%(refname:short)"',
+      { encoding: "utf8" }
+    );
+    return output
+      .split("\n")
+      .map((b) => b.trim())
+      .filter((b) => b && !b.includes("HEAD"));
+  } catch (e) {
+    return [];
+  }
+};
+
+// --- LÓGICA DE INTERAÇÃO (TAB) ---
+
+const showInitialDashboard = async () => {
+  console.clear();
+  console.log(
+    chalk.bold.blue("\n🚀 Preparando para o Commit no Silvestra App\n")
+  );
+
+  const currentVersion = pkg.version;
+
+  // Branches Fixas
+  const developVersion =
+    getRemoteVersion("development") || chalk.gray("Não encontrada");
+  const homologVersion =
+    getRemoteVersion("homolog") || chalk.gray("Não encontrada");
+
+  console.log(
+    chalk.white(`📦 Versão Local Atual:   `) + chalk.bold.yellow(currentVersion)
+  );
+  console.log(
+    chalk.white(`🛠️  Versão em Develop:    `) + chalk.bold.cyan(developVersion)
+  );
+  console.log(
+    chalk.white(`🚀 Versão em Homolog:    `) +
+      chalk.bold.magenta(homologVersion)
+  );
+  console.log(chalk.dim("--------------------------------------------------"));
+
+  // Estado para controle de paginação das branches extras
+  const allBranches = getRecentBranches();
+  // Ignora branches já mostradas
+  const ignoreList = [
+    "origin/development",
+    "origin/develop",
+    "origin/homolog",
+    "origin/main",
+    "origin/master",
+  ];
+  let availableBranches = allBranches.filter((b) => !ignoreList.includes(b));
+  let currentIndex = 0;
+
+  console.log(
+    chalk.dim(
+      "Pressione [TAB] para ver versões de outras branches ou [ENTER] para continuar..."
+    )
+  );
+
+  // Promessa para aguardar o ENTER ou TAB
+  await new Promise((resolve) => {
+    readline.emitKeypressEvents(process.stdin);
+    if (process.stdin.isTTY) process.stdin.setRawMode(true);
+
+    const onKeypress = (str, key) => {
+      if (key.ctrl && key.name === "c") {
+        handleInterruption();
+      } else if (key.name === "return" || key.name === "enter") {
+        // Limpa listeners e segue
+        process.stdin.removeListener("keypress", onKeypress);
+        if (process.stdin.isTTY) process.stdin.setRawMode(false);
+        resolve();
+      } else if (key.name === "tab") {
+        // Lógica de mostrar mais branches
+        if (currentIndex >= availableBranches.length) {
+          console.log(
+            chalk.italic.gray(
+              "\n   (Não há mais branches recentes para exibir)"
+            )
+          );
+        } else {
+          console.log(chalk.bold.white("\n   Outras Branches Recentes:"));
+          const nextBatch = availableBranches.slice(
+            currentIndex,
+            currentIndex + 5
+          );
+
+          if (nextBatch.length === 0) {
+            console.log(
+              chalk.italic.gray("   (Nenhuma branch extra encontrada)")
+            );
+          }
+
+          nextBatch.forEach((branch) => {
+            process.stdout.write(`   ⏳ Buscando ${branch}... `);
+            const v = getRemoteVersion(branch);
+            // Limpa a linha atual
+            process.stdout.clearLine();
+            process.stdout.cursorTo(0);
+            if (v) {
+              console.log(`   🌿 ${branch.padEnd(30)} : ${chalk.green(v)}`);
+            } else {
+              console.log(
+                `   🌿 ${branch.padEnd(30)} : ${chalk.gray("Sem package.json")}`
+              );
+            }
+          });
+          currentIndex += 5;
+        }
+      }
+    };
+
+    process.stdin.on("keypress", onKeypress);
+  });
+
+  return { developVersion, homologVersion }; // Retorna contexto útil
+};
+
+// --- FLUXO PRINCIPAL ---
+
 const run = async () => {
   try {
-    console.clear();
-    console.log(
-      chalk.bold.blue("\n🚀 Preparando para o Commit no Silvestra App\n")
-    );
-
-    const currentVersion = pkg.version;
-
-    const developVersion =
-      getRemoteVersion("development") || chalk.gray("Não encontrada");
-    const homologVersion =
-      getRemoteVersion("homolog") || chalk.gray("Não encontrada");
+    // 1. Dashboard interativo
+    const context = await showInitialDashboard();
 
     console.log(
-      chalk.white(`📦 Versão Local Atual:   `) +
-        chalk.bold.yellow(currentVersion)
-    );
-    console.log(
-      chalk.white(`🛠️  Versão em Develop:    `) +
-        chalk.bold.cyan(developVersion)
-    );
-    console.log(
-      chalk.white(`🚀 Versão em Homolog:    `) +
-        chalk.bold.magenta(homologVersion)
-    );
-    console.log(
-      chalk.dim("---------------------------------------------------")
+      chalk.dim("\n--------------------------------------------------")
     );
 
-    // Pergunta 1: Deseja alterar a versão?
+    // 2. Perguntas Inquirer
     const { shouldUpdate } = await inquirer.prompt([
       {
         type: "confirm",
@@ -98,18 +206,16 @@ const run = async () => {
       process.exit(0);
     }
 
-    // Opções de Bump
+    const currentVersion = pkg.version;
     const patch = semver.inc(currentVersion, "patch");
     const minor = semver.inc(currentVersion, "minor");
     const major = semver.inc(currentVersion, "major");
 
-    // Definir padrão para custom version
     const defaultCustomVersion =
-      developVersion && semver.valid(developVersion)
-        ? developVersion
+      context.developVersion && semver.valid(context.developVersion)
+        ? context.developVersion
         : currentVersion;
 
-    // Pergunta 2: Qual tipo de versão?
     const { bumpType } = await inquirer.prompt([
       {
         type: "list",
@@ -154,16 +260,15 @@ const run = async () => {
     }
 
     console.log(
-      chalk.dim("\n---------------------------------------------------")
+      chalk.dim("\n--------------------------------------------------")
     );
     console.log(chalk.bold.white("🔍 Resumo das Alterações:"));
     console.log(`   De:   ${chalk.red(currentVersion)}`);
     console.log(`   Para: ${chalk.green(newVersion)}`);
     console.log(
-      chalk.dim("---------------------------------------------------")
+      chalk.dim("--------------------------------------------------")
     );
 
-    // Pergunta 3: Confirmação final
     const { confirm } = await inquirer.prompt([
       {
         type: "confirm",
@@ -207,18 +312,13 @@ const run = async () => {
       }
     }
 
-    // Atualizar Arquivos
     updateFiles(newVersion);
   } catch (error) {
-    // Se o erro for "Force closed" (comum no inquirer ao dar Ctrl+C), o handler SIGINT deve pegar,
-    // mas por garantia tratamos aqui também se a promise rejeitar antes do sinal.
     if (error.message && error.message.includes("force closed")) {
-      // Já tratado pelo SIGINT, mas caso escape:
-      process.kill(process.pid, "SIGINT");
+      // Ignore, tratado pelo SIGINT
     } else if (error.isTtyError) {
       console.error(chalk.red("Erro: Terminal não suporta interatividade."));
     } else {
-      // Erros reais
       console.error(error);
       process.exit(1);
     }
@@ -228,21 +328,17 @@ const run = async () => {
 const updateFiles = (version) => {
   console.log(chalk.blue("\n💾 Atualizando arquivos..."));
 
-  // 1. Package.json
   pkg.version = version;
   fs.writeFileSync(packagePath, JSON.stringify(pkg, null, 2) + "\n");
   console.log(chalk.green("   ✅ package.json atualizado."));
 
-  // 2. App.json
   const parsed = semver.parse(version);
   const versionCode =
     parsed.major * 1000000 + parsed.minor * 1000 + parsed.patch;
 
   app.expo.version = version;
-
   if (!app.expo.android) app.expo.android = {};
   app.expo.android.versionCode = versionCode;
-
   if (!app.expo.ios) app.expo.ios = {};
   app.expo.ios.buildNumber = version;
 
@@ -253,7 +349,6 @@ const updateFiles = (version) => {
     )
   );
 
-  // 3. Git Add
   try {
     execSync(`git add package.json app.json`);
     console.log(chalk.green("   ✅ Arquivos adicionados ao stage do git."));
