@@ -124,18 +124,24 @@ const showInitialDashboard = async () => {
     getRemoteVersion("development") || chalk.gray("Não encontrada");
   const homologVersion =
     getRemoteVersion("homolog") || chalk.gray("Não encontrada");
+  const mainVersion = getRemoteVersion("main") || chalk.gray("Não encontrada");
 
   console.log(
     chalk.white(`📦 Versão Local Atual:   `) + chalk.bold.yellow(currentVersion)
   );
+  console.log(chalk.dim("---------------------"));
   console.log(
-    chalk.white(`🛠️  Versão em Develop:    `) + chalk.bold.cyan(developVersion)
+    chalk.white(`🏆 Versão em Main:       `) + chalk.bold.green(mainVersion)
   );
   console.log(
     chalk.white(`🚀 Versão em Homolog:    `) +
       chalk.bold.magenta(homologVersion)
   );
-  console.log(chalk.dim("---------------------------------------------------"));
+  console.log(
+    chalk.white(`🛠️  Versão em Development:    `) +
+      chalk.bold.cyan(developVersion)
+  );
+  console.log(chalk.dim("--------------------------------------------------"));
 
   // Estado para controle de paginação das branches extras
   const allBranches = getRecentBranches();
