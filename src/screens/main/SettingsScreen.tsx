@@ -6,11 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
+  Modal,
+  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { lightTheme } from "../../theme";
 import { useAuthStore } from "../../stores/auth.store";
+import { useSettingsStore } from "../../stores/settings.store";
 import { BiometricService } from "../../services/biometric";
 import { BiometricAuthService } from "../../services/biometric-auth";
 import { SkeletonSettingItem } from "../../components/ui/skeleton";
@@ -64,6 +67,17 @@ export function SettingsScreen() {
   const navigation = useNavigation();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+
+  // Settings Store
+  const settings = useSettingsStore((state) => state.settings);
+  const setTheme = useSettingsStore((state) => state.setTheme);
+  const setLanguage = useSettingsStore((state) => state.setLanguage);
+  const setUnits = useSettingsStore((state) => state.setUnits);
+  const updateNotifications = useSettingsStore(
+    (state) => state.updateNotifications
+  );
+
+  // Biometric states
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState("");
@@ -76,6 +90,9 @@ export function SettingsScreen() {
   const [showClearCredentialsModal, setShowClearCredentialsModal] =
     useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showThemeModal, setShowThemeModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showUnitsModal, setShowUnitsModal] = useState(false);
 
   const checkBiometricStatus = async () => {
     setIsInitialLoading(true);
@@ -307,34 +324,133 @@ export function SettingsScreen() {
         </View>
       </View>
 
-      {/* App Section */}
+      {/* Appearance Section */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Aplicativo</Text>
+        <Text style={styles.sectionTitle}>Aparência</Text>
         <View style={styles.card}>
           <SettingItem
-            icon="notifications-outline"
-            title="Notificações"
-            subtitle="Gerenciar preferências de notificação"
-            onPress={() => {
-              Toast.show({
-                type: "info",
-                text1: "Em Desenvolvimento",
-                text2: "Esta função será implementada em breve!",
-                position: "top",
-                visibilityTime: 3000,
-              });
-            }}
+            icon="color-palette-outline"
+            title="Tema"
+            subtitle={
+              settings.theme === "auto"
+                ? "Automático (sistema)"
+                : settings.theme === "dark"
+                ? "Escuro"
+                : "Claro"
+            }
+            onPress={() => setShowThemeModal(true)}
             showChevron
           />
           <View style={styles.divider} />
           <SettingItem
-            icon="moon-outline"
-            title="Tema Escuro"
-            subtitle="Ativar modo escuro (em breve)"
+            icon="language-outline"
+            title="Idioma"
+            subtitle={
+              settings.language === "pt-BR" ? "Português (Brasil)" : "English"
+            }
+            onPress={() => setShowLanguageModal(true)}
+            showChevron
+          />
+          <View style={styles.divider} />
+          <SettingItem
+            icon="speedometer-outline"
+            title="Unidades de Medida"
+            subtitle={
+              settings.units === "metric"
+                ? "Métrico (kg, cm)"
+                : "Imperial (lb, in)"
+            }
+            onPress={() => setShowUnitsModal(true)}
+            showChevron
+          />
+        </View>
+      </View>
+
+      {/* Notifications Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Notificações</Text>
+        <View style={styles.card}>
+          <SettingItem
+            icon="notifications-outline"
+            title="Notificações"
+            subtitle={
+              settings.notifications.enabled ? "Ativadas" : "Desativadas"
+            }
             rightElement={
               <Switch
-                value={false}
-                disabled
+                value={settings.notifications.enabled}
+                onValueChange={(value) => {
+                  updateNotifications({ enabled: value });
+                  Toast.show({
+                    type: "success",
+                    text1: value
+                      ? "Notificações ativadas"
+                      : "Notificações desativadas",
+                    position: "top",
+                    visibilityTime: 2000,
+                  });
+                }}
+                trackColor={{
+                  false: lightTheme.colors.gray[300],
+                  true: lightTheme.colors.primary,
+                }}
+                thumbColor={lightTheme.colors.white}
+                ios_backgroundColor={lightTheme.colors.gray[300]}
+              />
+            }
+          />
+          <View style={styles.divider} />
+          <SettingItem
+            icon="alarm-outline"
+            title="Lembretes"
+            subtitle="Lembretes de medições e metas"
+            rightElement={
+              <Switch
+                value={settings.notifications.reminders}
+                onValueChange={(value) =>
+                  updateNotifications({ reminders: value })
+                }
+                disabled={!settings.notifications.enabled}
+                trackColor={{
+                  false: lightTheme.colors.gray[300],
+                  true: lightTheme.colors.primary,
+                }}
+                thumbColor={lightTheme.colors.white}
+                ios_backgroundColor={lightTheme.colors.gray[300]}
+              />
+            }
+          />
+          <View style={styles.divider} />
+          <SettingItem
+            icon="chatbubble-outline"
+            title="Mensagens"
+            subtitle="Mensagens do nutricionista"
+            rightElement={
+              <Switch
+                value={settings.notifications.messages}
+                onValueChange={(value) =>
+                  updateNotifications({ messages: value })
+                }
+                disabled={!settings.notifications.enabled}
+                trackColor={{
+                  false: lightTheme.colors.gray[300],
+                  true: lightTheme.colors.primary,
+                }}
+                thumbColor={lightTheme.colors.white}
+                ios_backgroundColor={lightTheme.colors.gray[300]}
+              />
+            }
+          />
+          <View style={styles.divider} />
+          <SettingItem
+            icon="volume-high-outline"
+            title="Som"
+            subtitle="Som das notificações"
+            rightElement={
+              <Switch
+                value={settings.notifications.sound}
+                onValueChange={(value) => updateNotifications({ sound: value })}
+                disabled={!settings.notifications.enabled}
                 trackColor={{
                   false: lightTheme.colors.gray[300],
                   true: lightTheme.colors.primary,
@@ -393,6 +509,388 @@ export function SettingsScreen() {
 
       {/* Bottom Spacer */}
       <View style={styles.bottomSpacer} />
+
+      {/* Theme Modal */}
+      <Modal
+        visible={showThemeModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowThemeModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowThemeModal(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Tema</Text>
+              <TouchableOpacity onPress={() => setShowThemeModal(false)}>
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={lightTheme.colors.gray[600]}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <TouchableOpacity
+                style={[
+                  styles.optionItem,
+                  settings.theme === "light" && styles.optionItemActive,
+                ]}
+                onPress={() => {
+                  setTheme("light");
+                  setShowThemeModal(false);
+                  Toast.show({
+                    type: "success",
+                    text1: "Tema claro ativado",
+                    position: "top",
+                    visibilityTime: 2000,
+                  });
+                }}
+              >
+                <Ionicons
+                  name="sunny"
+                  size={24}
+                  color={
+                    settings.theme === "light"
+                      ? lightTheme.colors.primary
+                      : lightTheme.colors.gray[600]
+                  }
+                />
+                <Text
+                  style={[
+                    styles.optionText,
+                    settings.theme === "light" && styles.optionTextActive,
+                  ]}
+                >
+                  Claro
+                </Text>
+                {settings.theme === "light" && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={24}
+                    color={lightTheme.colors.primary}
+                  />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.optionItem,
+                  settings.theme === "dark" && styles.optionItemActive,
+                ]}
+                onPress={() => {
+                  setTheme("dark");
+                  setShowThemeModal(false);
+                  Toast.show({
+                    type: "success",
+                    text1: "Tema escuro ativado",
+                    position: "top",
+                    visibilityTime: 2000,
+                  });
+                }}
+              >
+                <Ionicons
+                  name="moon"
+                  size={24}
+                  color={
+                    settings.theme === "dark"
+                      ? lightTheme.colors.primary
+                      : lightTheme.colors.gray[600]
+                  }
+                />
+                <Text
+                  style={[
+                    styles.optionText,
+                    settings.theme === "dark" && styles.optionTextActive,
+                  ]}
+                >
+                  Escuro
+                </Text>
+                {settings.theme === "dark" && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={24}
+                    color={lightTheme.colors.primary}
+                  />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.optionItem,
+                  settings.theme === "auto" && styles.optionItemActive,
+                ]}
+                onPress={() => {
+                  setTheme("auto");
+                  setShowThemeModal(false);
+                  Toast.show({
+                    type: "success",
+                    text1: "Tema automático ativado",
+                    text2: "Segue o tema do sistema",
+                    position: "top",
+                    visibilityTime: 2000,
+                  });
+                }}
+              >
+                <Ionicons
+                  name="phone-portrait-outline"
+                  size={24}
+                  color={
+                    settings.theme === "auto"
+                      ? lightTheme.colors.primary
+                      : lightTheme.colors.gray[600]
+                  }
+                />
+                <Text
+                  style={[
+                    styles.optionText,
+                    settings.theme === "auto" && styles.optionTextActive,
+                  ]}
+                >
+                  Automático
+                </Text>
+                {settings.theme === "auto" && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={24}
+                    color={lightTheme.colors.primary}
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Language Modal */}
+      <Modal
+        visible={showLanguageModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLanguageModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowLanguageModal(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Idioma</Text>
+              <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={lightTheme.colors.gray[600]}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <TouchableOpacity
+                style={[
+                  styles.optionItem,
+                  settings.language === "pt-BR" && styles.optionItemActive,
+                ]}
+                onPress={() => {
+                  setLanguage("pt-BR");
+                  setShowLanguageModal(false);
+                  Toast.show({
+                    type: "success",
+                    text1: "Idioma alterado",
+                    text2: "Português (Brasil)",
+                    position: "top",
+                    visibilityTime: 2000,
+                  });
+                }}
+              >
+                <Text style={styles.optionEmoji}>🇧🇷</Text>
+                <Text
+                  style={[
+                    styles.optionText,
+                    settings.language === "pt-BR" && styles.optionTextActive,
+                  ]}
+                >
+                  Português (Brasil)
+                </Text>
+                {settings.language === "pt-BR" && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={24}
+                    color={lightTheme.colors.primary}
+                  />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.optionItem,
+                  settings.language === "en" && styles.optionItemActive,
+                ]}
+                onPress={() => {
+                  setLanguage("en");
+                  setShowLanguageModal(false);
+                  Toast.show({
+                    type: "success",
+                    text1: "Language changed",
+                    text2: "English",
+                    position: "top",
+                    visibilityTime: 2000,
+                  });
+                }}
+              >
+                <Text style={styles.optionEmoji}>🇺🇸</Text>
+                <Text
+                  style={[
+                    styles.optionText,
+                    settings.language === "en" && styles.optionTextActive,
+                  ]}
+                >
+                  English
+                </Text>
+                {settings.language === "en" && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={24}
+                    color={lightTheme.colors.primary}
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Units Modal */}
+      <Modal
+        visible={showUnitsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowUnitsModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowUnitsModal(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Unidades de Medida</Text>
+              <TouchableOpacity onPress={() => setShowUnitsModal(false)}>
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={lightTheme.colors.gray[600]}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <TouchableOpacity
+                style={[
+                  styles.optionItem,
+                  settings.units === "metric" && styles.optionItemActive,
+                ]}
+                onPress={() => {
+                  setUnits("metric");
+                  setShowUnitsModal(false);
+                  Toast.show({
+                    type: "success",
+                    text1: "Unidades alteradas",
+                    text2: "Sistema Métrico (kg, cm)",
+                    position: "top",
+                    visibilityTime: 2000,
+                  });
+                }}
+              >
+                <Ionicons
+                  name="speedometer-outline"
+                  size={24}
+                  color={
+                    settings.units === "metric"
+                      ? lightTheme.colors.primary
+                      : lightTheme.colors.gray[600]
+                  }
+                />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.optionText,
+                      settings.units === "metric" && styles.optionTextActive,
+                    ]}
+                  >
+                    Métrico
+                  </Text>
+                  <Text style={styles.optionSubtext}>kg, cm, m</Text>
+                </View>
+                {settings.units === "metric" && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={24}
+                    color={lightTheme.colors.primary}
+                  />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.optionItem,
+                  settings.units === "imperial" && styles.optionItemActive,
+                ]}
+                onPress={() => {
+                  setUnits("imperial");
+                  setShowUnitsModal(false);
+                  Toast.show({
+                    type: "success",
+                    text1: "Units changed",
+                    text2: "Imperial System (lb, in)",
+                    position: "top",
+                    visibilityTime: 2000,
+                  });
+                }}
+              >
+                <Ionicons
+                  name="speedometer-outline"
+                  size={24}
+                  color={
+                    settings.units === "imperial"
+                      ? lightTheme.colors.primary
+                      : lightTheme.colors.gray[600]
+                  }
+                />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.optionText,
+                      settings.units === "imperial" && styles.optionTextActive,
+                    ]}
+                  >
+                    Imperial
+                  </Text>
+                  <Text style={styles.optionSubtext}>lb, in, ft</Text>
+                </View>
+                {settings.units === "imperial" && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={24}
+                    color={lightTheme.colors.primary}
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Modals */}
       <ConfirmModal
@@ -511,5 +1009,66 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: lightTheme.spacing["2xl"],
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: lightTheme.colors.white,
+    borderTopLeftRadius: lightTheme.borderRadius.xl,
+    borderTopRightRadius: lightTheme.borderRadius.xl,
+    paddingBottom: lightTheme.spacing.xl,
+    maxHeight: "60%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: lightTheme.spacing.xl,
+    borderBottomWidth: 1,
+    borderBottomColor: lightTheme.colors.gray[100],
+  },
+  modalTitle: {
+    fontSize: lightTheme.typography.fontSize.lg,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+    color: lightTheme.colors.gray[900],
+  },
+  modalBody: {
+    padding: lightTheme.spacing.lg,
+  },
+  optionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: lightTheme.spacing.lg,
+    borderRadius: lightTheme.borderRadius.md,
+    marginBottom: lightTheme.spacing.sm,
+    gap: lightTheme.spacing.md,
+    backgroundColor: lightTheme.colors.gray[50],
+  },
+  optionItemActive: {
+    backgroundColor: lightTheme.colors.primaryBackground,
+    borderWidth: 2,
+    borderColor: lightTheme.colors.primary,
+  },
+  optionText: {
+    flex: 1,
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.medium as any,
+    color: lightTheme.colors.gray[700],
+  },
+  optionTextActive: {
+    color: lightTheme.colors.primary,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+  },
+  optionEmoji: {
+    fontSize: 24,
+  },
+  optionSubtext: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[500],
+    marginTop: 2,
   },
 });
