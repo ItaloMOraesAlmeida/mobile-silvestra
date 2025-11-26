@@ -11,7 +11,8 @@
     "start:ios:clear": "expo run:ios --clear",
     "start:web": "expo start --web",
     "start:web:clear": "expo start --web --clear",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "prepare": "husky"
   },
   "dependencies": {
     "@clerk/clerk-expo": "^2.17.3",
@@ -87,8 +88,12 @@
   "devDependencies": {
     "@babel/plugin-proposal-export-namespace-from": "^7.18.9",
     "@types/react": "~19.1.0",
+    "chalk": "^4.1.2",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "husky": "^9.1.7",
+    "inquirer": "^8.2.6",
+    "semver": "^7.7.3",
     "typescript": "~5.9.2"
   },
   "private": true
