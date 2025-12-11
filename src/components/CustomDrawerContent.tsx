@@ -486,6 +486,32 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
                 Relatórios
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("Formulas") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("Formulas")}
+            >
+              <Ionicons
+                name="calculator"
+                size={18}
+                color={
+                  isRouteActive("Formulas")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("Formulas") && styles.drawerLabelActive,
+                ]}
+              >
+                Fórmulas Personalizadas
+              </Text>
+            </TouchableOpacity>
           </>
         )}
 

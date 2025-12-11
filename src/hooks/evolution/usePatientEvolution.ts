@@ -206,29 +206,21 @@ export const usePatientEvolution = ({
         }
         setError(null);
 
-        console.log("🔍 Buscando evolução para paciente:", patientId);
-
         const response = await api.get(
           `/patients/${patientId}/evolution/complete`
         );
-
-        console.log("✅ Resposta evolution/complete:", response.data);
 
         // Transformar resposta do backend para o formato esperado
         const backendData = response.data;
 
         // Buscar todas as avaliações detalhadas do paciente (sem paginação - limite alto)
-        console.log("🔍 Buscando body-measurements...");
         const assessmentsResponse = await api.get(
           `/patients/${patientId}/body-measurements?limit=1000&sortOrder=desc`
         );
 
-        console.log("✅ Resposta body-measurements:", assessmentsResponse.data);
-
         // O backend agora retorna { data: [], meta: {} }
         const measurementsData =
           assessmentsResponse.data?.data || assessmentsResponse.data || [];
-        console.log("📊 Total de medições:", measurementsData.length);
 
         const transformedData: EvolutionData = {
           patient: backendData.patient,
@@ -285,13 +277,6 @@ export const usePatientEvolution = ({
             assessmentDate: measurementsData[0]?.createdAt,
           },
         };
-
-        console.log("✅ Dados transformados:", {
-          patient: transformedData.patient.name,
-          totalAssessments: transformedData.assessments.length,
-          totalGoals: transformedData.goals.length,
-          totalMealPlans: transformedData.mealPlans.length,
-        });
 
         setData(transformedData);
       } catch (err: any) {

@@ -32,17 +32,17 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Toast from "react-native-toast-message";
-import { lightTheme } from "../theme";
-import { useMealPlansStore } from "../stores/meal-plans.store";
-import { usePatientsStore } from "../stores/patients.store";
-import { useFoodsStore } from "../stores/foods.store";
-import FoodListSkeleton from "../components/FoodListSkeleton";
-import { ConfirmModal } from "../components/ui/confirm-modal";
+import { lightTheme } from "../../../theme";
+import { useMealPlansStore } from "../../../stores/meal-plans.store";
+import { usePatientsStore } from "../../../stores/patients.store";
+import { useFoodsStore } from "../../../stores/foods.store";
+import FoodListSkeleton from "../../../components/FoodListSkeleton";
+import { ConfirmModal } from "../../../components/ui/confirm-modal";
 import {
   MealType,
   type MeasurementType,
   type HouseholdMeasure,
-} from "../types/meal-plan.types";
+} from "../../../types/meal-plan.types";
 import {
   PLAN_STATUS_INFO,
   validatePlanData,
@@ -53,12 +53,12 @@ import {
   formatMacro,
   getMacroColor,
   calculateMacroDistribution,
-} from "../utils/meal-plan.utils";
+} from "../../../utils/meal-plan.utils";
 import {
   HOUSEHOLD_MEASURES,
   convertToGrams,
   formatQuantityWithMeasure,
-} from "../constants/household-measures";
+} from "../../../constants/household-measures";
 
 // Tipos de metas nutricionais
 const GOAL_TYPES = [
@@ -121,8 +121,8 @@ export default function CreateMealPlanScreen({ navigation, route }: Props) {
   const { initBuilder, updateBuilderField, loading } = useMealPlansStore();
 
   // Usar selector explícito para garantir que sempre pegue um array
-  const patientsData = usePatientsStore((state) => state.patients);
-  const loadPatients = usePatientsStore((state) => state.loadPatients);
+  const patientsData = usePatientsStore((state: any) => state.patients);
+  const loadPatients = usePatientsStore((state: any) => state.loadPatients);
 
   // Garantir que patients seja sempre um array
   const patients = Array.isArray(patientsData) ? patientsData : [];
@@ -227,7 +227,7 @@ export default function CreateMealPlanScreen({ navigation, route }: Props) {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
-    loadPatients().catch((err) => {
+    loadPatients().catch((err: any) => {
       console.error("Error loading patients:", err);
       Toast.show({
         type: "error",
@@ -422,8 +422,8 @@ export default function CreateMealPlanScreen({ navigation, route }: Props) {
     let totalFat = 0;
     let totalFiber = 0;
 
-    builderState?.meals.forEach((meal) => {
-      meal.items.forEach((item) => {
+    builderState?.meals.forEach((meal: any) => {
+      meal.items.forEach((item: any) => {
         // Valores já estão calculados com base na quantidade
         totalCalories += item.calories || 0;
         totalProtein += item.protein || 0;
@@ -634,7 +634,7 @@ export default function CreateMealPlanScreen({ navigation, route }: Props) {
 
     const query = foodSearchQuery.toLowerCase();
     return foods.filter(
-      (food) =>
+      (food: any) =>
         food.name?.toLowerCase().includes(query) ||
         food.category?.name?.toLowerCase().includes(query)
     );
@@ -654,7 +654,7 @@ export default function CreateMealPlanScreen({ navigation, route }: Props) {
         page: 1,
         limit: 50,
         signal: controller.signal,
-      }).catch((err) => {
+      }).catch((err: any) => {
         // Se a requisição foi abortada, não logar como erro
         if ((err as any)?.name === "AbortError") return;
         console.error("Erro ao buscar alimentos (modal):", err);
@@ -871,10 +871,10 @@ export default function CreateMealPlanScreen({ navigation, route }: Props) {
 
                 {/* Lista de refeições */}
                 {builderState?.meals && builderState.meals.length > 0 ? (
-                  builderState.meals.map((meal, mealIndex) => {
+                  builderState.meals.map((meal: any, mealIndex: number) => {
                     // Calculate meal nutrition (valores já calculados)
                     let mealCalories = 0;
-                    meal.items.forEach((item) => {
+                    meal.items.forEach((item: any) => {
                       mealCalories += item.calories || 0;
                     });
 
@@ -916,7 +916,7 @@ export default function CreateMealPlanScreen({ navigation, route }: Props) {
                         {/* Meal Items */}
                         {meal.items.length > 0 ? (
                           <View style={styles.mealItemsContainer}>
-                            {meal.items.map((item, itemIndex) => {
+                            {meal.items.map((item: any, itemIndex: number) => {
                               // Valores já estão calculados com base na quantidade
                               const itemCalories = item.calories || 0;
                               const itemProtein = item.protein || 0;
@@ -1111,7 +1111,7 @@ export default function CreateMealPlanScreen({ navigation, route }: Props) {
                         const typeInfo = MEAL_TYPES_INFO[type];
                         return (
                           <TouchableOpacity
-                            key={type}
+                            key={type as string}
                             onPress={() => setMealType(type)}
                             style={[
                               styles.mealTypeChip,
@@ -1252,7 +1252,7 @@ export default function CreateMealPlanScreen({ navigation, route }: Props) {
                         search: term || undefined,
                         page: 1,
                         limit: 50,
-                      }).catch((err) =>
+                      }).catch((err: any) =>
                         console.error("Erro ao buscar alimentos (submit):", err)
                       );
                     }
@@ -1292,7 +1292,7 @@ export default function CreateMealPlanScreen({ navigation, route }: Props) {
                               search: term || undefined,
                               page: 1,
                               limit: 50,
-                            }).catch((err) =>
+                            }).catch((err: any) =>
                               console.error(
                                 "Erro ao buscar alimentos (recent):",
                                 err
@@ -1399,7 +1399,7 @@ export default function CreateMealPlanScreen({ navigation, route }: Props) {
                         showsHorizontalScrollIndicator={false}
                         style={styles.householdMeasurePicker}
                       >
-                        {HOUSEHOLD_MEASURES.map((measure) => (
+                        {HOUSEHOLD_MEASURES.map((measure: any) => (
                           <TouchableOpacity
                             key={measure.id}
                             style={[
@@ -1821,7 +1821,7 @@ export default function CreateMealPlanScreen({ navigation, route }: Props) {
             <View style={styles.formGroup}>
               <Text style={styles.label}>Status</Text>
               <View style={styles.statusGrid}>
-                {Object.values(PLAN_STATUS_INFO).map((statusInfo) => {
+                {Object.values(PLAN_STATUS_INFO).map((statusInfo: any) => {
                   const isSelected = status === statusInfo.status;
                   return (
                     <TouchableOpacity

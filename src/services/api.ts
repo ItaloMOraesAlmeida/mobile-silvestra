@@ -10,5 +10,8 @@ export {
   goalsService,
 } from "./patient-details.service";
 
+// Re-exportar formula service
+export { formulaService } from "./formula.service";
+
 // Nota: foodService NÃO é re-exportado para evitar ciclo de dependência
 // Importar diretamente de './food.service' quando necessário

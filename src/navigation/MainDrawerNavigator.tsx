@@ -37,6 +37,10 @@ import FoodFavoritesScreen from "../screens/FoodFavoritesScreen";
 import CreateMealPlanScreen from "../screens/nutritionist/CreateMealPlanScreen";
 import MealPlanDetailsScreen from "../screens/MealPlanDetailsScreen";
 import ShoppingListScreen from "../screens/ShoppingListScreen";
+import FormulasListScreen from "../screens/nutritionist/FormulasListScreen";
+import FormulaEditorScreen from "../screens/nutritionist/FormulaEditorScreen";
+import FormulaDetailsScreen from "../screens/nutritionist/FormulaDetailsScreen";
+import CalculateFormulaModal from "../screens/nutritionist/CalculateFormulaModal";
 
 // Feature #4 - App do Paciente
 import {
@@ -108,6 +112,17 @@ export type MainDrawerParamList = {
   };
   ShoppingList: {
     planId: string;
+  };
+  Formulas: undefined;
+  FormulaEditor: {
+    formulaId?: string;
+  };
+  FormulaDetails: {
+    formulaId: string;
+  };
+  CalculateFormula: {
+    formulaId: string;
+    patientId?: string;
   };
   Profile: undefined;
   Settings: undefined;
@@ -246,6 +261,51 @@ export function MainDrawerNavigator() {
         options={{
           title: "Perfil",
         }}
+      />
+      {/* Fórmulas Personalizadas */}
+      <Drawer.Screen
+        name="Formulas"
+        component={
+          createScreenWithHeader(
+            FormulasListScreen as any,
+            "Fórmulas Personalizadas"
+          ) as any
+        }
+        options={{ drawerItemStyle: { display: "none" } }}
+      />
+      <Drawer.Screen
+        name="FormulaEditor"
+        component={FormulaEditorScreen as any}
+        options={({ route }: any) => ({
+          drawerItemStyle: { display: "none" },
+          headerShown: true,
+          title: route.params?.formulaId ? "Editar Fórmula" : "Nova Fórmula",
+          headerBackTitle: "Voltar",
+        })}
+      />
+      <Drawer.Screen
+        name="FormulaDetails"
+        component={
+          createScreenWithHeader(
+            FormulaDetailsScreen as any,
+            "Detalhes da Fórmula",
+            true,
+            "Formulas"
+          ) as any
+        }
+        options={{ drawerItemStyle: { display: "none" } }}
+      />
+      <Drawer.Screen
+        name="CalculateFormula"
+        component={
+          createScreenWithHeader(
+            CalculateFormulaModal as any,
+            "Calcular Fórmula",
+            true,
+            "Formulas"
+          ) as any
+        }
+        options={{ drawerItemStyle: { display: "none" } }}
       />
       {/* Pacientes (mantemos as telas registradas, mas não as exibimos direto no drawer; o conteúdo do drawer fornece links) */}
       <Drawer.Screen

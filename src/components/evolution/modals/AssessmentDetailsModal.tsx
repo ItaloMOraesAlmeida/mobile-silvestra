@@ -37,7 +37,7 @@ import type { Theme } from "../../../theme";
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // Tipos baseados no schema
-interface AssessmentData {
+export interface AssessmentData {
   id: string;
   date: string;
 
