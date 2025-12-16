@@ -64,7 +64,6 @@ export const usePhotoUrl = (
       const isExpired = storageService.isUrlExpired(url);
 
       if (isExpired) {
-        console.log("⚠️  URL expirada detectada, atualizando...");
         await refresh();
       }
     };
@@ -173,7 +172,6 @@ export const usePhotoUrls = (
       );
 
       if (hasExpired) {
-        console.log("⚠️  URLs expiradas detectadas, atualizando...");
         await refreshAll();
       }
     };

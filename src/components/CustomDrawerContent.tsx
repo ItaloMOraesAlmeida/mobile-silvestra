@@ -399,6 +399,33 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
                 Minhas Metas
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("PatientAppointments") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("PatientAppointments")}
+            >
+              <Ionicons
+                name="calendar"
+                size={18}
+                color={
+                  isRouteActive("PatientAppointments")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("PatientAppointments") &&
+                    styles.drawerLabelActive,
+                ]}
+              >
+                Minhas Consultas
+              </Text>
+            </TouchableOpacity>
           </>
         )}
 
@@ -510,6 +537,69 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
                 ]}
               >
                 Fórmulas Personalizadas
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Grupo Agendamento - SÓ PARA NUTRICIONISTA */}
+        {isNutritionist() && (
+          <>
+            <View style={styles.groupHeader}>
+              <Text style={styles.groupTitle}>Consulta</Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("AppointmentCalendar") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("AppointmentCalendar")}
+            >
+              <Ionicons
+                name="calendar"
+                size={18}
+                color={
+                  isRouteActive("AppointmentCalendar")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("AppointmentCalendar") &&
+                    styles.drawerLabelActive,
+                ]}
+              >
+                Agenda de Consultas
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("AvailabilityConfig") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("AvailabilityConfig")}
+            >
+              <Ionicons
+                name="settings-outline"
+                size={18}
+                color={
+                  isRouteActive("AvailabilityConfig")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("AvailabilityConfig") &&
+                    styles.drawerLabelActive,
+                ]}
+              >
+                Configurar Disponibilidade
               </Text>
             </TouchableOpacity>
           </>

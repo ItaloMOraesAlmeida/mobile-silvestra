@@ -363,26 +363,12 @@ export function PatientsListScreen({ navigation }: PatientsListScreenProps) {
         .routes.find((r: any) => r.name === "Patients")?.params as any;
 
       if (params?.refresh) {
-        console.log(
-          "🔄 [PATIENTS_LIST] Recarregando pacientes após cadastro..."
-        );
-        refreshPatients()
-          .then(() => {
-            console.log(
-              "✅ [PATIENTS_LIST] Pacientes recarregados com sucesso"
-            );
-          })
-          .catch((error) => {
-            console.error(
-              "❌ [PATIENTS_LIST] Erro ao recarregar pacientes:",
-              error
-            );
-            // Não lançar erro se a lista já carregou anteriormente
-            // O erro pode ser apenas do refresh, mas os dados já estão na tela
-            console.log(
-              "ℹ️ [PATIENTS_LIST] Lista pode ter dados anteriores, continuando..."
-            );
-          });
+        refreshPatients().catch((error) => {
+          console.error(
+            "❌ [PATIENTS_LIST] Erro ao recarregar pacientes:",
+            error
+          );
+        });
         // Limpa o parâmetro após usar
         navigation.setParams({ refresh: undefined, timestamp: undefined });
       } else {

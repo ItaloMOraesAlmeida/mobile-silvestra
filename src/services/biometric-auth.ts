@@ -78,8 +78,6 @@ export const BiometricAuthService = {
 
         // Se ambos estiverem expirados, não há o que fazer
         if (accessTokenExpired && refreshTokenExpired) {
-          console.log("🔴 Ambos os tokens expirados - fazendo logout");
-
           await StorageService.clearAuthTokens();
           await StorageService.clearUserData();
           await StorageService.setBiometricEnabled(false);
@@ -96,8 +94,6 @@ export const BiometricAuthService = {
 
         // Se access token expirado mas refresh válido, faz refresh
         if (accessTokenExpired && !refreshTokenExpired) {
-          console.log("🟡 Access token expirado - fazendo refresh...");
-
           // Restaura o refresh token primeiro
           setTokens({
             accessToken: savedTokens.accessToken,
@@ -122,7 +118,6 @@ export const BiometricAuthService = {
               await StorageService.saveUserData(user);
             }
 
-            console.log("✅ Refresh bem-sucedido");
             return { success: true };
           } catch (refreshError: any) {
             console.error("❌ Erro ao fazer refresh:", refreshError);
@@ -133,11 +128,6 @@ export const BiometricAuthService = {
               refreshError.message?.includes("timeout") ||
               refreshError.message?.includes("Failed to fetch")
             ) {
-              // Erro de rede - permite continuar offline com tokens antigos
-              console.log(
-                "🌐 Erro de rede detectado - permitindo acesso offline"
-              );
-
               // Restaura tokens antigos mesmo assim (app pode funcionar offline)
               setTokens({
                 accessToken: savedTokens.accessToken,
@@ -172,9 +162,6 @@ export const BiometricAuthService = {
           error.message?.includes("timeout") ||
           error.message?.includes("Failed to fetch")
         ) {
-          // Erro de rede - tenta restaurar tokens mesmo assim
-          console.log("🌐 Erro de rede - restaurando tokens salvos");
-
           setTokens({
             accessToken: savedTokens.accessToken,
             refreshToken: savedTokens.refreshToken,

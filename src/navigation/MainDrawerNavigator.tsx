@@ -1,9 +1,11 @@
 import React from "react";
+import { TouchableOpacity } from "react-native";
 import {
   createDrawerNavigator,
   useDrawerStatus,
   DrawerContentComponentProps,
 } from "@react-navigation/drawer";
+import { Ionicons } from "@expo/vector-icons";
 import { HomeScreen } from "../screens/main/HomeScreen";
 import { DashboardScreen as NutritionistDashboard } from "../screens/nutritionist/DashboardScreen";
 import { PatientDashboardScreen } from "../screens/patient/DashboardScreen";
@@ -50,6 +52,24 @@ import {
   MyMeasurementsScreen,
   MyGoalsScreen,
 } from "../screens/patient";
+
+// Módulo 5 - Sistema de Agendamentos
+import {
+  AvailabilityConfigScreen,
+  AvailabilitySetupWizard,
+  WeeklyScheduleScreen,
+  BlockedPeriodsScreen,
+  AppointmentCalendarScreen,
+  AppointmentFormScreen,
+  AppointmentDetailsScreen,
+} from "../screens/nutritionist/appointments";
+import {
+  PatientAppointmentsScreen,
+  RequestAppointmentScreen,
+  PatientAppointmentDetailsScreen,
+} from "../screens/patient/appointments";
+import { NutritionistAddressListScreen } from "../screens/nutritionist/profile/NutritionistAddressListScreen";
+import { NutritionistAddressFormScreen } from "../screens/nutritionist/profile/NutritionistAddressFormScreen";
 
 export type MainDrawerParamList = {
   Home: undefined;
@@ -144,6 +164,31 @@ export type MainDrawerParamList = {
   };
   MyMeasurements: undefined;
   MyGoals: undefined;
+  // Módulo 5 - Sistema de Agendamentos (Nutricionista)
+  AppointmentCalendar: undefined;
+  AvailabilityConfig: undefined;
+  WeeklySchedule: undefined;
+  BlockedPeriods: undefined;
+  AppointmentForm: {
+    appointmentId?: string;
+    patientId?: string;
+    mode?: "create" | "edit" | "reschedule";
+  };
+  AppointmentDetails: {
+    appointmentId: string;
+  };
+  // Módulo 5 - Sistema de Agendamentos (Paciente)
+  PatientAppointments: undefined;
+  RequestAppointment: undefined;
+  PatientAppointmentDetails: {
+    appointmentId: string;
+  };
+  // Gerenciamento de Endereços (Nutricionista)
+  NutritionistAddressList: undefined;
+  NutritionistAddressForm: {
+    addressId?: string;
+    returnTo?: string;
+  };
 };
 
 const Drawer = createDrawerNavigator<MainDrawerParamList>();
@@ -152,7 +197,8 @@ function createScreenWithHeader(
   Screen: React.ComponentType<any>,
   title: string | ((props: any) => string),
   showBackButton: boolean = false,
-  backTo?: string
+  backTo?: string | ((props: any) => string),
+  headerRight?: (props: any) => React.ReactNode
 ): React.ComponentType<any> {
   const ScreenWithHeader = (props: any) => {
     const { navigation } = props;
@@ -169,6 +215,12 @@ function createScreenWithHeader(
     // Título dinâmico: pode ser string ou função
     const dynamicTitle = typeof title === "function" ? title(props) : title;
 
+    // HeaderRight dinâmico
+    const dynamicHeaderRight = headerRight ? headerRight(props) : undefined;
+
+    // BackTo dinâmico: pode ser string ou função
+    const dynamicBackTo = typeof backTo === "function" ? backTo(props) : backTo;
+
     return (
       <>
         <CustomHeader
@@ -176,8 +228,9 @@ function createScreenWithHeader(
           navigation={navigation}
           isDrawerOpen={isDrawerOpen}
           showBackButton={showBackButton}
-          backTo={backTo}
+          backTo={dynamicBackTo}
           onBackPress={onBackPressCallback}
+          headerRight={dynamicHeaderRight}
         />
         {/* Repassa todas as props para a tela + registerBackHandler */}
         <Screen {...props} registerBackHandler={registerBackHandler} />
@@ -586,6 +639,187 @@ export function MainDrawerNavigator() {
         }
         options={{
           title: "Minhas Metas",
+        }}
+      />
+
+      {/* Módulo 5 - Sistema de Agendamentos (Nutricionista) */}
+      <Drawer.Screen
+        name="AppointmentCalendar"
+        component={
+          createScreenWithHeader(
+            AppointmentCalendarScreen as any,
+            "Agenda de Consultas"
+          ) as any
+        }
+        options={{
+          title: "Agenda",
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="AvailabilityConfig"
+        component={
+          createScreenWithHeader(
+            AvailabilitySetupWizard as any,
+            "Configurar Disponibilidade",
+            true,
+            "AppointmentCalendar"
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="WeeklySchedule"
+        component={
+          createScreenWithHeader(
+            WeeklyScheduleScreen as any,
+            "Horários Semanais",
+            true,
+            "AppointmentCalendar"
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="BlockedPeriods"
+        component={
+          createScreenWithHeader(
+            BlockedPeriodsScreen as any,
+            "Períodos Bloqueados",
+            true,
+            "AppointmentCalendar"
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="AppointmentForm"
+        component={
+          createScreenWithHeader(
+            AppointmentFormScreen as any,
+            (props: any) => {
+              const mode = props.route?.params?.mode;
+              return mode === "edit"
+                ? "Editar Consulta"
+                : mode === "reschedule"
+                ? "Reagendar Consulta"
+                : "Nova Consulta";
+            },
+            true,
+            "AppointmentCalendar"
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="AppointmentDetails"
+        component={
+          createScreenWithHeader(
+            AppointmentDetailsScreen as any,
+            "Detalhes da Consulta",
+            true,
+            "AppointmentCalendar"
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+
+      {/* Módulo 5 - Sistema de Agendamentos (Paciente) */}
+      <Drawer.Screen
+        name="PatientAppointments"
+        component={
+          createScreenWithHeader(
+            PatientAppointmentsScreen as any,
+            "Minhas Consultas"
+          ) as any
+        }
+        options={{
+          title: "Minhas Consultas",
+        }}
+      />
+      <Drawer.Screen
+        name="RequestAppointment"
+        component={
+          createScreenWithHeader(
+            RequestAppointmentScreen as any,
+            "Solicitar Consulta",
+            true,
+            "PatientAppointments"
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="PatientAppointmentDetails"
+        component={
+          createScreenWithHeader(
+            PatientAppointmentDetailsScreen as any,
+            "Detalhes da Consulta",
+            true,
+            "PatientAppointments"
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+
+      {/* Gerenciamento de Endereços (Nutricionista) */}
+      <Drawer.Screen
+        name="NutritionistAddressList"
+        component={
+          createScreenWithHeader(
+            NutritionistAddressListScreen as any,
+            "Meus Endereços",
+            true,
+            "EditProfile",
+            (props: any) => (
+              <TouchableOpacity
+                style={{ padding: 8 }}
+                onPress={() =>
+                  props.navigation.navigate("NutritionistAddressForm")
+                }
+                activeOpacity={0.7}
+              >
+                <Ionicons name="add-circle" size={28} color="#fff" />
+              </TouchableOpacity>
+            )
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="NutritionistAddressForm"
+        component={
+          createScreenWithHeader(
+            NutritionistAddressFormScreen as any,
+            (props: any) => {
+              const addressId = props.route?.params?.addressId;
+              return addressId ? "Editar Endereço" : "Novo Endereço";
+            },
+            true,
+            (props: any) => {
+              const returnTo = props.route?.params?.returnTo;
+              return returnTo || "NutritionistAddressList";
+            }
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
         }}
       />
 

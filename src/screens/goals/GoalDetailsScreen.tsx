@@ -147,10 +147,6 @@ export const GoalDetailsScreen: React.FC = () => {
               goalId,
               goalDescription
             );
-            console.log(
-              "🎉 Notificação de celebração enviada para meta:",
-              goalId
-            );
           } catch (notifError) {
             console.error(
               "⚠️ Erro ao enviar notificação de celebração:",
