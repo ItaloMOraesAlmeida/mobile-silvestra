@@ -1,4 +1,5 @@
 export { PatientDetailsScreen } from "./PatientDetailsScreen";
+export { PatientHomeScreen } from "./PatientHomeScreen";
 export { MeasurementDetailsScreen } from "./MeasurementDetailsScreen";
 export { OverviewTab } from "./tabs/OverviewTab";
 export { MeasurementsTab } from "./tabs/MeasurementsTab";

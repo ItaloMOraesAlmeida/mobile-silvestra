@@ -14,13 +14,15 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
+  Animated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { lightTheme } from "../../theme";
 import { createMealConsumption } from "../../services/meal-consumption.service";
 
@@ -34,12 +36,19 @@ export function MealCheckInScreen({
   route,
 }: MealCheckInScreenProps) {
   const { mealId, mealName, patientId } = route.params;
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = React.useState(false);
   const [consumedAt, setConsumedAt] = React.useState(new Date());
   const [notes, setNotes] = React.useState("");
   const [showDatePicker, setShowDatePicker] = React.useState(false);
   const [showTimePicker, setShowTimePicker] = React.useState(false);
+  const [toastVisible, setToastVisible] = React.useState(false);
+  const [toastMessage, setToastMessage] = React.useState("");
+  const [toastType, setToastType] = React.useState<"success" | "error">(
+    "success"
+  );
+  const toastAnimation = React.useRef(new Animated.Value(0)).current;
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
@@ -62,9 +71,34 @@ export function MealCheckInScreen({
     }
   };
 
+  const showToast = (
+    message: string,
+    type: "success" | "error" = "success"
+  ) => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+
+    Animated.sequence([
+      Animated.timing(toastAnimation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(3000),
+      Animated.timing(toastAnimation, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastVisible(false);
+    });
+  };
+
   const handleSubmit = async () => {
     if (!mealId || !patientId) {
-      Alert.alert("Erro", "Dados inválidos. Tente novamente.");
+      showToast("Dados inválidos. Tente novamente.", "error");
       return;
     }
 
@@ -78,19 +112,15 @@ export function MealCheckInScreen({
         notes: notes.trim() || undefined,
       });
 
-      Alert.alert(
-        "Sucesso! 🎉",
-        "Refeição registrada com sucesso. Continue assim!",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              // Voltar para a tela de detalhes do plano
-              navigation.goBack();
-            },
-          },
-        ]
+      showToast(
+        "🎉 Refeição registrada com sucesso! Continue assim!",
+        "success"
       );
+
+      // Voltar para a tela anterior após 1.5 segundos
+      setTimeout(() => {
+        navigation.goBack();
+      }, 1500);
     } catch (err: any) {
       console.error("Erro ao registrar consumo:", err);
       const errorMessage =
@@ -102,19 +132,12 @@ export function MealCheckInScreen({
         errorMessage.includes("duplicado") ||
         errorMessage.includes("já foi registrado")
       ) {
-        Alert.alert(
-          "Atenção",
-          "Você já registrou esta refeição hoje. Deseja atualizar o registro?",
-          [
-            { text: "Cancelar", style: "cancel" },
-            {
-              text: "OK",
-              onPress: () => navigation.goBack(),
-            },
-          ]
-        );
+        showToast("⚠️ Você já registrou esta refeição hoje", "error");
+        setTimeout(() => {
+          navigation.goBack();
+        }, 2000);
       } else {
-        Alert.alert("Erro", errorMessage);
+        showToast(errorMessage, "error");
       }
     } finally {
       setLoading(false);
@@ -141,6 +164,11 @@ export function MealCheckInScreen({
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={lightTheme.colors.success}
+        translucent={false}
+      />
       <View style={styles.container}>
         {/* Header */}
         <LinearGradient
@@ -276,35 +304,70 @@ export function MealCheckInScreen({
                 • Compartilhe qualquer alteração que fez
               </Text>
             </View>
+
+            {/* Action Button */}
+            <View
+              style={[
+                styles.footer,
+                { paddingBottom: Math.max(insets.bottom, 16) },
+              ]}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  loading && styles.submitButtonDisabled,
+                ]}
+                onPress={handleSubmit}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                {loading ? (
+                  <ActivityIndicator color={lightTheme.colors.white} />
+                ) : (
+                  <>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={24}
+                      color={lightTheme.colors.white}
+                    />
+                    <Text style={styles.submitButtonText}>
+                      Confirmar Check-in
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
-
-        {/* Action Button */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              loading && styles.submitButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={loading}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <ActivityIndicator color={lightTheme.colors.white} />
-            ) : (
-              <>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={24}
-                  color={lightTheme.colors.white}
-                />
-                <Text style={styles.submitButtonText}>Confirmar Check-in</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
       </View>
+
+      {/* Toast Notification */}
+      {toastVisible && (
+        <Animated.View
+          style={[
+            styles.toast,
+            toastType === "success" ? styles.toastSuccess : styles.toastError,
+            {
+              opacity: toastAnimation,
+              transform: [
+                {
+                  translateY: toastAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-100, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <Ionicons
+            name={toastType === "success" ? "checkmark-circle" : "alert-circle"}
+            size={24}
+            color={lightTheme.colors.white}
+          />
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -450,15 +513,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
     padding: 16,
-    paddingBottom: Platform.OS === "ios" ? 32 : 16,
-    backgroundColor: lightTheme.colors.white,
-    borderTopWidth: 1,
-    borderTopColor: lightTheme.colors.gray[200],
+    marginTop: 16,
   },
   submitButton: {
     flexDirection: "row",
@@ -481,5 +537,36 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: lightTheme.colors.white,
+  },
+  toast: {
+    position: "absolute",
+    top: 60,
+    left: 16,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 9999,
+  },
+  toastSuccess: {
+    backgroundColor: lightTheme.colors.success,
+  },
+  toastError: {
+    backgroundColor: lightTheme.colors.error,
+  },
+  toastText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "600",
+    color: lightTheme.colors.white,
+    lineHeight: 20,
   },
 });

@@ -92,9 +92,6 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
   const handleImageError = () => {
     if (retryCount < maxRetries) {
       // Retry automático
-      console.log(
-        `Image load failed, retrying (${retryCount + 1}/${maxRetries})...`
-      );
       setRetryCount((prev) => prev + 1);
       setLoading(true);
       setError(false);

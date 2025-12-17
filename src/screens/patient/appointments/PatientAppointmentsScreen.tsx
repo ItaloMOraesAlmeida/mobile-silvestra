@@ -23,7 +23,7 @@ import {
   AppointmentTypeLabels,
 } from "../../../types/appointments";
 
-type FilterType = "upcoming" | "past" | "cancelled";
+type FilterType = "all" | "upcoming" | "completed" | "cancelled";
 
 export default function PatientAppointmentsScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
@@ -82,74 +82,71 @@ export default function PatientAppointmentsScreen({ navigation }: any) {
     }
 
     const filtered = appointments.filter((appointment) => {
-      // Parse da data como UTC para evitar problemas de timezone
-      const dateOnly = appointment.scheduledDate.includes("T")
-        ? appointment.scheduledDate.split("T")[0]
-        : appointment.scheduledDate;
-      const appointmentDate = new Date(dateOnly + "T00:00:00Z");
+      // Extrair componentes UTC e criar data local para evitar problemas de timezone
+      const dateUTC = new Date(appointment.scheduledDate);
+      const year = dateUTC.getUTCFullYear();
+      const month = dateUTC.getUTCMonth();
+      const day = dateUTC.getUTCDate();
+      const appointmentDate = new Date(year, month, day);
+      appointmentDate.setHours(0, 0, 0, 0);
 
       switch (filter) {
+        case "all":
+          // Mostra todas as consultas
+          return true;
+
         case "upcoming":
-          // Inclui consultas futuras e status PENDING, CONFIRMED e RESCHEDULED
+          // Apenas consultas futuras (hoje ou depois) com status não finalizados
           return (
-            (appointmentDate >= today ||
-              appointment.status === AppointmentStatus.PENDING ||
-              appointment.status === AppointmentStatus.RESCHEDULED) &&
-            ![
-              AppointmentStatus.COMPLETED,
-              AppointmentStatus.CANCELLED_BY_PATIENT,
-              AppointmentStatus.CANCELLED_BY_NUTRITIONIST,
-              AppointmentStatus.NO_SHOW,
+            appointmentDate >= today &&
+            [
+              AppointmentStatus.PENDING,
+              AppointmentStatus.CONFIRMED,
+              AppointmentStatus.RESCHEDULED,
             ].includes(appointment.status)
           );
-        case "past":
-          // Apenas consultas completadas OU com data passada (excluindo PENDING e RESCHEDULED)
-          return (
-            appointment.status === AppointmentStatus.COMPLETED ||
-            (appointmentDate < today &&
-              appointment.status !== AppointmentStatus.PENDING &&
-              appointment.status !== AppointmentStatus.RESCHEDULED &&
-              ![
-                AppointmentStatus.CANCELLED_BY_PATIENT,
-                AppointmentStatus.CANCELLED_BY_NUTRITIONIST,
-                AppointmentStatus.NO_SHOW,
-              ].includes(appointment.status))
-          );
+
+        case "completed":
+          // Apenas consultas realizadas (COMPLETED)
+          return appointment.status === AppointmentStatus.COMPLETED;
+
         case "cancelled":
+          // Apenas consultas canceladas ou com falta
           return [
             AppointmentStatus.CANCELLED_BY_PATIENT,
             AppointmentStatus.CANCELLED_BY_NUTRITIONIST,
             AppointmentStatus.NO_SHOW,
           ].includes(appointment.status);
+
         default:
           return true;
       }
     });
 
-    // Ordenar por data e horário (mais próximas primeiro para upcoming, mais recentes primeiro para past)
+    // Ordenar por data e horário
     const sorted = filtered.sort((a, b) => {
-      // Extrair apenas a data (YYYY-MM-DD) sem timezone
-      const dateOnlyA = a.scheduledDate.includes("T")
-        ? a.scheduledDate.split("T")[0]
-        : a.scheduledDate;
-      const dateOnlyB = b.scheduledDate.includes("T")
-        ? b.scheduledDate.split("T")[0]
-        : b.scheduledDate;
+      const dateA = new Date(a.scheduledDate);
+      const dateB = new Date(b.scheduledDate);
 
-      // Criar timestamps combinando data e hora
-      const dateTimeA = new Date(
-        dateOnlyA + "T" + a.scheduledTime + ":00"
-      ).getTime();
-      const dateTimeB = new Date(
-        dateOnlyB + "T" + b.scheduledTime + ":00"
-      ).getTime();
+      // Se datas diferentes, ordenar por data
+      if (dateA.getTime() !== dateB.getTime()) {
+        // Para upcoming e all: ordem crescente (mais próximas primeiro)
+        // Para completed e cancelled: ordem decrescente (mais recentes primeiro)
+        if (filter === "upcoming" || filter === "all") {
+          return dateA.getTime() - dateB.getTime();
+        } else {
+          return dateB.getTime() - dateA.getTime();
+        }
+      }
 
-      // Para upcoming: ordem crescente (mais próximas primeiro)
-      // Para past e cancelled: ordem decrescente (mais recentes primeiro)
-      if (filter === "upcoming") {
-        return dateTimeA - dateTimeB;
+      // Se mesma data, ordenar por horário
+      const timeA = a.scheduledTime || "00:00";
+      const timeB = b.scheduledTime || "00:00";
+
+      if (filter === "upcoming" || filter === "all") {
+        return timeA.localeCompare(timeB);
       } else {
-        return dateTimeB - dateTimeA;
+        return timeB.localeCompare(timeA);
       }
     });
 
@@ -322,6 +319,28 @@ export default function PatientAppointmentsScreen({ navigation }: any) {
             <TouchableOpacity
               style={[
                 styles.filterTab,
+                filter === "all" && styles.filterTabActive,
+              ]}
+              onPress={() => setFilter("all")}
+            >
+              <Ionicons
+                name="list-outline"
+                size={18}
+                color={filter === "all" ? "#8b5a9f" : "#757575"}
+              />
+              <Text
+                style={[
+                  styles.filterTabText,
+                  filter === "all" && styles.filterTabTextActive,
+                ]}
+              >
+                Todas
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.filterTab,
                 filter === "upcoming" && styles.filterTabActive,
               ]}
               onPress={() => setFilter("upcoming")}
@@ -344,19 +363,19 @@ export default function PatientAppointmentsScreen({ navigation }: any) {
             <TouchableOpacity
               style={[
                 styles.filterTab,
-                filter === "past" && styles.filterTabActive,
+                filter === "completed" && styles.filterTabActive,
               ]}
-              onPress={() => setFilter("past")}
+              onPress={() => setFilter("completed")}
             >
               <Ionicons
                 name="checkmark-done-outline"
                 size={18}
-                color={filter === "past" ? "#8b5a9f" : "#757575"}
+                color={filter === "completed" ? "#8b5a9f" : "#757575"}
               />
               <Text
                 style={[
                   styles.filterTabText,
-                  filter === "past" && styles.filterTabTextActive,
+                  filter === "completed" && styles.filterTabTextActive,
                 ]}
               >
                 Realizadas
@@ -406,9 +425,11 @@ export default function PatientAppointmentsScreen({ navigation }: any) {
               <View style={styles.emptyIconContainer}>
                 <Ionicons
                   name={
-                    filter === "upcoming"
+                    filter === "all"
+                      ? "list-outline"
+                      : filter === "upcoming"
                       ? "calendar-outline"
-                      : filter === "past"
+                      : filter === "completed"
                       ? "checkmark-done-outline"
                       : "close-circle-outline"
                   }
@@ -417,9 +438,11 @@ export default function PatientAppointmentsScreen({ navigation }: any) {
                 />
               </View>
               <Text style={styles.emptyTitle}>
-                {filter === "upcoming"
+                {filter === "all"
+                  ? "Nenhuma consulta encontrada"
+                  : filter === "upcoming"
                   ? "Nenhuma consulta agendada"
-                  : filter === "past"
+                  : filter === "completed"
                   ? "Nenhuma consulta realizada"
                   : "Nenhuma consulta cancelada"}
               </Text>

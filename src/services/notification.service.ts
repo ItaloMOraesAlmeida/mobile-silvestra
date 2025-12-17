@@ -130,7 +130,6 @@ class NotificationService {
         trigger: notificationTrigger,
       });
 
-      console.log(`Notification scheduled with ID: ${notificationId}`);
       return notificationId;
     } catch (error) {
       console.error("Error scheduling notification:", error);
@@ -242,7 +241,6 @@ class NotificationService {
   async cancelNotification(notificationId: string): Promise<void> {
     try {
       await Notifications.cancelScheduledNotificationAsync(notificationId);
-      console.log(`Notification ${notificationId} cancelled`);
     } catch (error) {
       console.error("Error cancelling notification:", error);
     }
@@ -254,7 +252,6 @@ class NotificationService {
   async cancelAllNotifications(): Promise<void> {
     try {
       await Notifications.cancelAllScheduledNotificationsAsync();
-      console.log("All notifications cancelled");
     } catch (error) {
       console.error("Error cancelling all notifications:", error);
     }
@@ -289,10 +286,6 @@ class NotificationService {
       for (const notification of patientNotifications) {
         await this.cancelNotification(notification.identifier);
       }
-
-      console.log(
-        `Cancelled ${patientNotifications.length} notifications for patient ${patientId}`
-      );
     } catch (error) {
       console.error("Error cancelling patient notifications:", error);
     }
@@ -311,10 +304,6 @@ class NotificationService {
       for (const notification of typeNotifications) {
         await this.cancelNotification(notification.identifier);
       }
-
-      console.log(
-        `Cancelled ${typeNotifications.length} notifications of type ${type}`
-      );
     } catch (error) {
       console.error("Error cancelling notifications by type:", error);
     }
@@ -353,7 +342,6 @@ class NotificationService {
       await this.cancelPatientNotifications(patientId);
 
       if (!preferences.enabled) {
-        console.log("Notifications disabled, skipping rescheduling");
         return;
       }
 
@@ -364,8 +352,6 @@ class NotificationService {
           preferences.measurementReminder
         );
       }
-
-      console.log("All notifications rescheduled successfully");
     } catch (error) {
       console.error("Error rescheduling notifications:", error);
       throw error;

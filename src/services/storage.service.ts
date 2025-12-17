@@ -72,8 +72,6 @@ class StorageService {
    */
   private async compressImage(uri: string): Promise<string> {
     try {
-      console.log("📸 Comprimindo imagem...");
-
       const manipulated = await ImageManipulator.manipulateAsync(
         uri,
         [
@@ -90,7 +88,6 @@ class StorageService {
         }
       );
 
-      console.log("✅ Imagem comprimida:", manipulated.uri);
       return manipulated.uri;
     } catch (error) {
       console.error("❌ Erro ao comprimir imagem:", error);
@@ -193,8 +190,6 @@ class StorageService {
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          console.log(`🔄 Tentativa ${attempt}/${maxRetries} de upload...`);
-
           // Converter para Blob
           const blob = await this.uriToBlob(finalUri);
 
@@ -215,7 +210,6 @@ class StorageService {
             size: number;
           }>("/upload/measurement-photo", formData);
 
-          console.log("✅ Upload concluído com sucesso!");
           onProgress?.({ loaded: 100, total: 100, percentage: 100 });
 
           return {
@@ -236,7 +230,6 @@ class StorageService {
           // Se não é a última tentativa, aguarda antes de retry
           if (attempt < maxRetries) {
             const delay = this.RETRY_DELAY_BASE * Math.pow(2, attempt - 1); // Backoff exponencial
-            console.log(`⏳ Aguardando ${delay}ms antes de retry...`);
             await new Promise((resolve) => setTimeout(resolve, delay));
           }
         }
@@ -298,11 +291,7 @@ class StorageService {
    */
   async deletePhoto(key: string): Promise<void> {
     try {
-      console.log("🗑️  Deletando foto:", key);
-
       await api.delete(`/upload/${key}`);
-
-      console.log("✅ Foto deletada com sucesso");
     } catch (error) {
       console.error("❌ Erro ao deletar foto:", error);
       throw error;

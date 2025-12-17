@@ -27,6 +27,11 @@ interface User {
   updatedAt: string;
   patientProfile?: {
     id: string;
+    patients?: Array<{
+      id: string;
+      nutritionistId: string;
+      status: string;
+    }>;
   };
   nutritionistProfile?: {
     id: string;

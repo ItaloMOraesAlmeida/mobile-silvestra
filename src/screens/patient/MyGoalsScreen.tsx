@@ -31,7 +31,8 @@ interface MyGoalsScreenProps {
 
 export function MyGoalsScreen({ navigation }: MyGoalsScreenProps) {
   const user = useAuthStore((s) => s.user);
-  const patientId = user?.patientProfile?.id;
+  // ID do relacionamento Patient (paciente-nutricionista)
+  const patientId = user?.patientProfile?.patients?.[0]?.id;
 
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);

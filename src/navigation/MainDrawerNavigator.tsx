@@ -8,7 +8,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { HomeScreen } from "../screens/main/HomeScreen";
 import { DashboardScreen as NutritionistDashboard } from "../screens/nutritionist/DashboardScreen";
-import { PatientDashboardScreen } from "../screens/patient/DashboardScreen";
+import { PatientHomeScreen } from "../screens/patient/PatientHomeScreen";
 import { useAuthStore } from "../stores/auth.store";
 import { ProfileScreen } from "../screens/main/ProfileScreen";
 import { SettingsScreen } from "../screens/main/SettingsScreen";
@@ -28,6 +28,7 @@ import { PatientEvolutionScreen } from "../screens/nutritionist/PatientEvolution
 import { PatientAssessmentCreateScreen } from "../screens/nutritionist/PatientAssessmentCreateScreen";
 import { PatientAssessmentDetailsScreen } from "../screens/nutritionist/PatientAssessmentDetailsScreen";
 import { MeasurementDetailsScreen } from "../screens/patient/MeasurementDetailsScreen";
+import { PatientMeasurementDetailsScreen } from "../screens/patient/PatientMeasurementDetailsScreen";
 import { NotificationSettingsScreen } from "../screens/patient/NotificationSettingsScreen";
 import { GoalDetailsScreen } from "../screens/goals";
 import ReportConfigScreen from "../screens/reports/ReportConfigScreen";
@@ -100,6 +101,9 @@ export type MainDrawerParamList = {
     measurementId: string;
     patientId: string;
     patientName?: string;
+  };
+  PatientMeasurementDetails: {
+    measurement: any;
   };
   NotificationSettings: {
     patientId: string;
@@ -252,9 +256,9 @@ function RoleBasedHome(props: any) {
     return <NutritionistDashboard {...props} />;
   }
 
-  // Caso paciente: renderiza dashboard do paciente
+  // Caso paciente: renderiza home do paciente
   if (role === "patient" || role === "paciente") {
-    return <PatientDashboardScreen {...props} />;
+    return <PatientHomeScreen {...props} />;
   }
 
   // Usuário normal
@@ -456,6 +460,14 @@ export function MainDrawerNavigator() {
         options={{
           drawerItemStyle: { display: "none" },
           headerShown: true,
+        }}
+      />
+      <Drawer.Screen
+        name="PatientMeasurementDetails"
+        component={PatientMeasurementDetailsScreen as any}
+        options={{
+          drawerItemStyle: { display: "none" },
+          headerShown: false,
         }}
       />
       <Drawer.Screen

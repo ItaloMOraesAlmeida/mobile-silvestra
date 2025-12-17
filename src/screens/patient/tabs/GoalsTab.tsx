@@ -108,10 +108,6 @@ export const GoalsTab: React.FC = () => {
             new Date(data.deadline),
             prefs.goalAlerts.daysBeforeDeadline
           );
-          console.log(
-            "✅ Notificação de deadline agendada para meta:",
-            createdGoal.id
-          );
         } catch (notifError) {
           console.error(
             "⚠️ Erro ao agendar notificação de deadline:",
