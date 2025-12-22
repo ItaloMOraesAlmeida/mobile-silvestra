@@ -180,18 +180,65 @@ export const goalsService = {
    * Criar nova meta
    */
   create: (patientId: string, data: CreateGoalDto): Promise<Goal> => {
+    console.log("🎯 [goalsService.create] Enviando requisição:", {
+      patientId,
+      data,
+      dataKeys: Object.keys(data),
+      type: data.type,
+      target: data.target,
+      current: data.current,
+      unit: data.unit,
+      deadline: data.deadline,
+      notes: data.notes,
+    });
     return api.post(`/patients/${patientId}/goals`, data);
   },
 
   /**
    * Listar todas as metas do paciente
    */
-  findAll: (patientId: string, achieved?: boolean): Promise<Goal[]> => {
+  findAll: async (patientId: string, achieved?: boolean): Promise<Goal[]> => {
     const params = new URLSearchParams();
     if (achieved !== undefined) params.append("achieved", achieved.toString());
 
     const query = params.toString() ? `?${params.toString()}` : "";
-    return api.get(`/patients/${patientId}/goals${query}`);
+    console.log("🎯 [goalsService.findAll] Fazendo requisição:", {
+      url: `/patients/${patientId}/goals${query}`,
+      patientId,
+      achieved,
+    });
+
+    const response = await api.get(`/patients/${patientId}/goals${query}`);
+
+    console.log("🎯 [goalsService.findAll] Resposta recebida:", {
+      response,
+      responseType: typeof response,
+      isArray: Array.isArray(response),
+      responseKeys: response ? Object.keys(response) : [],
+      responseData: response?.data,
+      responseDataType: typeof response?.data,
+      isDataArray: Array.isArray(response?.data),
+      hasGoalsProperty: response?.data?.goals !== undefined,
+    });
+
+    // IMPORTANTE: O GoalsController retorna diretamente um array de goals
+    // Após o TransformInterceptor: {success: true, data: [goal1, goal2, ...]}
+    // A rota antiga do PatientsController retornava: {success: true, data: {goals: [...]}}
+    const goals = Array.isArray(response?.data)
+      ? response.data
+      : Array.isArray(response?.data?.goals)
+      ? response.data.goals
+      : Array.isArray(response)
+      ? response
+      : [];
+
+    console.log("🎯 [goalsService.findAll] Goals extraídos:", {
+      count: goals.length,
+      firstGoal: goals[0],
+      allGoals: goals,
+    });
+
+    return goals;
   },
 
   /**
@@ -220,6 +267,17 @@ export const goalsService = {
   },
 
   /**
+   * Atualizar progresso da meta (altera current sem modificar initial)
+   */
+  updateProgress: (
+    patientId: string,
+    goalId: string,
+    data: { current: number; notes?: string }
+  ): Promise<Goal> => {
+    return api.patch(`/patients/${patientId}/goals/${goalId}/progress`, data);
+  },
+
+  /**
    * Marcar meta como alcançada
    */
   achieve: (
@@ -235,5 +293,39 @@ export const goalsService = {
    */
   remove: (patientId: string, goalId: string): Promise<{ message: string }> => {
     return api.delete(`/patients/${patientId}/goals/${goalId}`);
+  },
+
+  /**
+   * Excluir meta (wrapper para remove com tratamento de resposta)
+   */
+  deleteGoal: async (
+    patientId: string,
+    goalId: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    try {
+      await api.delete(`/patients/${patientId}/goals/${goalId}`);
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting goal:", error);
+      return { success: false, message: "Erro ao excluir meta" };
+    }
+  },
+
+  /**
+   * Marcar meta como concluída (wrapper para achieve)
+   */
+  achieveGoal: async (
+    patientId: string,
+    goalId: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    try {
+      await api.patch(`/patients/${patientId}/goals/${goalId}/achieve`, {
+        achievedAt: new Date().toISOString(),
+      });
+      return { success: true };
+    } catch (error) {
+      console.error("Error achieving goal:", error);
+      return { success: false, message: "Erro ao atualizar meta" };
+    }
   },
 };

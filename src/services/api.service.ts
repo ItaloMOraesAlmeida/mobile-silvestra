@@ -4,6 +4,9 @@ import { tokenService } from "./token.service";
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000/api/v1";
 
+console.log("=== API CONFIGURATION ===");
+console.log("API_URL:", API_URL);
+
 // Referência para a função de refresh token (será definida pelo auth store)
 let refreshTokenCallback: (() => Promise<void>) | null = null;
 let logoutCallback: (() => Promise<void>) | null = null;

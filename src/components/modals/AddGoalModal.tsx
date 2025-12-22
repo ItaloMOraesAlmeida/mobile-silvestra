@@ -11,9 +11,9 @@ import {
   Platform,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useThemedStyles, useTheme } from "../../hooks/useTheme";
-import type { Theme } from "../../theme";
+import { lightTheme } from "../../theme";
 import { GoalType } from "../../types/patient-details.types";
 import type { CreateGoalDto } from "../../types/patient-details.types";
 
@@ -30,8 +30,6 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const styles = useThemedStyles(createStyles);
-  const theme = useTheme();
   const [loading, setLoading] = useState(false);
 
   const [selectedType, setSelectedType] = useState<GoalType>(GoalType.WEIGHT);
@@ -54,33 +52,13 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
   const getGoalTypeInfo = (type: GoalType) => {
     const info: Record<
       GoalType,
-      { icon: keyof typeof Ionicons.glyphMap; label: string; color: string }
+      { icon: keyof typeof Ionicons.glyphMap; label: string }
     > = {
-      [GoalType.WEIGHT]: {
-        icon: "scale",
-        label: "Peso",
-        color: theme.colors.primary,
-      },
-      [GoalType.BODY_FAT]: {
-        icon: "water",
-        label: "Gordura Corporal",
-        color: theme.colors.warning,
-      },
-      [GoalType.MUSCLE_MASS]: {
-        icon: "fitness",
-        label: "Massa Muscular",
-        color: theme.colors.success,
-      },
-      [GoalType.WAIST_CIRC]: {
-        icon: "ellipse",
-        label: "Circunferência da Cintura",
-        color: theme.colors.info,
-      },
-      [GoalType.OTHER]: {
-        icon: "flag",
-        label: "Outro",
-        color: theme.colors.textSecondary,
-      },
+      [GoalType.WEIGHT]: { icon: "scale", label: "Peso" },
+      [GoalType.BODY_FAT]: { icon: "water", label: "Gordura Corporal" },
+      [GoalType.MUSCLE_MASS]: { icon: "fitness", label: "Massa Muscular" },
+      [GoalType.WAIST_CIRC]: { icon: "ellipse", label: "Circunferência" },
+      [GoalType.OTHER]: { icon: "flag", label: "Outro" },
     };
     return info[type];
   };
@@ -147,6 +125,7 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
     }
 
     const data: CreateGoalDto = {
+      name: `Meta de ${getGoalTypeInfo(selectedType).label}`,
       type: selectedType,
       target: targetNum,
       current: currentNum,
@@ -169,327 +148,447 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
     }
   };
 
-  const renderTypeButton = (type: GoalType) => {
-    const typeInfo = getGoalTypeInfo(type);
-    const isSelected = selectedType === type;
-
-    return (
-      <TouchableOpacity
-        key={type}
-        style={[
-          styles.typeButton,
-          isSelected && styles.typeButtonActive,
-          { borderColor: typeInfo.color },
-        ]}
-        onPress={() => setSelectedType(type)}
-        activeOpacity={0.7}
-        disabled={loading}
-      >
-        <Ionicons
-          name={typeInfo.icon}
-          size={24}
-          color={isSelected ? theme.colors.white : typeInfo.color}
+  const renderInput = (
+    label: string,
+    value: string,
+    onChangeText: (text: string) => void,
+    placeholder: string,
+    unit?: string,
+    required = false
+  ) => (
+    <View style={styles.inputContainer}>
+      <Text style={styles.inputLabel}>
+        {label}
+        {required && <Text style={styles.required}> *</Text>}
+      </Text>
+      <View style={styles.inputRow}>
+        <TextInput
+          style={[styles.input, unit && { flex: 1 }]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={lightTheme.colors.gray[400]}
+          keyboardType="decimal-pad"
+          editable={!loading}
         />
-        <Text
-          style={[
-            styles.typeButtonText,
-            isSelected && styles.typeButtonTextActive,
-          ]}
-        >
-          {typeInfo.label}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
+        {unit && <Text style={styles.unitBadge}>{unit}</Text>}
+      </View>
+    </View>
+  );
+
+  const renderDateInput = (
+    label: string,
+    value: string,
+    onChangeText: (text: string) => void,
+    placeholder: string
+  ) => (
+    <View style={styles.inputContainer}>
+      <Text style={styles.inputLabel}>{label}</Text>
+      <View style={styles.inputWithIcon}>
+        <Ionicons
+          name="calendar"
+          size={18}
+          color={lightTheme.colors.gray[400]}
+          style={styles.inputIcon}
+        />
+        <TextInput
+          style={[styles.input, styles.inputWithIconPadding]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={lightTheme.colors.gray[400]}
+          keyboardType="numeric"
+          maxLength={10}
+          editable={!loading}
+        />
+      </View>
+    </View>
+  );
+
+  const renderSection = (
+    title: string,
+    icon: keyof typeof Ionicons.glyphMap,
+    children: React.ReactNode
+  ) => (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionTitleContainer}>
+          <Ionicons name={icon} size={20} color={lightTheme.colors.primary} />
+          <Text style={styles.sectionTitle}>{title}</Text>
+        </View>
+      </View>
+      <View style={styles.sectionContent}>{children}</View>
+    </View>
+  );
 
   return (
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle="fullScreen"
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={handleClose}
-            disabled={loading}
-          >
-            <Ionicons name="close" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Nova Meta</Text>
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              loading && styles.submitButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={loading}
-          >
-            <Text style={styles.submitButtonText}>
-              {loading ? "Salvando..." : "Salvar"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Content */}
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
         >
-          {/* Goal Type Selection */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Tipo de Meta</Text>
-            <View style={styles.typeButtons}>
-              {Object.values(GoalType).map((type) => renderTypeButton(type))}
+          {/* Header */}
+          <View style={styles.headerInfo}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={handleClose}
+              disabled={loading}
+            >
+              <Ionicons name="close" size={28} color={lightTheme.colors.text} />
+            </TouchableOpacity>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>Nova Meta</Text>
+              <Text style={styles.headerSubtitle}>Definir objetivo</Text>
             </View>
+            <View style={styles.closeButton} />
           </View>
 
-          {/* Target Value */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Meta <Text style={styles.required}>*</Text>
-            </Text>
-            <View style={styles.inputWithUnit}>
-              <TextInput
-                style={[styles.input, styles.inputWithUnitInput]}
-                value={target}
-                onChangeText={setTarget}
-                placeholder="Digite a meta"
-                placeholderTextColor={theme.colors.textSecondary}
-                keyboardType="decimal-pad"
-                editable={!loading}
-              />
-              {getUnitForType(selectedType) && (
-                <View style={styles.unitBadge}>
-                  <Text style={styles.unitText}>
-                    {getUnitForType(selectedType)}
-                  </Text>
-                </View>
+          {/* Content */}
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Goal Type */}
+            {renderSection(
+              "Tipo de Meta",
+              "flag",
+              <View style={styles.protocolContainer}>
+                {Object.values(GoalType).map((type) => {
+                  const typeInfo = getGoalTypeInfo(type);
+                  const isSelected = selectedType === type;
+
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      style={[
+                        styles.protocolOption,
+                        isSelected && styles.protocolOptionSelected,
+                      ]}
+                      onPress={() => setSelectedType(type)}
+                      activeOpacity={0.7}
+                      disabled={loading}
+                    >
+                      <View style={styles.protocolOptionContent}>
+                        <Ionicons
+                          name={
+                            isSelected ? "radio-button-on" : "radio-button-off"
+                          }
+                          size={24}
+                          color={
+                            isSelected
+                              ? lightTheme.colors.primary
+                              : lightTheme.colors.gray[400]
+                          }
+                        />
+                        <Ionicons
+                          name={typeInfo.icon}
+                          size={20}
+                          color={
+                            isSelected
+                              ? lightTheme.colors.primary
+                              : lightTheme.colors.gray[600]
+                          }
+                          style={{ marginLeft: 8 }}
+                        />
+                        <Text
+                          style={[
+                            styles.protocolOptionText,
+                            isSelected && styles.protocolOptionTextSelected,
+                          ]}
+                        >
+                          {typeInfo.label}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Goal Values */}
+            {renderSection(
+              "Valores",
+              "analytics",
+              <View style={styles.row}>
+                {renderInput(
+                  "Meta",
+                  target,
+                  setTarget,
+                  "Ex: 70",
+                  getUnitForType(selectedType),
+                  true
+                )}
+                {renderInput(
+                  "Atual",
+                  current,
+                  setCurrent,
+                  "Ex: 82",
+                  getUnitForType(selectedType)
+                )}
+              </View>
+            )}
+
+            {/* Deadline */}
+            {renderSection(
+              "Prazo",
+              "time",
+              renderDateInput(
+                "Data limite",
+                deadline,
+                setDeadline,
+                "DD/MM/AAAA"
+              )
+            )}
+
+            {/* Notes */}
+            {renderSection(
+              "Observações",
+              "document-text",
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Adicione observações sobre esta meta..."
+                  placeholderTextColor={lightTheme.colors.gray[400]}
+                  multiline
+                  numberOfLines={6}
+                  textAlignVertical="top"
+                  editable={!loading}
+                />
+              </View>
+            )}
+
+            <View style={styles.bottomSpacer} />
+          </ScrollView>
+
+          {/* Fixed Bottom Button */}
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={[
+                styles.submitButton,
+                loading && styles.submitButtonDisabled,
+              ]}
+              onPress={handleSubmit}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <Text style={styles.submitButtonText}>Salvando...</Text>
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={24} color="#fff" />
+                  <Text style={styles.submitButtonText}>Salvar Meta</Text>
+                </>
               )}
-            </View>
+            </TouchableOpacity>
           </View>
-
-          {/* Current Value */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Valor Atual (Opcional)</Text>
-            <View style={styles.inputWithUnit}>
-              <TextInput
-                style={[styles.input, styles.inputWithUnitInput]}
-                value={current}
-                onChangeText={setCurrent}
-                placeholder="Digite o valor atual"
-                placeholderTextColor={theme.colors.textSecondary}
-                keyboardType="decimal-pad"
-                editable={!loading}
-              />
-              {getUnitForType(selectedType) && (
-                <View style={styles.unitBadge}>
-                  <Text style={styles.unitText}>
-                    {getUnitForType(selectedType)}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          {/* Deadline */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Prazo (Opcional)</Text>
-            <View style={styles.inputWithIcon}>
-              <Ionicons
-                name="calendar"
-                size={20}
-                color={theme.colors.textSecondary}
-                style={styles.inputIcon}
-              />
-              <TextInput
-                style={[styles.input, styles.inputWithIconInput]}
-                value={deadline}
-                onChangeText={setDeadline}
-                placeholder="DD/MM/AAAA"
-                placeholderTextColor={theme.colors.textSecondary}
-                keyboardType="numeric"
-                maxLength={10}
-                editable={!loading}
-              />
-            </View>
-            <Text style={styles.hint}>Ex: 31/12/2025</Text>
-          </View>
-
-          {/* Notes */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Observações (Opcional)</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Adicione observações sobre esta meta..."
-              placeholderTextColor={theme.colors.textSecondary}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              editable={!loading}
-            />
-          </View>
-
-          <View style={styles.bottomSpacer} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Modal>
   );
 };
 
-const createStyles = (theme: Theme) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.surface,
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.md,
-      backgroundColor: theme.colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border,
-      ...theme.shadows.sm,
-    },
-    closeButton: {
-      padding: theme.spacing.xs,
-      width: 70,
-    },
-    headerTitle: {
-      fontSize: theme.typography.fontSize.xl,
-      fontWeight: theme.typography.fontWeight.bold,
-      color: theme.colors.text,
-    },
-    submitButton: {
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
-      backgroundColor: theme.colors.primary,
-      borderRadius: theme.borderRadius.md,
-      width: 100,
-      alignItems: "center",
-    },
-    submitButtonDisabled: {
-      opacity: 0.5,
-    },
-    submitButtonText: {
-      fontSize: theme.typography.fontSize.sm,
-      fontWeight: theme.typography.fontWeight.semibold,
-      color: theme.colors.white,
-    },
-    content: {
-      flex: 1,
-    },
-    contentContainer: {
-      padding: theme.spacing.md,
-    },
-    section: {
-      marginBottom: theme.spacing.lg,
-    },
-    sectionTitle: {
-      fontSize: theme.typography.fontSize.lg,
-      fontWeight: theme.typography.fontWeight.semibold,
-      color: theme.colors.text,
-      marginBottom: theme.spacing.sm,
-    },
-    required: {
-      color: theme.colors.error,
-    },
-    typeButtons: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: theme.spacing.sm,
-    },
-    typeButton: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: theme.spacing.xs,
-      paddingVertical: theme.spacing.md,
-      paddingHorizontal: theme.spacing.md,
-      backgroundColor: theme.colors.card,
-      borderRadius: theme.borderRadius.lg,
-      borderWidth: 2,
-      minWidth: "47%",
-    },
-    typeButtonActive: {
-      backgroundColor: theme.colors.primary,
-      borderColor: theme.colors.primary,
-    },
-    typeButtonText: {
-      fontSize: theme.typography.fontSize.sm,
-      fontWeight: theme.typography.fontWeight.medium,
-      color: theme.colors.text,
-    },
-    typeButtonTextActive: {
-      color: theme.colors.white,
-    },
-    input: {
-      backgroundColor: theme.colors.card,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      borderRadius: theme.borderRadius.md,
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
-      fontSize: theme.typography.fontSize.base,
-      color: theme.colors.text,
-    },
-    inputWithUnit: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: theme.spacing.sm,
-    },
-    inputWithUnitInput: {
-      flex: 1,
-    },
-    unitBadge: {
-      backgroundColor: theme.colors.primaryLight,
-      paddingHorizontal: theme.spacing.md,
-      paddingVertical: theme.spacing.sm,
-      borderRadius: theme.borderRadius.md,
-      minWidth: 50,
-      alignItems: "center",
-    },
-    unitText: {
-      fontSize: theme.typography.fontSize.base,
-      fontWeight: theme.typography.fontWeight.semibold,
-      color: theme.colors.primary,
-    },
-    inputWithIcon: {
-      flexDirection: "row",
-      alignItems: "center",
-      position: "relative",
-    },
-    inputIcon: {
-      position: "absolute",
-      left: theme.spacing.md,
-      zIndex: 1,
-    },
-    inputWithIconInput: {
-      flex: 1,
-      paddingLeft: theme.spacing.md * 2 + 20,
-    },
-    hint: {
-      fontSize: theme.typography.fontSize.xs,
-      color: theme.colors.textSecondary,
-      marginTop: theme.spacing.xs,
-      fontStyle: "italic",
-    },
-    textArea: {
-      minHeight: 100,
-      paddingTop: theme.spacing.sm,
-    },
-    bottomSpacer: {
-      height: theme.spacing.xl,
-    },
-  });
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: lightTheme.colors.background,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: lightTheme.colors.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  headerInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: lightTheme.spacing.xl,
+    backgroundColor: lightTheme.colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: lightTheme.colors.gray[200],
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTextContainer: {
+    flex: 1,
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: lightTheme.colors.text,
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: lightTheme.colors.gray[600],
+  },
+  section: {
+    marginTop: lightTheme.spacing.lg,
+    backgroundColor: lightTheme.colors.white,
+    borderRadius: lightTheme.borderRadius.lg,
+    marginHorizontal: lightTheme.spacing.xl,
+    overflow: "hidden",
+    ...lightTheme.shadows.sm,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: lightTheme.spacing.lg,
+    backgroundColor: lightTheme.colors.white,
+  },
+  sectionTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: lightTheme.spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: lightTheme.colors.text,
+  },
+  sectionContent: {
+    padding: lightTheme.spacing.lg,
+    paddingTop: 0,
+  },
+  protocolContainer: {
+    gap: lightTheme.spacing.sm,
+  },
+  protocolOption: {
+    backgroundColor: lightTheme.colors.white,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[300],
+    borderRadius: lightTheme.borderRadius.md,
+    padding: lightTheme.spacing.md,
+    marginBottom: lightTheme.spacing.sm,
+  },
+  protocolOptionSelected: {
+    borderColor: lightTheme.colors.primary,
+    backgroundColor: lightTheme.colors.primaryBackground,
+  },
+  protocolOptionContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: lightTheme.spacing.sm,
+  },
+  protocolOptionText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: lightTheme.colors.text,
+    flex: 1,
+  },
+  protocolOptionTextSelected: {
+    color: lightTheme.colors.primary,
+    fontWeight: "600",
+  },
+  row: {
+    flexDirection: "row",
+    gap: lightTheme.spacing.md,
+  },
+  inputContainer: {
+    marginBottom: lightTheme.spacing.md,
+    flex: 1,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: lightTheme.colors.text,
+    marginBottom: lightTheme.spacing.xs,
+  },
+  required: {
+    color: lightTheme.colors.error,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: lightTheme.spacing.sm,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[300],
+    borderRadius: lightTheme.borderRadius.md,
+    paddingVertical: lightTheme.spacing.sm,
+    paddingHorizontal: lightTheme.spacing.md,
+    fontSize: 15,
+    color: lightTheme.colors.text,
+    backgroundColor: lightTheme.colors.white,
+    height: 44,
+  },
+  unitBadge: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: lightTheme.colors.primary,
+    paddingHorizontal: lightTheme.spacing.md,
+    paddingVertical: lightTheme.spacing.sm,
+    backgroundColor: lightTheme.colors.primaryBackground,
+    borderRadius: lightTheme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.primary + "30",
+    height: 44,
+    lineHeight: 28,
+  },
+  inputWithIcon: {
+    position: "relative",
+  },
+  inputIcon: {
+    position: "absolute",
+    left: lightTheme.spacing.md,
+    top: 13,
+    zIndex: 1,
+  },
+  inputWithIconPadding: {
+    paddingLeft: 40,
+  },
+  textArea: {
+    height: 100,
+    paddingTop: lightTheme.spacing.sm,
+    textAlignVertical: "top",
+  },
+  bottomSpacer: {
+    height: 40,
+  },
+  footer: {
+    padding: lightTheme.spacing.lg,
+    backgroundColor: lightTheme.colors.white,
+    borderTopWidth: 1,
+    borderTopColor: lightTheme.colors.gray[200],
+    ...lightTheme.shadows.md,
+  },
+  submitButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: lightTheme.spacing.sm,
+    backgroundColor: lightTheme.colors.primary,
+    paddingVertical: lightTheme.spacing.md,
+    borderRadius: lightTheme.borderRadius.lg,
+    ...lightTheme.shadows.md,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+});

@@ -27,10 +27,11 @@ import { PatientProgressScreen } from "../screens/nutritionist/PatientProgressSc
 import { PatientEvolutionScreen } from "../screens/nutritionist/PatientEvolutionScreen";
 import { PatientAssessmentCreateScreen } from "../screens/nutritionist/PatientAssessmentCreateScreen";
 import { PatientAssessmentDetailsScreen } from "../screens/nutritionist/PatientAssessmentDetailsScreen";
+import { GoalCreateScreen } from "../screens/nutritionist/GoalCreateScreen";
+import { GoalDetailsScreen } from "../screens/nutritionist/GoalDetailsScreen";
 import { MeasurementDetailsScreen } from "../screens/patient/MeasurementDetailsScreen";
 import { PatientMeasurementDetailsScreen } from "../screens/patient/PatientMeasurementDetailsScreen";
 import { NotificationSettingsScreen } from "../screens/patient/NotificationSettingsScreen";
-import { GoalDetailsScreen } from "../screens/goals";
 import ReportConfigScreen from "../screens/reports/ReportConfigScreen";
 import ReportViewerScreen from "../screens/reports/ReportViewerScreen";
 import ReportHistoryScreen from "../screens/reports/ReportHistoryScreen";
@@ -53,6 +54,7 @@ import {
   MyMeasurementsScreen,
   MyGoalsScreen,
 } from "../screens/patient";
+import { GoalDetailsScreen as PatientGoalDetailsScreen } from "../screens/patient/GoalDetailsScreen";
 
 // Módulo 5 - Sistema de Agendamentos
 import {
@@ -114,6 +116,10 @@ export type MainDrawerParamList = {
     goalId: string;
     patientName?: string;
   };
+  GoalCreate: {
+    patientId: string;
+    patientName: string;
+  };
   ReportConfig: {
     patientId: string;
     patientName: string;
@@ -168,6 +174,9 @@ export type MainDrawerParamList = {
   };
   MyMeasurements: undefined;
   MyGoals: undefined;
+  PatientGoalDetails: {
+    goal: any;
+  };
   // Módulo 5 - Sistema de Agendamentos (Nutricionista)
   AppointmentCalendar: undefined;
   AvailabilityConfig: undefined;
@@ -471,12 +480,29 @@ export function MainDrawerNavigator() {
         }}
       />
       <Drawer.Screen
+        name="GoalCreate"
+        component={
+          createScreenWithHeader(
+            GoalCreateScreen as any,
+            (props: any) =>
+              props.route?.params?.isEditing ? "Editar Meta" : "Nova Meta",
+            true,
+            "PatientDetails"
+          ) as any
+        }
+        options={{ drawerItemStyle: { display: "none" } }}
+      />
+      <Drawer.Screen
         name="GoalDetails"
-        component={GoalDetailsScreen as any}
-        options={{
-          drawerItemStyle: { display: "none" },
-          headerShown: true,
-        }}
+        component={
+          createScreenWithHeader(
+            GoalDetailsScreen as any,
+            "Detalhes da Meta",
+            true,
+            "PatientDetails"
+          ) as any
+        }
+        options={{ drawerItemStyle: { display: "none" } }}
       />
       <Drawer.Screen
         name="NotificationSettings"
@@ -651,6 +677,21 @@ export function MainDrawerNavigator() {
         }
         options={{
           title: "Minhas Metas",
+        }}
+      />
+      <Drawer.Screen
+        name="PatientGoalDetails"
+        component={
+          createScreenWithHeader(
+            PatientGoalDetailsScreen as any,
+            "Detalhes da Meta",
+            true, // Mostra botão de voltar
+            "MyGoals" // Volta para a listagem de metas
+          ) as any
+        }
+        options={{
+          title: "Detalhes da Meta",
+          drawerItemStyle: { display: "none" },
         }}
       />
 

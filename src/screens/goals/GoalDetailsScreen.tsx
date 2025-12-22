@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   useRoute,
   useNavigation,
+  useFocusEffect,
   type RouteProp,
 } from "@react-navigation/native";
 import type { DrawerNavigationProp } from "@react-navigation/drawer";
@@ -168,9 +169,11 @@ export const GoalDetailsScreen: React.FC = () => {
     }
   }, [patientId, goalId, getPreferences]);
 
-  useEffect(() => {
-    fetchGoal();
-  }, [fetchGoal]);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchGoal();
+    }, [fetchGoal])
+  );
 
   /**
    * Calcula progresso da meta
@@ -276,12 +279,12 @@ export const GoalDetailsScreen: React.FC = () => {
    * Confirma atualização de progresso
    */
   const handleConfirmUpdate = React.useCallback(
-    async (newValue: number) => {
+    async (newValue: number, notes?: string) => {
       try {
-        const updateData: UpdateGoalDto = {
+        await goalsService.updateProgress(patientId, goalId, {
           current: newValue,
-        };
-        await goalsService.update(patientId, goalId, updateData);
+          notes,
+        });
         await fetchGoal(); // Recarrega dados
         haptics.success();
         Alert.alert("Sucesso", "Progresso atualizado com sucesso!");
@@ -715,7 +718,8 @@ const createStyles = (theme: Theme) =>
       justifyContent: "center",
       gap: theme.spacing.sm,
       marginHorizontal: theme.spacing.md,
-      marginTop: theme.spacing.lg,
+      marginTop: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
       paddingVertical: theme.spacing.md,
       backgroundColor: theme.colors.primary,
       borderRadius: 12,

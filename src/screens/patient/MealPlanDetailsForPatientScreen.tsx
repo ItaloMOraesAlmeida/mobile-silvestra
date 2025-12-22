@@ -208,9 +208,56 @@ export function MealPlanDetailsForPatientScreen({
     });
   };
 
-  // Verifica se a refeição foi consumida em QUALQUER DIA (para a lista de refeições)
-  const isMealConsumed = (mealId: string): boolean => {
-    return consumptions.some((c) => c.mealId === mealId);
+  // Verifica se a refeição foi consumida NA SEMANA ATUAL no dia específico
+  const isMealConsumedThisWeek = (
+    mealId: string,
+    mealDayOfWeek: string
+  ): boolean => {
+    // Obter início e fim da semana atual
+    const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+    // Calcular o início da semana (Domingo)
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - currentDay);
+    weekStart.setHours(0, 0, 0, 0);
+
+    // Calcular o fim da semana (Sábado)
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    // Mapear dia da semana para índice
+    const daysOfWeek = [
+      "SUNDAY",
+      "MONDAY",
+      "TUESDAY",
+      "WEDNESDAY",
+      "THURSDAY",
+      "FRIDAY",
+      "SATURDAY",
+    ];
+    const mealDayIndex = daysOfWeek.indexOf(mealDayOfWeek);
+
+    if (mealDayIndex === -1) return false;
+
+    // Calcular a data específica da refeição nesta semana
+    const mealDateThisWeek = new Date(weekStart);
+    mealDateThisWeek.setDate(weekStart.getDate() + mealDayIndex);
+    const mealDateStart = new Date(mealDateThisWeek);
+    mealDateStart.setHours(0, 0, 0, 0);
+    const mealDateEnd = new Date(mealDateThisWeek);
+    mealDateEnd.setHours(23, 59, 59, 999);
+
+    // Verificar se há consumo desta refeição no dia específico da semana atual
+    return consumptions.some((c) => {
+      const consumedAt = new Date(c.consumedAt);
+      return (
+        c.mealId === mealId &&
+        consumedAt >= mealDateStart &&
+        consumedAt <= mealDateEnd
+      );
+    });
   };
 
   const calculateProgress = () => {
@@ -392,7 +439,10 @@ export function MealPlanDetailsForPatientScreen({
                   </View>
 
                   {meals.map((meal: Meal, index: number) => {
-                    const consumed = isMealConsumed(meal.id); // Mudado para verificar consumo em qualquer dia
+                    const consumed = isMealConsumedThisWeek(
+                      meal.id,
+                      meal.dayOfWeek || "MONDAY"
+                    );
                     return (
                       <View
                         key={meal.id}

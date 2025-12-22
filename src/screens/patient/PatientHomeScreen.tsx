@@ -32,6 +32,8 @@ import { AppointmentStatus } from "../../types/appointments";
 import {
   getPatientMealPlans,
   getMealConsumptions,
+  getPatientGoals,
+  type PatientGoal,
 } from "../../services/meal-consumption.service";
 import { getMealPlanById } from "../../services/meal-plan.service";
 import { useBodyMeasurements } from "../../hooks/useBodyMeasurements";
@@ -47,6 +49,8 @@ export function PatientHomeScreen({ navigation }: PatientHomeScreenProps) {
   const user = useAuthStore((s) => s.user);
   // ID do relacionamento Patient (paciente-nutricionista)
   const patientId = user?.patientProfile?.patients?.[0]?.id;
+  // ID do PatientProfile (para metas e outros recursos do paciente)
+  const patientProfileId = user?.patientProfile?.id;
 
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -60,6 +64,7 @@ export function PatientHomeScreen({ navigation }: PatientHomeScreenProps) {
   const [nextAppointment, setNextAppointment] = useState<any>(null);
   const [recentMeasurements, setRecentMeasurements] = useState<any[]>([]);
   const [adherenceData, setAdherenceData] = useState<any>(null);
+  const [activeGoals, setActiveGoals] = useState<PatientGoal[]>([]);
 
   // Estado para modal de substituições
   const [substitutionModalVisible, setSubstitutionModalVisible] =
@@ -86,6 +91,7 @@ export function PatientHomeScreen({ navigation }: PatientHomeScreenProps) {
         loadNextAppointment(),
         loadRecentMeasurements(),
         loadAdherence(),
+        loadGoals(),
       ]);
     } catch (error) {
       console.error("❌ [PatientHome] Erro ao carregar dados:", error);
@@ -321,6 +327,25 @@ export function PatientHomeScreen({ navigation }: PatientHomeScreenProps) {
     } catch (error) {
       console.error("Erro ao carregar adesão:", error);
       setAdherenceData(null);
+    }
+  };
+
+  // Carregar metas ativas
+  const loadGoals = async () => {
+    try {
+      if (!patientProfileId) return;
+      const response = await getPatientGoals(patientProfileId);
+
+      // Filtrar apenas metas ativas (não alcançadas)
+      const active = response.goals.filter(
+        (goal) => !goal.achieved && goal.status === "ACTIVE"
+      );
+
+      // Pegar as 3 primeiras metas
+      setActiveGoals(active.slice(0, 3));
+    } catch (error) {
+      console.error("[loadGoals] Erro ao carregar metas:", error);
+      setActiveGoals([]);
     }
   };
 
@@ -981,6 +1006,97 @@ export function PatientHomeScreen({ navigation }: PatientHomeScreenProps) {
                   Solicitar Consulta
                 </Text>
               </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Metas Ativas */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderLeft}>
+              <Ionicons
+                name="trophy"
+                size={24}
+                color={lightTheme.colors.primary}
+              />
+              <Text style={styles.sectionTitle}>Minhas Metas</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => navigation.navigate("MyGoals")}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.seeAllText}>Ver todas</Text>
+            </TouchableOpacity>
+          </View>
+
+          {loading ? (
+            <View style={styles.card}>
+              <ActivityIndicator
+                size="large"
+                color={lightTheme.colors.primary}
+              />
+            </View>
+          ) : activeGoals.length > 0 ? (
+            <View style={styles.card}>
+              {activeGoals.map((goal, index) => (
+                <TouchableOpacity
+                  key={goal.id}
+                  style={[
+                    styles.goalItem,
+                    index < activeGoals.length - 1 && styles.goalItemBorder,
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={() => navigation.navigate("MyGoals")}
+                >
+                  <View style={styles.goalHeader}>
+                    <View style={styles.goalIconContainer}>
+                      <Ionicons
+                        name="flag"
+                        size={20}
+                        color={lightTheme.colors.primary}
+                      />
+                    </View>
+                    <Text style={styles.goalName} numberOfLines={1}>
+                      {goal.name}
+                    </Text>
+                  </View>
+
+                  <View style={styles.goalValuesContainer}>
+                    <View style={styles.goalValueItem}>
+                      <Text style={styles.goalValueLabel}>Inicial</Text>
+                      <Text style={styles.goalValueText}>
+                        {goal.initialValue} {goal.unit}
+                      </Text>
+                    </View>
+                    <View style={styles.goalValueItem}>
+                      <Text style={styles.goalValueLabel}>Atual</Text>
+                      <Text style={styles.goalValueText}>
+                        {goal.currentValue} {goal.unit}
+                      </Text>
+                    </View>
+                    <View style={styles.goalValueItem}>
+                      <Text style={styles.goalValueLabel}>Meta</Text>
+                      <Text
+                        style={[styles.goalValueText, styles.goalValueMeta]}
+                      >
+                        {goal.targetValue} {goal.unit}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyCard}>
+              <Ionicons
+                name="trophy-outline"
+                size={48}
+                color={lightTheme.colors.gray[300]}
+              />
+              <Text style={styles.emptyCardTitle}>Nenhuma meta definida</Text>
+              <Text style={styles.emptyCardText}>
+                Seu nutricionista pode criar metas para você
+              </Text>
             </View>
           )}
         </View>
@@ -2208,5 +2324,62 @@ const styles = StyleSheet.create({
   substitutionNutritionLabel: {
     fontSize: 11,
     color: lightTheme.colors.gray[500],
+  },
+  // Estilos para metas
+  goalsContainer: {
+    gap: 12,
+  },
+  goalItem: {
+    paddingVertical: 16,
+  },
+  goalItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: lightTheme.colors.gray[200],
+  },
+  goalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 8,
+  },
+  goalIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: lightTheme.colors.primary + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  goalName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "600",
+    color: lightTheme.colors.gray[900],
+  },
+  goalValuesContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  goalValueItem: {
+    flex: 1,
+    backgroundColor: lightTheme.colors.gray[50],
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  goalValueLabel: {
+    fontSize: 11,
+    color: lightTheme.colors.gray[600],
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  goalValueText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: lightTheme.colors.gray[900],
+  },
+  goalValueMeta: {
+    color: lightTheme.colors.primary,
   },
 });

@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useThemedStyles } from "../../hooks/useTheme";
 import type { Theme } from "../../theme";
 import type { Goal, GoalType } from "../../types/patient-details.types";
+import { getGoalTypeLabel } from "../../constants/goalTypes";
 
 interface GoalCardProps {
   goal: Goal;
@@ -22,10 +23,17 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 }) => {
   const styles = useThemedStyles(createStyles);
 
-  const progress =
-    goal.current !== null && goal.target > 0
-      ? Math.min((goal.current / goal.target) * 100, 100)
-      : 0;
+  // 🔍 LOG: Renderizando card
+  console.log("🎴 [GoalCard] Renderizando card:", {
+    id: goal.id,
+    type: goal.type,
+    achieved: goal.achieved,
+    target: goal.target,
+    current: goal.current,
+    unit: goal.unit,
+    deadline: goal.deadline,
+    notes: goal.notes,
+  });
 
   const isOverdue =
     goal.deadline && !goal.achieved
@@ -69,14 +77,6 @@ export const GoalCard: React.FC<GoalCardProps> = ({
     });
   };
 
-  const getProgressColor = () => {
-    if (goal.achieved) return styles.achievedColor.color;
-    if (isOverdue) return styles.overdueColor.color;
-    if (progress >= 75) return styles.highProgressColor.color;
-    if (progress >= 50) return styles.mediumProgressColor.color;
-    return styles.lowProgressColor.color;
-  };
-
   return (
     <TouchableOpacity
       style={styles.container}
@@ -96,7 +96,10 @@ export const GoalCard: React.FC<GoalCardProps> = ({
             <Ionicons name={typeInfo.icon} size={20} color={typeInfo.color} />
           </View>
           <View style={styles.headerText}>
-            <Text style={styles.typeLabel}>{typeInfo.label}</Text>
+            <Text style={styles.goalName} numberOfLines={1}>
+              {goal.name}
+            </Text>
+            <Text style={styles.typeLabel}>{getGoalTypeLabel(goal.type)}</Text>
             {goal.deadline && (
               <View style={styles.deadlineContainer}>
                 <Ionicons
@@ -165,53 +168,16 @@ export const GoalCard: React.FC<GoalCardProps> = ({
         </View>
       </View>
 
-      {/* Progress */}
-      <View style={styles.progressSection}>
-        <View style={styles.progressLabels}>
-          <Text style={styles.currentValue}>
-            {goal.current !== null
-              ? `${goal.current} ${goal.unit}`
-              : "Não iniciado"}
-          </Text>
-          <Text style={styles.targetValue}>
-            Meta: {goal.target} {goal.unit}
-          </Text>
-        </View>
-
-        {/* Progress Bar */}
-        <View style={styles.progressBarContainer}>
-          <View
-            style={[
-              styles.progressBar,
-              {
-                width: `${progress}%`,
-                backgroundColor: getProgressColor(),
-              },
-            ]}
-          />
-        </View>
-
-        <View style={styles.progressFooter}>
-          <Text style={styles.progressText}>
-            {progress.toFixed(0)}% concluído
-          </Text>
-          {!goal.achieved && onAchieve && progress >= 100 && (
-            <TouchableOpacity
-              style={styles.achieveButton}
-              onPress={onAchieve}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name="checkmark"
-                size={16}
-                color={styles.achieveButtonText.color}
-              />
-              <Text style={styles.achieveButtonText}>
-                Marcar como concluída
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+      {/* Meta Info */}
+      <View style={styles.metaInfo}>
+        <Text style={styles.currentValue}>
+          {goal.current !== null
+            ? `${goal.current} ${goal.unit}`
+            : "Não iniciado"}
+        </Text>
+        <Text style={styles.targetValue}>
+          Meta: {goal.target} {goal.unit}
+        </Text>
       </View>
 
       {/* Notes */}
@@ -234,11 +200,18 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
     container: {
-      backgroundColor: theme.colors.card,
+      backgroundColor: theme.colors.white,
       borderRadius: theme.borderRadius.lg,
       padding: theme.spacing.md,
       marginBottom: theme.spacing.md,
-      ...theme.shadows.sm,
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 3.84,
+      elevation: 3,
     },
     header: {
       flexDirection: "row",
@@ -289,10 +262,16 @@ const createStyles = (theme: Theme) =>
     headerText: {
       flex: 1,
     },
-    typeLabel: {
+    goalName: {
       fontSize: theme.typography.fontSize.lg,
       fontWeight: theme.typography.fontWeight.semibold,
-      color: theme.colors.text,
+      color: "#1a1a1a",
+      marginBottom: 2,
+    },
+    typeLabel: {
+      fontSize: theme.typography.fontSize.xs,
+      fontWeight: theme.typography.fontWeight.medium,
+      color: "#666",
       marginBottom: theme.spacing.xs / 2,
     },
     deadlineContainer: {
@@ -305,7 +284,7 @@ const createStyles = (theme: Theme) =>
     },
     deadlineText: {
       fontSize: theme.typography.fontSize.xs,
-      color: theme.colors.textSecondary,
+      color: "#666",
     },
     overdueText: {
       color: theme.colors.error,
@@ -317,55 +296,20 @@ const createStyles = (theme: Theme) =>
     achievedIconColor: {
       color: theme.colors.success,
     },
-    progressSection: {
-      gap: theme.spacing.sm,
-    },
-    progressLabels: {
+    metaInfo: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
+      marginBottom: theme.spacing.sm,
     },
     currentValue: {
       fontSize: theme.typography.fontSize.lg,
       fontWeight: theme.typography.fontWeight.bold,
-      color: theme.colors.text,
+      color: "#1a1a1a",
     },
     targetValue: {
       fontSize: theme.typography.fontSize.sm,
-      color: theme.colors.textSecondary,
-    },
-    progressBarContainer: {
-      height: 8,
-      backgroundColor: theme.colors.surface,
-      borderRadius: theme.borderRadius.full,
-      overflow: "hidden",
-    },
-    progressBar: {
-      height: "100%",
-      borderRadius: theme.borderRadius.full,
-    },
-    progressFooter: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-    },
-    progressText: {
-      fontSize: theme.typography.fontSize.sm,
-      color: theme.colors.textSecondary,
-    },
-    achieveButton: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingVertical: theme.spacing.xs,
-      paddingHorizontal: theme.spacing.sm,
-      backgroundColor: theme.colors.success,
-      borderRadius: theme.borderRadius.md,
-    },
-    achieveButtonText: {
-      fontSize: theme.typography.fontSize.xs,
-      fontWeight: theme.typography.fontWeight.medium,
-      color: theme.colors.white,
+      color: "#666",
     },
     notesContainer: {
       flexDirection: "row",
@@ -382,7 +326,7 @@ const createStyles = (theme: Theme) =>
     notesText: {
       flex: 1,
       fontSize: theme.typography.fontSize.sm,
-      color: theme.colors.textSecondary,
+      color: "#666",
       lineHeight: 18,
     },
     // Type colors
@@ -401,20 +345,7 @@ const createStyles = (theme: Theme) =>
     customColor: {
       color: theme.colors.textSecondary,
     },
-    // Progress colors
-    achievedColor: {
-      color: theme.colors.success,
-    },
     overdueColor: {
       color: theme.colors.error,
-    },
-    highProgressColor: {
-      color: theme.colors.success,
-    },
-    mediumProgressColor: {
-      color: theme.colors.warning,
-    },
-    lowProgressColor: {
-      color: theme.colors.info,
     },
   });
