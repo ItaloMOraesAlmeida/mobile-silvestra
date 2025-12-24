@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   Modal,
   Pressable,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,7 +27,6 @@ import { ptBR } from "date-fns/locale";
 import { getPatientGoals } from "../../services/meal-consumption.service";
 import { goalsService } from "../../services/patient-details.service";
 import type { CreateGoalDto, Goal } from "../../types/patient-details.types";
-import { Alert } from "react-native";
 import { GoalCard } from "../../components/patient/GoalCard";
 import { getGoalTypeLabel } from "../../constants/goalTypes";
 
@@ -148,15 +148,9 @@ export function PatientDetailsScreen({
 
   const loadPatientDetails = async () => {
     try {
-      console.log("=== LOADING PATIENT ===");
-      console.log("Patient ID:", patientId);
       const response: any = await getPatientById(patientId);
-      console.log("=== RESPONSE FROM API ===");
-      console.log("Full response:", JSON.stringify(response, null, 2));
       // A API retorna { success: true, data: {...} }
       const patientData = response.data || response;
-      console.log("Patient data:", JSON.stringify(patientData, null, 2));
-      console.log("Patient metrics:", patientData?.metrics);
 
       setPatient(patientData);
     } catch (err) {
@@ -210,7 +204,6 @@ export function PatientDetailsScreen({
     try {
       setLoadingGoals(true);
       const response = await goalsService.findAll(patientId);
-      console.log("Goals loaded:", response);
 
       // A API retorna um array de goals diretamente
       const goalsData = Array.isArray(response) ? response : [];
@@ -221,10 +214,6 @@ export function PatientDetailsScreen({
     } finally {
       setLoadingGoals(false);
     }
-  };
-
-  const handleAddGoal = async (data: CreateGoalDto) => {
-    // Não é mais necessária - navegação para tela separada
   };
 
   // Tab: Visão Geral

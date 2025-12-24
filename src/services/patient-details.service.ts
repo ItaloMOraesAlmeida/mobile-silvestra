@@ -180,17 +180,6 @@ export const goalsService = {
    * Criar nova meta
    */
   create: (patientId: string, data: CreateGoalDto): Promise<Goal> => {
-    console.log("🎯 [goalsService.create] Enviando requisição:", {
-      patientId,
-      data,
-      dataKeys: Object.keys(data),
-      type: data.type,
-      target: data.target,
-      current: data.current,
-      unit: data.unit,
-      deadline: data.deadline,
-      notes: data.notes,
-    });
     return api.post(`/patients/${patientId}/goals`, data);
   },
 
@@ -202,24 +191,8 @@ export const goalsService = {
     if (achieved !== undefined) params.append("achieved", achieved.toString());
 
     const query = params.toString() ? `?${params.toString()}` : "";
-    console.log("🎯 [goalsService.findAll] Fazendo requisição:", {
-      url: `/patients/${patientId}/goals${query}`,
-      patientId,
-      achieved,
-    });
 
     const response = await api.get(`/patients/${patientId}/goals${query}`);
-
-    console.log("🎯 [goalsService.findAll] Resposta recebida:", {
-      response,
-      responseType: typeof response,
-      isArray: Array.isArray(response),
-      responseKeys: response ? Object.keys(response) : [],
-      responseData: response?.data,
-      responseDataType: typeof response?.data,
-      isDataArray: Array.isArray(response?.data),
-      hasGoalsProperty: response?.data?.goals !== undefined,
-    });
 
     // IMPORTANTE: O GoalsController retorna diretamente um array de goals
     // Após o TransformInterceptor: {success: true, data: [goal1, goal2, ...]}
@@ -231,12 +204,6 @@ export const goalsService = {
       : Array.isArray(response)
       ? response
       : [];
-
-    console.log("🎯 [goalsService.findAll] Goals extraídos:", {
-      count: goals.length,
-      firstGoal: goals[0],
-      allGoals: goals,
-    });
 
     return goals;
   },

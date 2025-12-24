@@ -443,18 +443,6 @@ export function PatientAssessmentCreateScreen({
       setLoadingLastMeasurement(true);
       const lastMeasurement = await getLatestMeasurement(patientId);
 
-      console.log("🔍 Last Measurement recebido:", lastMeasurement);
-      console.log("🔍 Tipo:", typeof lastMeasurement);
-      console.log(
-        "🔍 É objeto?",
-        lastMeasurement && typeof lastMeasurement === "object"
-      );
-      console.log(
-        "🔍 Keys:",
-        lastMeasurement ? Object.keys(lastMeasurement) : "null"
-      );
-      console.log("🔍 Weight value:", lastMeasurement?.weight);
-
       if (lastMeasurement) {
         // Preencher formulário com dados da última avaliação
         setFormData({

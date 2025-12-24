@@ -256,14 +256,6 @@ export const getPatientGoals = async (
 ): Promise<{ goals: PatientGoal[] }> => {
   const response = await api.get(`/patients/${patientId}/goals`);
 
-  console.log("📡 [getPatientGoals] Resposta da API:", {
-    status: response.status,
-    data: response.data,
-    dataType: typeof response.data,
-    isArray: Array.isArray(response.data),
-    keys: response.data ? Object.keys(response.data) : [],
-  });
-
   let rawGoals: GoalFromApi[] = [];
 
   // Handle { success, data: [...] } structure
@@ -272,33 +264,21 @@ export const getPatientGoals = async (
     response.data.data &&
     Array.isArray(response.data.data)
   ) {
-    console.log("✅ Estrutura: { success, data: [...] }");
     rawGoals = response.data.data;
   }
   // Handle [...] direct array
   else if (Array.isArray(response.data)) {
-    console.log("✅ Estrutura: [...] (array direto)");
     rawGoals = response.data;
   }
   // Handle { goals: [...] } structure
   else if (response.data && response.data.goals) {
-    console.log("✅ Estrutura: { goals: [...] }");
     rawGoals = response.data.goals;
   } else {
-    console.log("❌ Estrutura desconhecida, retornando array vazio");
     return { goals: [] };
   }
 
   // Transformar dados da API para formato do app
   const transformedGoals = rawGoals.map(transformGoal);
-
-  console.log(
-    "✅ [getPatientGoals] Metas transformadas:",
-    transformedGoals.length
-  );
-  if (transformedGoals.length > 0) {
-    console.log("📊 Primeira meta transformada:", transformedGoals[0]);
-  }
 
   return { goals: transformedGoals };
 };
@@ -313,19 +293,7 @@ export const getPatientGoalById = async (
   const response = await api.get(`/patients/${patientId}/goals/${goalId}`);
   const rawGoal = response.data.data || response.data;
 
-  console.log("📡 [getPatientGoalById] Resposta da API:", {
-    goalId,
-    current: rawGoal.current,
-    initialValue: rawGoal.initialValue,
-    rawGoal,
-  });
-
   const transformed = transformGoal(rawGoal);
-
-  console.log("✅ [getPatientGoalById] Meta transformada:", {
-    currentValue: transformed.currentValue,
-    initialValue: transformed.initialValue,
-  });
 
   return transformed;
 };
@@ -338,11 +306,6 @@ export const updateGoalProgress = async (
   goalId: string,
   data: UpdateGoalProgressDto
 ): Promise<PatientGoal> => {
-  console.log("📤 [updateGoalProgress] Enviando atualização:", {
-    goalId,
-    data,
-  });
-
   const response = await api.patch(
     `/patients/${patientId}/goals/${goalId}/progress`,
     data
@@ -350,19 +313,7 @@ export const updateGoalProgress = async (
 
   const rawGoal = response.data.data || response.data;
 
-  console.log("📡 [updateGoalProgress] Resposta da API:", {
-    goalId,
-    current: rawGoal.current,
-    initialValue: rawGoal.initialValue,
-    rawGoal,
-  });
-
   const transformed = transformGoal(rawGoal);
-
-  console.log("✅ [updateGoalProgress] Meta transformada:", {
-    currentValue: transformed.currentValue,
-    initialValue: transformed.initialValue,
-  });
 
   return transformed;
 };

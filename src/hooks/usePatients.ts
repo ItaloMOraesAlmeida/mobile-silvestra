@@ -158,11 +158,7 @@ export const usePatients = () => {
 
     try {
       const url = `/patients/${patientId}`;
-      console.log("=== API CALL ===");
-      console.log("URL:", url);
       const response = await api.get<Patient>(url);
-      console.log("=== RESPONSE RECEIVED ===");
-      console.log("Response:", JSON.stringify(response, null, 2));
       return response;
     } catch (err: any) {
       const errorMessage =

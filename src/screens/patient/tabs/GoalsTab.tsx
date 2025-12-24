@@ -60,14 +60,6 @@ export const GoalsTab: React.FC = () => {
     patientName?: string;
   };
 
-  console.log("🔍 [GoalsTab] PARAMS DEBUG:", {
-    patientId,
-    patientName,
-    routeParams: route.params,
-    parentRouteParams: parentRoute?.params,
-    navigationState: navigation.getState(),
-  });
-
   // Notification store
   const { getPreferences } = useNotificationStore();
 
@@ -95,22 +87,8 @@ export const GoalsTab: React.FC = () => {
         setError(null);
         if (!isRefresh) setLoading(true);
 
-        console.log(
-          "🔄 [GoalsTab.fetchGoals] Buscando metas para paciente:",
-          patientId
-        );
         const goals = await goalsService.findAll(patientId);
-        console.log("✅ [GoalsTab.fetchGoals] Metas recebidas:", {
-          count: goals.length,
-          goals: goals.map((g) => ({
-            id: g.id,
-            type: g.type,
-            achieved: g.achieved,
-            target: g.target,
-            current: g.current,
-            allKeys: Object.keys(g),
-          })),
-        });
+
         setGoals(goals);
       } catch (err) {
         console.error("❌ [GoalsTab.fetchGoals] Error fetching goals:", err);
@@ -279,24 +257,6 @@ export const GoalsTab: React.FC = () => {
     const matchesTab = activeTab === "active" ? !goal.achieved : goal.achieved;
     const matchesType = filterType === "ALL" || goal.type === filterType;
     return matchesTab && matchesType;
-  });
-
-  // 🔍 LOG: Estado e filtros
-  console.log("📊 [GoalsTab] Estado atual:", {
-    totalGoals: goals.length,
-    firstGoal: goals[0],
-    activeTab,
-    filterType,
-    filteredGoalsCount: filteredGoals.length,
-    filteredGoals: filteredGoals.map((g) => ({
-      id: g.id,
-      type: g.type,
-      achieved: g.achieved,
-      target: g.target,
-      current: g.current,
-    })),
-    loading,
-    error,
   });
 
   // 🔍 GUARD: Se patientId não existir, mostrar erro

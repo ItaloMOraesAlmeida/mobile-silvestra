@@ -74,9 +74,6 @@ export function GoalCreateScreen({ route, navigation }: GoalCreateScreenProps) {
   // Preencher dados quando estiver em modo de edição
   useEffect(() => {
     if (isEditing && goalToEdit) {
-      console.log("=== Modo de Edição - Preenchendo dados ===");
-      console.log("Goal para editar:", goalToEdit);
-
       // Mapear o tipo da API para o tipo estendido
       const typeMap: Record<string, string> = {
         WEIGHT: ExtendedGoalType.WEIGHT,
@@ -109,161 +106,87 @@ export function GoalCreateScreen({ route, navigation }: GoalCreateScreenProps) {
   // Limpar formulário e carregar última medição quando a tela recebe foco
   useFocusEffect(
     React.useCallback(() => {
-      console.log("=== Tela GoalCreate recebeu foco ===");
-
       // Só limpar formulário se NÃO estiver editando
       if (!isEditing) {
-        console.log("Limpando formulário...");
         setName("");
         setSelectedType(ExtendedGoalType.WEIGHT);
         setTarget("");
         setCurrent("");
         setDeadline("");
         setNotes("");
-      } else {
-        console.log("Modo de edição - mantendo dados");
       }
 
       // Carregar última medição
       const loadLatestMeasurement = async () => {
         try {
-          console.log(
-            "Iniciando carregamento da última medição para patientId:",
-            patientId
-          );
           setLoadingMeasurement(true);
           const response = await bodyMeasurementsService.findLatest(patientId);
-          console.log("=== Última medição carregada com sucesso ===");
-          console.log("Response completa:", JSON.stringify(response, null, 2));
 
           // Usar a resposta diretamente (já retorna BodyMeasurement)
           const measurement = response;
-          console.log(
-            "Dados extraídos da medição:",
-            JSON.stringify(measurement, null, 2)
-          );
-          console.log("Verificando campos:");
-          console.log("- weight existe?", measurement?.weight);
-          console.log("- bodyFatPercent existe?", measurement?.bodyFatPercent);
-          console.log("- muscleMass existe?", measurement?.muscleMass);
 
           setLatestMeasurement(measurement);
         } catch (error: any) {
-          console.log("=== Erro ao carregar última medição ===");
-          console.log("Erro:", error);
-          console.log("Mensagem:", error?.message);
-          console.log("Response:", error?.response?.data);
           setLatestMeasurement(null);
         } finally {
           setLoadingMeasurement(false);
-          console.log("Carregamento finalizado");
         }
       };
 
       loadLatestMeasurement();
 
-      return () => {
-        console.log("=== Tela GoalCreate perdeu foco - limpando dados ===");
-      };
+      return () => {};
     }, [patientId, isEditing])
   );
 
   // Atualizar valor atual quando o tipo de meta mudar
   useEffect(() => {
-    console.log("\n=== useEffect: Atualizar valor atual ===");
-    console.log("Tipo selecionado:", selectedType);
-    console.log("Tem última medição?", !!latestMeasurement);
-
     if (!latestMeasurement) {
-      console.log("Sem última medição - limpando campo atual");
       setCurrent("");
       return;
     }
-
-    console.log("Campos disponíveis na medição:");
-    console.log("- weight:", latestMeasurement.weight);
-    console.log("- bodyFatPercent:", latestMeasurement.bodyFatPercent);
-    console.log("- muscleMass:", latestMeasurement.muscleMass);
-    console.log("- waistCirc:", latestMeasurement.waistCirc);
-    console.log("- hipCirc:", latestMeasurement.hipCirc);
-    console.log("- chestCirc:", latestMeasurement.chestCirc);
-    console.log("- rightArmCirc:", latestMeasurement.rightArmCirc);
-    console.log("- leftArmCirc:", latestMeasurement.leftArmCirc);
-    console.log("- thighCirc:", latestMeasurement.thighCirc);
-    console.log("- bmi:", latestMeasurement.bmi);
 
     let currentValue = "";
 
     switch (selectedType) {
       case ExtendedGoalType.WEIGHT:
         currentValue = latestMeasurement.weight?.toString() || "";
-        console.log(
-          `Buscando WEIGHT: ${latestMeasurement.weight} -> ${currentValue}`
-        );
         break;
       case ExtendedGoalType.BODY_FAT:
         currentValue = latestMeasurement.bodyFatPercent?.toString() || "";
-        console.log(
-          `Buscando BODY_FAT: ${latestMeasurement.bodyFatPercent} -> ${currentValue}`
-        );
         break;
       case ExtendedGoalType.MUSCLE_MASS:
         currentValue = latestMeasurement.muscleMass?.toString() || "";
-        console.log(
-          `Buscando MUSCLE_MASS: ${latestMeasurement.muscleMass} -> ${currentValue}`
-        );
         break;
       case ExtendedGoalType.WAIST_CIRC:
         currentValue = latestMeasurement.waistCirc?.toString() || "";
-        console.log(
-          `Buscando WAIST_CIRC: ${latestMeasurement.waistCirc} -> ${currentValue}`
-        );
         break;
       case ExtendedGoalType.HIP_CIRC:
         currentValue = latestMeasurement.hipCirc?.toString() || "";
-        console.log(
-          `Buscando HIP_CIRC: ${latestMeasurement.hipCirc} -> ${currentValue}`
-        );
         break;
       case ExtendedGoalType.CHEST_CIRC:
         currentValue = latestMeasurement.chestCirc?.toString() || "";
-        console.log(
-          `Buscando CHEST_CIRC: ${latestMeasurement.chestCirc} -> ${currentValue}`
-        );
         break;
       case ExtendedGoalType.ARM_CIRC:
         currentValue =
           latestMeasurement.rightArmCirc?.toString() ||
           latestMeasurement.leftArmCirc?.toString() ||
           "";
-        console.log(
-          `Buscando ARM_CIRC: right=${latestMeasurement.rightArmCirc}, left=${latestMeasurement.leftArmCirc} -> ${currentValue}`
-        );
         break;
       case ExtendedGoalType.THIGH_CIRC:
         currentValue = latestMeasurement.thighCirc?.toString() || "";
-        console.log(
-          `Buscando THIGH_CIRC: ${latestMeasurement.thighCirc} -> ${currentValue}`
-        );
         break;
       case ExtendedGoalType.BMI:
         currentValue = latestMeasurement.bmi?.toString() || "";
-        console.log(
-          `Buscando BMI: ${latestMeasurement.bmi} -> ${currentValue}`
-        );
         break;
       case ExtendedGoalType.HYDRATION:
         currentValue = "";
-        console.log("HYDRATION - não tem campo na medição");
         break;
       default:
         currentValue = "";
-        console.log("Tipo não reconhecido ou OTHER");
     }
 
-    console.log("Valor final calculado para setCurrent:", currentValue);
     setCurrent(currentValue);
-    console.log("=== Fim useEffect ===\n");
   }, [selectedType, latestMeasurement]);
 
   const getUnitForType = (type: string): string => {
@@ -397,32 +320,18 @@ export function GoalCreateScreen({ route, navigation }: GoalCreateScreenProps) {
       notes: notes.trim() || undefined,
     };
 
-    console.log("🎯 [GoalCreateScreen] Dados preparados para envio:", {
-      selectedType,
-      target,
-      current,
-      deadline,
-      notes,
-      deadlineISO,
-      data,
-      dataKeys: Object.keys(data),
-    });
-
     try {
       setLoading(true);
 
       let result;
       if (isEditing && goalToEdit) {
         // Atualizar meta existente
-        console.log("🎯 [GoalCreateScreen] Atualizando meta:", goalToEdit.id);
         result = await goalsService.update(patientId, goalToEdit.id, data);
       } else {
         // Criar nova meta
-        console.log("🎯 [GoalCreateScreen] Criando nova meta");
         result = await goalsService.create(patientId, data);
       }
 
-      console.log("🎯 [GoalCreateScreen] Resposta da API:", result);
       handleReset();
 
       Toast.show({

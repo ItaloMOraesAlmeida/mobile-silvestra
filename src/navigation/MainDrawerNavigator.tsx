@@ -7,7 +7,7 @@ import {
 } from "@react-navigation/drawer";
 import { Ionicons } from "@expo/vector-icons";
 import { HomeScreen } from "../screens/main/HomeScreen";
-import { DashboardScreen as NutritionistDashboard } from "../screens/nutritionist/DashboardScreen";
+import DashboardScreen from "../screens/DashboardScreen";
 import { PatientHomeScreen } from "../screens/patient/PatientHomeScreen";
 import { useAuthStore } from "../stores/auth.store";
 import { ProfileScreen } from "../screens/main/ProfileScreen";
@@ -76,7 +76,11 @@ import { NutritionistAddressFormScreen } from "../screens/nutritionist/profile/N
 
 export type MainDrawerParamList = {
   Home: undefined;
-  Patients: undefined;
+  Patients:
+    | {
+        initialFilter?: "all" | "active" | "inactive" | "pending" | "archived";
+      }
+    | undefined;
   PatientCreate: undefined;
   PatientDetails: {
     patientId: string;
@@ -262,7 +266,7 @@ function RoleBasedHome(props: any) {
   const role = user?.role || "normal";
 
   if (role === "nutritionist" || role === "nutricionista") {
-    return <NutritionistDashboard {...props} />;
+    return <DashboardScreen {...props} />;
   }
 
   // Caso paciente: renderiza home do paciente
@@ -274,7 +278,7 @@ function RoleBasedHome(props: any) {
   return <HomeScreen {...props} />;
 }
 
-const HomeScreenWithHeader = createScreenWithHeader(RoleBasedHome, "Início");
+const HomeScreenWithHeader = createScreenWithHeader(RoleBasedHome, "Dashboard");
 const ProfileScreenWithHeader = createScreenWithHeader(ProfileScreen, "Perfil");
 const SettingsScreenWithHeader = createScreenWithHeader(
   SettingsScreen,
@@ -318,7 +322,7 @@ export function MainDrawerNavigator() {
         name="Home"
         component={HomeScreenWithHeader}
         options={{
-          title: "Início",
+          title: "Dashboard",
         }}
       />
       <Drawer.Screen

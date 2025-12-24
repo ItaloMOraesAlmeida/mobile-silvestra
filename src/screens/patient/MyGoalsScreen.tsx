@@ -40,12 +40,6 @@ export function MyGoalsScreen({ navigation }: MyGoalsScreenProps) {
   // CORREÇÃO: Usar patientProfile.id (PatientProfile) ao invés de patients[0].id (Patient)
   const patientProfileId = user?.patientProfile?.id;
 
-  console.log("🔍 [MyGoalsScreen] Debug IDs:");
-  console.log("- user.id:", user?.id);
-  console.log("- patientProfile.id:", user?.patientProfile?.id);
-  console.log("- patients[0]?.id:", user?.patientProfile?.patients?.[0]?.id);
-  console.log("- Usando patientProfileId:", patientProfileId);
-
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);

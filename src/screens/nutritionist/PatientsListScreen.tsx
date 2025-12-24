@@ -247,13 +247,20 @@ function PatientCard({ patient, onPress, onViewCode }: PatientCardProps) {
 
 interface PatientsListScreenProps {
   navigation: any;
+  route?: any;
 }
 
-export function PatientsListScreen({ navigation }: PatientsListScreenProps) {
+export function PatientsListScreen({
+  navigation,
+  route,
+}: PatientsListScreenProps) {
+  // Obter filtro inicial dos parâmetros da rota, se existir
+  const initialFilter = route?.params?.initialFilter || "all";
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<
     "all" | "active" | "inactive" | "pending" | "archived"
-  >("all");
+  >(initialFilter);
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const [filters, setFilters] = useState<FilterValues>({});
   const [sortBy, setSortBy] = useState<SortField>(SortField.UPDATED_AT_DESC);

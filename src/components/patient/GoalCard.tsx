@@ -23,18 +23,6 @@ export const GoalCard: React.FC<GoalCardProps> = ({
 }) => {
   const styles = useThemedStyles(createStyles);
 
-  // 🔍 LOG: Renderizando card
-  console.log("🎴 [GoalCard] Renderizando card:", {
-    id: goal.id,
-    type: goal.type,
-    achieved: goal.achieved,
-    target: goal.target,
-    current: goal.current,
-    unit: goal.unit,
-    deadline: goal.deadline,
-    notes: goal.notes,
-  });
-
   const isOverdue =
     goal.deadline && !goal.achieved
       ? new Date(goal.deadline) < new Date()

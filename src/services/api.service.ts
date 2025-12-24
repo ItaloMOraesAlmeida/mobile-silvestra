@@ -4,9 +4,6 @@ import { tokenService } from "./token.service";
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000/api/v1";
 
-console.log("=== API CONFIGURATION ===");
-console.log("API_URL:", API_URL);
-
 // Referência para a função de refresh token (será definida pelo auth store)
 let refreshTokenCallback: (() => Promise<void>) | null = null;
 let logoutCallback: (() => Promise<void>) | null = null;
@@ -160,9 +157,23 @@ async function request<T = any>(
 export const api = {
   get: <T = any>(
     endpoint: string,
-    headers?: Record<string, string>,
-    signal?: AbortSignal
-  ) => request<T>(endpoint, { method: "GET", headers, signal }),
+    options?: {
+      params?: Record<string, any>;
+      headers?: Record<string, string>;
+      signal?: AbortSignal;
+      responseType?: string;
+    }
+  ) => {
+    const params = options?.params;
+    const queryString = params
+      ? "?" + new URLSearchParams(params).toString()
+      : "";
+    return request<T>(endpoint + queryString, {
+      method: "GET",
+      headers: options?.headers,
+      signal: options?.signal,
+    });
+  },
 
   post: <T = any>(
     endpoint: string,
