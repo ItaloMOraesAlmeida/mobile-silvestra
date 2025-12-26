@@ -186,12 +186,26 @@ export const goalsService = {
   /**
    * Listar todas as metas do paciente
    */
-  findAll: (patientId: string, achieved?: boolean): Promise<Goal[]> => {
+  findAll: async (patientId: string, achieved?: boolean): Promise<Goal[]> => {
     const params = new URLSearchParams();
     if (achieved !== undefined) params.append("achieved", achieved.toString());
 
     const query = params.toString() ? `?${params.toString()}` : "";
-    return api.get(`/patients/${patientId}/goals${query}`);
+
+    const response = await api.get(`/patients/${patientId}/goals${query}`);
+
+    // IMPORTANTE: O GoalsController retorna diretamente um array de goals
+    // Após o TransformInterceptor: {success: true, data: [goal1, goal2, ...]}
+    // A rota antiga do PatientsController retornava: {success: true, data: {goals: [...]}}
+    const goals = Array.isArray(response?.data)
+      ? response.data
+      : Array.isArray(response?.data?.goals)
+      ? response.data.goals
+      : Array.isArray(response)
+      ? response
+      : [];
+
+    return goals;
   },
 
   /**
@@ -220,6 +234,17 @@ export const goalsService = {
   },
 
   /**
+   * Atualizar progresso da meta (altera current sem modificar initial)
+   */
+  updateProgress: (
+    patientId: string,
+    goalId: string,
+    data: { current: number; notes?: string }
+  ): Promise<Goal> => {
+    return api.patch(`/patients/${patientId}/goals/${goalId}/progress`, data);
+  },
+
+  /**
    * Marcar meta como alcançada
    */
   achieve: (
@@ -235,5 +260,39 @@ export const goalsService = {
    */
   remove: (patientId: string, goalId: string): Promise<{ message: string }> => {
     return api.delete(`/patients/${patientId}/goals/${goalId}`);
+  },
+
+  /**
+   * Excluir meta (wrapper para remove com tratamento de resposta)
+   */
+  deleteGoal: async (
+    patientId: string,
+    goalId: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    try {
+      await api.delete(`/patients/${patientId}/goals/${goalId}`);
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting goal:", error);
+      return { success: false, message: "Erro ao excluir meta" };
+    }
+  },
+
+  /**
+   * Marcar meta como concluída (wrapper para achieve)
+   */
+  achieveGoal: async (
+    patientId: string,
+    goalId: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    try {
+      await api.patch(`/patients/${patientId}/goals/${goalId}/achieve`, {
+        achievedAt: new Date().toISOString(),
+      });
+      return { success: true };
+    } catch (error) {
+      console.error("Error achieving goal:", error);
+      return { success: false, message: "Erro ao atualizar meta" };
+    }
   },
 };

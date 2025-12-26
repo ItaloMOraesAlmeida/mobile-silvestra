@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { ProgressChart } from "react-native-chart-kit";
+import Svg, { Circle } from "react-native-svg";
 import { useThemedStyles, useTheme } from "../../hooks/useTheme";
 import type { Theme } from "../../theme";
 
@@ -44,6 +44,14 @@ export const ProgressGauge: React.FC<ProgressGaugeProps> = ({ data }) => {
     return "Crítico";
   };
 
+  // Configuração do círculo SVG
+  const size = 200;
+  const strokeWidth = 20;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = data.overall / 100;
+  const strokeDashoffset = circumference * (1 - progress);
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -55,27 +63,31 @@ export const ProgressGauge: React.FC<ProgressGaugeProps> = ({ data }) => {
       {/* Main Progress Circle */}
       <View style={styles.mainProgress}>
         <View style={styles.circleContainer}>
-          {/* Usando ProgressChart como gauge */}
-          <ProgressChart
-            data={{ data: [data.overall / 100] }}
-            width={200}
-            height={200}
-            strokeWidth={20}
-            radius={80}
-            chartConfig={{
-              backgroundGradientFrom: theme.colors.card,
-              backgroundGradientTo: theme.colors.card,
-              color: (opacity = 1) =>
-                `${getProgressColor(data.overall)}${Math.round(
-                  opacity * 255
-                ).toString(16)}`,
-              strokeWidth: 2,
-            }}
-            hideLegend={true}
-            style={{
-              borderRadius: 16,
-            }}
-          />
+          <Svg width={size} height={size}>
+            {/* Círculo de fundo */}
+            <Circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              stroke={theme.colors.border}
+              strokeWidth={strokeWidth}
+              fill="none"
+              opacity={0.2}
+            />
+            {/* Círculo de progresso */}
+            <Circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              stroke={getProgressColor(data.overall)}
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            />
+          </Svg>
           {/* Overlay com valor */}
           <View style={styles.circleOverlay}>
             <Text

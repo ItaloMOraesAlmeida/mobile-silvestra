@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import {
   DrawerContentScrollView,
@@ -9,9 +9,16 @@ import { useAuthStore } from "../stores/auth.store";
 import { useAvatar } from "../hooks/use-avatar";
 import { LinearGradient } from "expo-linear-gradient";
 import { lightTheme } from "../theme";
+import { getPatientMealPlans } from "../services/meal-consumption.service";
+import appointmentsService from "../services/appointments/appointments.service";
 
 export function CustomDrawerContent(props: DrawerContentComponentProps) {
   const user = useAuthStore((state) => state.user);
+  const [stats, setStats] = useState({
+    appointments: 0,
+    plans: 0,
+    adherence: 0,
+  });
 
   // Helper para verificar se uma rota está ativa
   const isRouteActive = (routeName: string) => {
@@ -95,6 +102,44 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
     })}`;
   };
 
+  // Carregar estatísticas do paciente
+  useEffect(() => {
+    const loadPatientStats = async () => {
+      if (!isPatient()) return;
+
+      // Obter o ID do paciente associado ao usuário
+      const patientId = user?.patientProfile?.patients?.[0]?.id;
+      if (!patientId) return;
+
+      try {
+        // Buscar consultas
+        const appointments = await appointmentsService.findMyAppointments();
+        const totalAppointments = appointments.length;
+
+        // Buscar planos alimentares
+        const plansData = await getPatientMealPlans(patientId);
+        const totalPlans = plansData.plans?.length || 0;
+
+        // Buscar adesão do plano ativo
+        const activePlan = plansData.plans?.find(
+          (p: any) => p.status === "ACTIVE"
+        );
+        const adherence = activePlan?.progress || 0;
+
+        setStats({
+          appointments: totalAppointments,
+          plans: totalPlans,
+          adherence: Math.round(adherence),
+        });
+      } catch (error) {
+        console.error("Erro ao carregar estatísticas do drawer:", error);
+      }
+    };
+
+    loadPatientStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.patientProfile?.patients]);
+
   return (
     <View style={styles.container}>
       {/* Header do Drawer com Gradiente */}
@@ -159,32 +204,44 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Ionicons
-                name="calendar-outline"
-                size={16}
+                name="calendar"
+                size={18}
                 color={lightTheme.colors.white}
               />
-              <Text style={styles.statValue}>12</Text>
-              <Text style={styles.statLabel}>Consultas</Text>
+              <Text style={styles.statValue} numberOfLines={1}>
+                {stats.appointments}
+              </Text>
+              <Text style={styles.statLabel} numberOfLines={1}>
+                Consultas
+              </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Ionicons
-                name="nutrition-outline"
-                size={16}
+                name="nutrition"
+                size={18}
                 color={lightTheme.colors.white}
               />
-              <Text style={styles.statValue}>8</Text>
-              <Text style={styles.statLabel}>Planos</Text>
+              <Text style={styles.statValue} numberOfLines={1}>
+                {stats.plans}
+              </Text>
+              <Text style={styles.statLabel} numberOfLines={1}>
+                Planos
+              </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Ionicons
-                name="trophy-outline"
-                size={16}
+                name="trophy"
+                size={18}
                 color={lightTheme.colors.white}
               />
-              <Text style={styles.statValue}>95%</Text>
-              <Text style={styles.statLabel}>Meta</Text>
+              <Text style={styles.statValue} numberOfLines={1}>
+                {stats.adherence}%
+              </Text>
+              <Text style={styles.statLabel} numberOfLines={1}>
+                Adesão
+              </Text>
             </View>
           </View>
         )}
@@ -315,11 +372,11 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
           </>
         )}
 
-        {/* Grupo Minha Saúde - SÓ PARA PACIENTE */}
+        {/* Grupo Nutrição - SÓ PARA PACIENTE */}
         {isPatient() && (
           <>
             <View style={styles.groupHeader}>
-              <Text style={styles.groupTitle}>Minha Saúde</Text>
+              <Text style={styles.groupTitle}>Nutrição</Text>
             </View>
             <TouchableOpacity
               style={[
@@ -347,6 +404,67 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
                 Meus Planos
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("FoodDatabase") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("FoodDatabase")}
+            >
+              <Ionicons
+                name="fast-food"
+                size={18}
+                color={
+                  isRouteActive("FoodDatabase")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("FoodDatabase") && styles.drawerLabelActive,
+                ]}
+              >
+                Alimentos
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("FoodFavorites") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("FoodFavorites")}
+            >
+              <Ionicons
+                name="star"
+                size={18}
+                color={
+                  isRouteActive("FoodFavorites")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("FoodFavorites") && styles.drawerLabelActive,
+                ]}
+              >
+                Favoritos
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Grupo Saúde - SÓ PARA PACIENTE */}
+        {isPatient() && (
+          <>
+            <View style={styles.groupHeader}>
+              <Text style={styles.groupTitle}>Saúde</Text>
+            </View>
             <TouchableOpacity
               style={[
                 styles.groupItem,
@@ -397,6 +515,68 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
                 ]}
               >
                 Minhas Metas
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("WaterDashboard") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("WaterDashboard")}
+            >
+              <Ionicons
+                name="water"
+                size={18}
+                color={
+                  isRouteActive("WaterDashboard")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("WaterDashboard") && styles.drawerLabelActive,
+                ]}
+              >
+                Hidratação
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Grupo Consultas - SÓ PARA PACIENTE */}
+        {isPatient() && (
+          <>
+            <View style={styles.groupHeader}>
+              <Text style={styles.groupTitle}>Consultas</Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("PatientAppointments") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("PatientAppointments")}
+            >
+              <Ionicons
+                name="calendar"
+                size={18}
+                color={
+                  isRouteActive("PatientAppointments")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("PatientAppointments") &&
+                    styles.drawerLabelActive,
+                ]}
+              >
+                Minhas Consultas
               </Text>
             </TouchableOpacity>
           </>
@@ -486,25 +666,18 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
                 Relatórios
               </Text>
             </TouchableOpacity>
-          </>
-        )}
-
-        {/* Banco de Alimentos e Favoritos - PARA PACIENTE */}
-        {/* Banco de Alimentos e Favoritos - PARA PACIENTE */}
-        {isPatient() && (
-          <>
             <TouchableOpacity
               style={[
-                styles.drawerItem,
-                isRouteActive("FoodDatabase") && styles.drawerItemActive,
+                styles.groupItem,
+                isRouteActive("Formulas") && styles.drawerItemActive,
               ]}
-              onPress={() => props.navigation.navigate("FoodDatabase")}
+              onPress={() => props.navigation.navigate("Formulas")}
             >
               <Ionicons
-                name="fast-food-outline"
-                size={24}
+                name="calculator"
+                size={18}
                 color={
-                  isRouteActive("FoodDatabase")
+                  isRouteActive("Formulas")
                     ? lightTheme.colors.primary
                     : lightTheme.colors.gray[500]
                 }
@@ -513,24 +686,60 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
               <Text
                 style={[
                   styles.drawerLabel,
-                  isRouteActive("FoodDatabase") && styles.drawerLabelActive,
+                  isRouteActive("Formulas") && styles.drawerLabelActive,
                 ]}
               >
-                Alimentos
+                Fórmulas Personalizadas
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Grupo Agendamento - SÓ PARA NUTRICIONISTA */}
+        {isNutritionist() && (
+          <>
+            <View style={styles.groupHeader}>
+              <Text style={styles.groupTitle}>Consulta</Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("AppointmentCalendar") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("AppointmentCalendar")}
+            >
+              <Ionicons
+                name="calendar"
+                size={18}
+                color={
+                  isRouteActive("AppointmentCalendar")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("AppointmentCalendar") &&
+                    styles.drawerLabelActive,
+                ]}
+              >
+                Agenda de Consultas
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
-                styles.drawerItem,
-                isRouteActive("FoodFavorites") && styles.drawerItemActive,
+                styles.groupItem,
+                isRouteActive("AvailabilityConfig") && styles.drawerItemActive,
               ]}
-              onPress={() => props.navigation.navigate("FoodFavorites")}
+              onPress={() => props.navigation.navigate("AvailabilityConfig")}
             >
               <Ionicons
-                name="star-outline"
-                size={24}
+                name="settings-outline"
+                size={18}
                 color={
-                  isRouteActive("FoodFavorites")
+                  isRouteActive("AvailabilityConfig")
                     ? lightTheme.colors.primary
                     : lightTheme.colors.gray[500]
                 }
@@ -539,10 +748,11 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
               <Text
                 style={[
                   styles.drawerLabel,
-                  isRouteActive("FoodFavorites") && styles.drawerLabelActive,
+                  isRouteActive("AvailabilityConfig") &&
+                    styles.drawerLabelActive,
                 ]}
               >
-                Favoritos
+                Configurar Disponibilidade
               </Text>
             </TouchableOpacity>
           </>
@@ -685,37 +895,47 @@ const styles = StyleSheet.create({
   // Estatísticas
   statsContainer: {
     flexDirection: "row",
-    backgroundColor: lightTheme.colors.white,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
     borderRadius: lightTheme.borderRadius.lg,
-    paddingVertical: lightTheme.spacing.sm,
+    paddingVertical: lightTheme.spacing.md,
     paddingHorizontal: lightTheme.spacing.xs,
     justifyContent: "space-around",
     alignItems: "center",
     marginTop: lightTheme.spacing.md,
-    opacity: 0.15,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   statItem: {
     flex: 1,
     alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+    minWidth: 0,
   },
   statValue: {
-    fontSize: lightTheme.typography.fontSize.base,
-    fontWeight: lightTheme.typography.fontWeight.bold,
+    fontSize: 24,
+    fontWeight: "800",
     color: lightTheme.colors.white,
-    marginTop: 2,
+    textShadowColor: "rgba(0, 0, 0, 0.2)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   statLabel: {
     fontSize: 10,
+    fontWeight: "600",
     color: lightTheme.colors.white,
-    marginTop: 1,
-    opacity: 0.9,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+    textShadowColor: "rgba(0, 0, 0, 0.2)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    textAlign: "center",
   },
   statDivider: {
     width: 1,
-    height: 30,
-    backgroundColor: lightTheme.colors.white,
-    marginHorizontal: lightTheme.spacing.xs,
-    opacity: 0.3,
+    height: 40,
+    backgroundColor: "rgba(255, 255, 255, 0.4)",
+    marginHorizontal: 4,
   },
   // Divider e Conteúdo do Drawer
   divider: {

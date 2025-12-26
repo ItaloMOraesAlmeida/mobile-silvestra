@@ -218,7 +218,12 @@ export function useBodyMeasurements() {
         `/patients/${patientId}/body-measurements/latest`
       );
 
-      // Backend retorna o objeto diretamente (não tem wrapper success/data)
+      // Backend retorna com wrapper {success: true, data: {...}}
+      if (response.data?.data) {
+        return response.data.data;
+      }
+
+      // Fallback caso não tenha wrapper
       if (response.data) {
         return response.data;
       }

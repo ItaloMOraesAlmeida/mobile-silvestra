@@ -157,9 +157,23 @@ async function request<T = any>(
 export const api = {
   get: <T = any>(
     endpoint: string,
-    headers?: Record<string, string>,
-    signal?: AbortSignal
-  ) => request<T>(endpoint, { method: "GET", headers, signal }),
+    options?: {
+      params?: Record<string, any>;
+      headers?: Record<string, string>;
+      signal?: AbortSignal;
+      responseType?: string;
+    }
+  ) => {
+    const params = options?.params;
+    const queryString = params
+      ? "?" + new URLSearchParams(params).toString()
+      : "";
+    return request<T>(endpoint + queryString, {
+      method: "GET",
+      headers: options?.headers,
+      signal: options?.signal,
+    });
+  },
 
   post: <T = any>(
     endpoint: string,

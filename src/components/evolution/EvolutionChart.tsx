@@ -23,7 +23,10 @@ import {
   Dimensions,
   ActivityIndicator,
 } from "react-native";
-import { LineChart } from "react-native-chart-kit";
+import Svg, { G, Path, Circle, Line, Text as SvgText } from "react-native-svg";
+import { scaleLinear, scalePoint } from "d3-scale";
+import { line, curveMonotoneX } from "d3-shape";
+import { max, min } from "d3-array";
 import { lightTheme } from "../../theme";
 
 const screenWidth = Dimensions.get("window").width;
@@ -171,6 +174,43 @@ export const EvolutionChart: React.FC<EvolutionChartProps> = ({
     );
   }
 
+  // Configurar gráfico D3
+  const chartWidth = screenWidth - 32;
+  const chartHeight = height - 60;
+  const chartPadding = { top: 20, right: 20, bottom: 30, left: 50 };
+  const innerWidth = chartWidth - chartPadding.left - chartPadding.right;
+  const innerHeight = chartHeight - chartPadding.top - chartPadding.bottom;
+
+  const values = chartData.datasets[0].data;
+  const labels = chartData.labels;
+
+  // Escalas
+  const xScale = scalePoint()
+    .domain(labels.map((_, i) => i.toString()))
+    .range([0, innerWidth]);
+
+  const minValue = min(values) || 0;
+  const maxValue = max(values) || 100;
+  const padding = (maxValue - minValue) * 0.1;
+
+  const yScale = scaleLinear()
+    .domain([minValue - padding, maxValue + padding])
+    .range([innerHeight, 0])
+    .nice();
+
+  const yTicks = yScale.ticks(4);
+
+  // Gerador de linha D3
+  const lineGenerator = line<number>()
+    .x((_, i) => xScale(i.toString()) || 0)
+    .y((d) => yScale(d));
+
+  if (bezier) {
+    lineGenerator.curve(curveMonotoneX);
+  }
+
+  const linePath = lineGenerator(values);
+
   return (
     <View style={styles.container}>
       {/* Header com label */}
@@ -182,57 +222,110 @@ export const EvolutionChart: React.FC<EvolutionChartProps> = ({
       </View>
 
       {/* Gráfico */}
-      <LineChart
-        data={chartData}
-        width={screenWidth - 32} // Margem de 16px de cada lado
-        height={height - 60} // Menos o espaço do header
-        yAxisSuffix={` ${unit}`}
-        chartConfig={{
-          backgroundColor: lightTheme.colors.card,
-          backgroundGradientFrom: lightTheme.colors.card,
-          backgroundGradientTo: lightTheme.colors.card,
-          decimalPlaces: decimals,
-          color: (opacity = 1) => {
-            // Converter hex para rgba
-            const hex = chartColor.replace("#", "");
-            const r = parseInt(hex.substring(0, 2), 16);
-            const g = parseInt(hex.substring(2, 4), 16);
-            const b = parseInt(hex.substring(4, 6), 16);
-            return `rgba(${r}, ${g}, ${b}, ${opacity})`;
-          },
-          labelColor: () => lightTheme.colors.textSecondary,
-          style: {
-            borderRadius: 16,
-          },
-          propsForDots: {
-            r: showDots ? "4" : "0",
-            strokeWidth: "2",
-            stroke: chartColor,
-          },
-          propsForBackgroundLines: {
-            strokeDasharray: "", // Linhas sólidas
-            stroke: lightTheme.colors.border,
-            strokeWidth: 1,
-          },
-        }}
-        bezier={bezier}
-        style={styles.chart}
-        fromZero={false}
-        yAxisInterval={1}
-        segments={4}
-        withInnerLines={true}
-        withOuterLines={true}
-        withVerticalLines={false}
-        withHorizontalLines={true}
-        withVerticalLabels={true}
-        withHorizontalLabels={true}
-        formatYLabel={(value) => {
-          if (formatValue) {
-            return formatValue(parseFloat(value));
-          }
-          return parseFloat(value).toFixed(decimals);
-        }}
-      />
+      <View style={styles.chartContainer}>
+        <Svg width={chartWidth} height={chartHeight}>
+          <G x={chartPadding.left} y={chartPadding.top}>
+            {/* Grid horizontal */}
+            {yTicks.map((tick) => (
+              <Line
+                key={`grid-${tick}`}
+                x1={0}
+                y1={yScale(tick)}
+                x2={innerWidth}
+                y2={yScale(tick)}
+                stroke={lightTheme.colors.border}
+                strokeWidth={1}
+                opacity={0.2}
+              />
+            ))}
+
+            {/* Linha de evolução */}
+            {linePath && (
+              <Path
+                d={linePath}
+                stroke={chartColor}
+                strokeWidth={2}
+                fill="none"
+              />
+            )}
+
+            {/* Pontos */}
+            {showDots &&
+              values.map((value, index) => {
+                const x = xScale(index.toString()) || 0;
+                const y = yScale(value);
+                return (
+                  <Circle
+                    key={`dot-${index}`}
+                    cx={x}
+                    cy={y}
+                    r={4}
+                    fill={chartColor}
+                    stroke={lightTheme.colors.card}
+                    strokeWidth={2}
+                  />
+                );
+              })}
+
+            {/* Eixo Y */}
+            <Line
+              x1={0}
+              y1={0}
+              x2={0}
+              y2={innerHeight}
+              stroke={lightTheme.colors.border}
+              strokeWidth={1}
+            />
+
+            {/* Labels do eixo Y */}
+            {yTicks.map((tick) => {
+              const formattedValue = formatValue
+                ? formatValue(tick)
+                : tick.toFixed(decimals);
+              return (
+                <SvgText
+                  key={`label-y-${tick}`}
+                  x={-10}
+                  y={yScale(tick)}
+                  fontSize={10}
+                  fill={lightTheme.colors.text}
+                  textAnchor="end"
+                  alignmentBaseline="middle"
+                >
+                  {formattedValue} {unit}
+                </SvgText>
+              );
+            })}
+
+            {/* Eixo X */}
+            <Line
+              x1={0}
+              y1={innerHeight}
+              x2={innerWidth}
+              y2={innerHeight}
+              stroke={lightTheme.colors.border}
+              strokeWidth={1}
+            />
+
+            {/* Labels do eixo X */}
+            {labels.map((label, index) => {
+              const x = xScale(index.toString()) || 0;
+              return (
+                <SvgText
+                  key={`label-x-${index}`}
+                  x={x}
+                  y={innerHeight + 15}
+                  fontSize={10}
+                  fill={lightTheme.colors.text}
+                  textAnchor="middle"
+                >
+                  {label}
+                </SvgText>
+              );
+            })}
+          </G>
+        </Svg>
+      </View>
 
       {/* Estatísticas rápidas */}
       <View style={styles.stats}>
@@ -298,9 +391,8 @@ const createStyles = (theme: typeof lightTheme) =>
       color: theme.colors.textSecondary,
     },
 
-    chart: {
+    chartContainer: {
       marginVertical: 8,
-      borderRadius: 16,
     },
 
     stats: {

@@ -10,7 +10,10 @@
 import React from "react";
 import { View, Text, Dimensions, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { PieChart, BarChart } from "react-native-chart-kit";
+import Svg, { G, Path, Rect, Line, Text as SvgText } from "react-native-svg";
+import { pie, arc } from "d3-shape";
+import { scaleLinear, scaleBand } from "d3-scale";
+import { max } from "d3-array";
 import type { PlanNutritionSummary } from "../types/meal-plan.types";
 import { formatGrams, formatPercentage } from "../utils/meal-plan.utils";
 import { lightTheme } from "../theme";
@@ -24,32 +27,40 @@ export default function MacroNutritionCharts({
   nutrition,
   showTargets = true,
 }: MacroNutritionChartsProps) {
-  const screenWidth = Dimensions.get("window").width - 32; // padding
+  const screenWidth = Dimensions.get("window").width - 32;
+  const chartWidth = screenWidth - 32;
+  const chartHeight = 220;
 
   // ===== GRÁFICO DE PIZZA - Distribuição de Macros =====
   const pieData = [
     {
       name: "Proteínas",
-      population: nutrition.totalProtein,
-      color: "#3B82F6", // blue-600
-      legendFontColor: "#374151",
-      legendFontSize: 12,
+      value: nutrition.totalProtein,
+      color: "#3B82F6",
     },
     {
       name: "Carboidratos",
-      population: nutrition.totalCarbs,
-      color: "#10B981", // green-600
-      legendFontColor: "#374151",
-      legendFontSize: 12,
+      value: nutrition.totalCarbs,
+      color: "#10B981",
     },
     {
       name: "Gorduras",
-      population: nutrition.totalFat,
-      color: "#F59E0B", // amber-500
-      legendFontColor: "#374151",
-      legendFontSize: 12,
+      value: nutrition.totalFat,
+      color: "#F59E0B",
     },
   ];
+
+  // Criar gerador de arcos para o gráfico de pizza
+  const pieRadius = 80;
+  const pieGenerator = pie<(typeof pieData)[0]>()
+    .value((d) => d.value)
+    .sort(null);
+
+  const arcGenerator = arc<ReturnType<typeof pieGenerator>[0]>()
+    .innerRadius(0)
+    .outerRadius(pieRadius);
+
+  const arcs = pieGenerator(pieData);
 
   // ===== GRÁFICO DE BARRAS - Real vs Meta =====
   const hasTargets =
@@ -58,50 +69,38 @@ export default function MacroNutritionCharts({
     nutrition.targetFat ||
     nutrition.targetFiber;
 
-  const barData = {
-    labels: ["Prot.", "Carb.", "Gord.", "Fibra"],
-    datasets: [
-      {
-        data: [
-          nutrition.totalProtein,
-          nutrition.totalCarbs,
-          nutrition.totalFat,
-          nutrition.totalFiber,
-        ],
-        color: () => "#3B82F6", // blue
-      },
-      ...(hasTargets && showTargets
-        ? [
-            {
-              data: [
-                nutrition.targetProtein || 0,
-                nutrition.targetCarbs || 0,
-                nutrition.targetFat || 0,
-                nutrition.targetFiber || 0,
-              ],
-              color: () => "#9CA3AF", // gray (meta)
-            },
-          ]
-        : []),
-    ],
-    legend: hasTargets && showTargets ? ["Atual", "Meta"] : ["Atual"],
-  };
+  const barLabels = ["Prot.", "Carb.", "Gord.", "Fibra"];
+  const currentValues = [
+    nutrition.totalProtein,
+    nutrition.totalCarbs,
+    nutrition.totalFat,
+    nutrition.totalFiber,
+  ];
+  const targetValues = [
+    nutrition.targetProtein || 0,
+    nutrition.targetCarbs || 0,
+    nutrition.targetFat || 0,
+    nutrition.targetFiber || 0,
+  ];
 
-  const chartConfig = {
-    backgroundGradientFrom: "#ffffff",
-    backgroundGradientTo: "#ffffff",
-    decimalPlaces: 1,
-    color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(55, 65, 81, ${opacity})`,
-    style: {
-      borderRadius: 16,
-    },
-    propsForBackgroundLines: {
-      strokeDasharray: "", // solid lines
-      stroke: "#E5E7EB",
-      strokeWidth: 1,
-    },
-  };
+  // Configurar escalas D3 para o gráfico de barras
+  const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+  const innerWidth = chartWidth - padding.left - padding.right;
+  const innerHeight = chartHeight - padding.top - padding.bottom;
+
+  const xScale = scaleBand()
+    .domain(barLabels)
+    .range([0, innerWidth])
+    .padding(0.3);
+
+  const maxValue = Math.max(max(currentValues) || 0, max(targetValues) || 0);
+
+  const yScale = scaleLinear()
+    .domain([0, maxValue])
+    .range([innerHeight, 0])
+    .nice();
+
+  const yTicks = yScale.ticks(5);
 
   return (
     <View>
@@ -118,16 +117,20 @@ export default function MacroNutritionCharts({
           </Text>
         </View>
         <View style={styles.chartCard}>
-          <PieChart
-            data={pieData}
-            width={screenWidth - 32}
-            height={200}
-            chartConfig={chartConfig}
-            accessor="population"
-            backgroundColor="transparent"
-            paddingLeft="0"
-            absolute={false} // Mostra percentuais
-          />
+          {/* Gráfico de Pizza com D3 */}
+          <View style={{ alignItems: "center", marginVertical: 16 }}>
+            <Svg width={pieRadius * 2 + 20} height={pieRadius * 2 + 20}>
+              <G x={pieRadius + 10} y={pieRadius + 10}>
+                {arcs.map((arc, index) => (
+                  <Path
+                    key={index}
+                    d={arcGenerator(arc) || ""}
+                    fill={pieData[index].color}
+                  />
+                ))}
+              </G>
+            </Svg>
+          </View>
 
           {/* Legenda Customizada com Percentuais */}
           <View style={styles.legend}>
@@ -185,21 +188,165 @@ export default function MacroNutritionCharts({
             <Text style={styles.sectionTitle}>Progresso vs Metas</Text>
           </View>
           <View style={styles.chartCard}>
-            <BarChart
-              data={barData}
-              width={screenWidth - 32}
-              height={220}
-              chartConfig={chartConfig}
-              yAxisSuffix="g"
-              yAxisLabel=""
-              fromZero
-              showBarTops
-              showValuesOnTopOfBars
-              withInnerLines
-              style={{
-                borderRadius: 16,
-              }}
-            />
+            {/* Gráfico de Barras com D3 */}
+            <Svg width={chartWidth} height={chartHeight}>
+              <G x={padding.left} y={padding.top}>
+                {/* Grid lines */}
+                {yTicks.map((tick) => (
+                  <Line
+                    key={`grid-${tick}`}
+                    x1={0}
+                    y1={yScale(tick)}
+                    x2={innerWidth}
+                    y2={yScale(tick)}
+                    stroke="#E5E7EB"
+                    strokeWidth={1}
+                  />
+                ))}
+
+                {/* Y Axis */}
+                <Line
+                  x1={0}
+                  y1={0}
+                  x2={0}
+                  y2={innerHeight}
+                  stroke="#374151"
+                  strokeWidth={1}
+                />
+
+                {/* X Axis */}
+                <Line
+                  x1={0}
+                  y1={innerHeight}
+                  x2={innerWidth}
+                  y2={innerHeight}
+                  stroke="#374151"
+                  strokeWidth={1}
+                />
+
+                {/* Y Axis Labels */}
+                {yTicks.map((tick) => (
+                  <SvgText
+                    key={`y-label-${tick}`}
+                    x={-8}
+                    y={yScale(tick)}
+                    fontSize={10}
+                    fill="#6B7280"
+                    textAnchor="end"
+                    alignmentBaseline="middle"
+                  >
+                    {tick}g
+                  </SvgText>
+                ))}
+
+                {/* Bars */}
+                {barLabels.map((label, index) => {
+                  const barWidth = xScale.bandwidth() / (hasTargets ? 2.2 : 1);
+                  const x = xScale(label) || 0;
+                  const currentHeight =
+                    innerHeight - yScale(currentValues[index]);
+                  const targetHeight =
+                    innerHeight - yScale(targetValues[index]);
+
+                  return (
+                    <G key={label}>
+                      {/* Current Value Bar */}
+                      <Rect
+                        x={x}
+                        y={yScale(currentValues[index])}
+                        width={barWidth}
+                        height={currentHeight}
+                        fill="#3B82F6"
+                        rx={4}
+                      />
+                      {/* Value on top */}
+                      <SvgText
+                        x={x + barWidth / 2}
+                        y={yScale(currentValues[index]) - 5}
+                        fontSize={10}
+                        fill="#374151"
+                        textAnchor="middle"
+                        fontWeight="600"
+                      >
+                        {currentValues[index].toFixed(0)}
+                      </SvgText>
+
+                      {/* Target Value Bar */}
+                      {hasTargets && targetValues[index] > 0 && (
+                        <>
+                          <Rect
+                            x={x + barWidth + 4}
+                            y={yScale(targetValues[index])}
+                            width={barWidth}
+                            height={targetHeight}
+                            fill="#9CA3AF"
+                            rx={4}
+                          />
+                          <SvgText
+                            x={x + barWidth * 1.5 + 4}
+                            y={yScale(targetValues[index]) - 5}
+                            fontSize={10}
+                            fill="#374151"
+                            textAnchor="middle"
+                            fontWeight="600"
+                          >
+                            {targetValues[index].toFixed(0)}
+                          </SvgText>
+                        </>
+                      )}
+
+                      {/* X Axis Label */}
+                      <SvgText
+                        x={x + (hasTargets ? barWidth + 2 : barWidth / 2)}
+                        y={innerHeight + 20}
+                        fontSize={12}
+                        fill="#374151"
+                        textAnchor="middle"
+                      >
+                        {label}
+                      </SvgText>
+                    </G>
+                  );
+                })}
+              </G>
+            </Svg>
+
+            {/* Legend */}
+            {hasTargets && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  marginTop: 12,
+                  gap: 16,
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <View
+                    style={{
+                      width: 16,
+                      height: 16,
+                      backgroundColor: "#3B82F6",
+                      borderRadius: 4,
+                      marginRight: 6,
+                    }}
+                  />
+                  <Text style={{ fontSize: 12, color: "#6B7280" }}>Atual</Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <View
+                    style={{
+                      width: 16,
+                      height: 16,
+                      backgroundColor: "#9CA3AF",
+                      borderRadius: 4,
+                      marginRight: 6,
+                    }}
+                  />
+                  <Text style={{ fontSize: 12, color: "#6B7280" }}>Meta</Text>
+                </View>
+              </View>
+            )}
 
             {/* Legenda de Progresso */}
             <View style={styles.progressLegend}>

@@ -66,14 +66,12 @@ export const reportStore = create<ReportState>()(
         set((state) => ({
           reports: [report, ...state.reports],
         }));
-        console.log("✅ Relatório adicionado ao store:", report.id);
       },
 
       removeReport: (reportId) => {
         set((state) => ({
           reports: state.reports.filter((r) => r.id !== reportId),
         }));
-        console.log("🗑️ Relatório removido do store:", reportId);
       },
 
       updateReport: (reportId, updates) => {
@@ -82,7 +80,6 @@ export const reportStore = create<ReportState>()(
             r.id === reportId ? { ...r, ...updates } : r
           ),
         }));
-        console.log("🔄 Relatório atualizado:", reportId);
       },
 
       getReportById: (reportId) => {
@@ -102,7 +99,6 @@ export const reportStore = create<ReportState>()(
 
       clearReports: () => {
         set({ reports: [] });
-        console.log("🧹 Todos os relatórios removidos");
       },
     }),
     {

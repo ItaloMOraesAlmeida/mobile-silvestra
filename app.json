@@ -2,7 +2,7 @@
   "expo": {
     "name": "silvestra",
     "slug": "silvestra-app",
-    "version": "1.0.0",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "silvestra",
@@ -16,7 +16,8 @@
         "NSPhotoLibraryUsageDescription": "Silvestra precisa acessar suas fotos para você escolher imagens do seu perfil e registrar seu progresso nutricional.",
         "NSPhotoLibraryAddUsageDescription": "Silvestra precisa salvar fotos na sua galeria para registrar seu progresso nutricional.",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "buildNumber": "1.6.0"
     },
     "android": {
       "package": "com.logicphire.silvestra",
@@ -37,7 +38,8 @@
         "READ_MEDIA_IMAGES",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
-      ]
+      ],
+      "versionCode": 1006000
     },
     "web": {
       "output": "single",

@@ -40,8 +40,6 @@ class PDFGeneratorService {
     config: ReportConfig
   ): Promise<PDFGenerationResult> {
     try {
-      console.log("🔨 Gerando PDF...");
-
       // 1. Gerar HTML completo
       const html = this.generateHTML(data, config);
 
@@ -58,8 +56,6 @@ class PDFGeneratorService {
 
       // 3. Gerar PDF
       const { uri } = await Print.printToFileAsync(printOptions);
-
-      console.log("✅ PDF gerado:", uri);
 
       return {
         success: true,

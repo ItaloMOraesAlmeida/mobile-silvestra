@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "../../theme";
@@ -30,7 +31,8 @@ interface MyMealPlansScreenProps {
 
 export function MyMealPlansScreen({ navigation }: MyMealPlansScreenProps) {
   const user = useAuthStore((s) => s.user);
-  const patientId = user?.patientProfile?.id;
+  // ID do relacionamento Patient (paciente-nutricionista)
+  const patientId = user?.patientProfile?.patients?.[0]?.id;
 
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
@@ -60,6 +62,15 @@ export function MyMealPlansScreen({ navigation }: MyMealPlansScreenProps) {
   React.useEffect(() => {
     fetchPlans();
   }, [fetchPlans]);
+
+  // Recarregar dados quando a tela receber foco
+  useFocusEffect(
+    React.useCallback(() => {
+      if (patientId) {
+        fetchPlans();
+      }
+    }, [patientId, fetchPlans])
+  );
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -202,7 +213,9 @@ export function MyMealPlansScreen({ navigation }: MyMealPlansScreenProps) {
                 key={plan.id}
                 style={styles.planCard}
                 onPress={() =>
-                  navigation.navigate("MealPlanDetails", { planId: plan.id })
+                  navigation.navigate("MealPlanDetailsForPatient", {
+                    planId: plan.id,
+                  })
                 }
                 activeOpacity={0.7}
               >

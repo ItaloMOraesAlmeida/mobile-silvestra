@@ -47,10 +47,6 @@ class ReportService {
     try {
       // Criar diretório se não existir
       await this.reportDirectory.create();
-      console.log(
-        "📁 Diretório de relatórios criado:",
-        this.reportDirectory.uri
-      );
     } catch (error) {
       console.error("Erro ao inicializar ReportService:", error);
       throw error;
@@ -112,12 +108,6 @@ class ReportService {
       reportStore.getState().setGenerating(false);
 
       const generationTime = Date.now() - startTime;
-
-      console.log(
-        `✅ Relatório gerado em ${generationTime}ms (${(
-          fileSize / 1024
-        ).toFixed(2)}KB)`
-      );
 
       return {
         success: true,
@@ -464,7 +454,6 @@ class ReportService {
         UTI: "com.adobe.pdf",
       });
 
-      console.log("✅ Relatório compartilhado com sucesso");
       return true;
     } catch (error) {
       console.error("❌ Erro ao compartilhar relatório:", error);
@@ -494,7 +483,6 @@ class ReportService {
       // Remover do store
       reportStore.getState().removeReport(reportId);
 
-      console.log("✅ Relatório deletado com sucesso");
       return true;
     } catch (error) {
       console.error("❌ Erro ao deletar relatório:", error);
@@ -536,7 +524,6 @@ class ReportService {
         }
       }
 
-      console.log(`🧹 ${deletedCount} relatórios antigos removidos`);
       return deletedCount;
     } catch (error) {
       console.error("❌ Erro ao limpar relatórios:", error);

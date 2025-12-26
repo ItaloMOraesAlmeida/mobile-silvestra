@@ -49,7 +49,16 @@ export const GoalsTab: React.FC = () => {
   const theme = useTheme();
   const route = useRoute<RouteProp<RouteParams, "PatientDetails">>();
   const navigation = useNavigation<DrawerNavigationProp<any>>();
-  const { patientId, patientName } = route.params;
+
+  // 🔍 FIX: Obter params da rota pai (PatientDetailsScreen)
+  // Tabs não recebem params diretamente, precisam buscar do parent
+  const parentRoute = navigation
+    .getState()
+    ?.routes?.find((r) => r.name === "PatientDetails");
+  const { patientId, patientName } = (parentRoute?.params || {}) as {
+    patientId?: string;
+    patientName?: string;
+  };
 
   // Notification store
   const { getPreferences } = useNotificationStore();
@@ -66,14 +75,23 @@ export const GoalsTab: React.FC = () => {
 
   const fetchGoals = React.useCallback(
     async (isRefresh = false) => {
+      // 🔍 FIX: Verificar se patientId existe antes de fazer requisição
+      if (!patientId) {
+        console.error("❌ [GoalsTab.fetchGoals] patientId não encontrado!");
+        setError("ID do paciente não encontrado");
+        setLoading(false);
+        return;
+      }
+
       try {
         setError(null);
         if (!isRefresh) setLoading(true);
 
-        const data = await goalsService.findAll(patientId);
-        setGoals(data);
+        const goals = await goalsService.findAll(patientId);
+
+        setGoals(goals);
       } catch (err) {
-        console.error("Error fetching goals:", err);
+        console.error("❌ [GoalsTab.fetchGoals] Error fetching goals:", err);
         setError("Não foi possível carregar as metas");
       } finally {
         setLoading(false);
@@ -93,6 +111,11 @@ export const GoalsTab: React.FC = () => {
   }, [fetchGoals]);
 
   const handleAddGoal = async (data: CreateGoalDto) => {
+    if (!patientId) {
+      Alert.alert("Erro", "ID do paciente não encontrado");
+      return;
+    }
+
     try {
       const createdGoal = await goalsService.create(patientId, data);
 
@@ -107,10 +130,6 @@ export const GoalsTab: React.FC = () => {
             goalDescription,
             new Date(data.deadline),
             prefs.goalAlerts.daysBeforeDeadline
-          );
-          console.log(
-            "✅ Notificação de deadline agendada para meta:",
-            createdGoal.id
           );
         } catch (notifError) {
           console.error(
@@ -136,6 +155,11 @@ export const GoalsTab: React.FC = () => {
   };
 
   const handleEditGoal = async (goalId: string, data: UpdateGoalDto) => {
+    if (!patientId) {
+      Alert.alert("Erro", "ID do paciente não encontrado");
+      return;
+    }
+
     try {
       await goalsService.update(patientId, goalId, data);
       // Refresh list after successful update
@@ -164,6 +188,11 @@ export const GoalsTab: React.FC = () => {
         {
           text: "Confirmar",
           onPress: async () => {
+            if (!patientId) {
+              Alert.alert("Erro", "ID do paciente não encontrado");
+              return;
+            }
+
             try {
               // Find the goal to get current value
               const goal = goals.find((g) => g.id === goalId);
@@ -208,6 +237,11 @@ export const GoalsTab: React.FC = () => {
   };
 
   const handleDeleteGoal = async (goalId: string) => {
+    if (!patientId) {
+      Alert.alert("Erro", "ID do paciente não encontrado");
+      return;
+    }
+
     try {
       await goalsService.remove(patientId, goalId);
       // Refresh list after successful deletion
@@ -224,6 +258,23 @@ export const GoalsTab: React.FC = () => {
     const matchesType = filterType === "ALL" || goal.type === filterType;
     return matchesTab && matchesType;
   });
+
+  // 🔍 GUARD: Se patientId não existir, mostrar erro
+  if (!patientId) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.emptyContent}>
+          <EmptyState
+            icon="alert-circle"
+            title="Erro"
+            message="ID do paciente não encontrado. Por favor, volte e tente novamente."
+            actionLabel="Voltar"
+            onAction={() => navigation.goBack()}
+          />
+        </View>
+      </View>
+    );
+  }
 
   const AnimatedGoalCard: React.FC<{ goal: Goal; index: number }> = ({
     goal,

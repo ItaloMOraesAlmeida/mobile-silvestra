@@ -183,12 +183,6 @@ export const AnalyticsTab: React.FC = () => {
         // await analyticsService.getGoalsStats(patientId);
         // await analyticsService.getActivityHeatmap(patientId);
         // await analyticsService.getProgressScore(patientId);
-        console.log(
-          "Fetching analytics for patient:",
-          patientId,
-          "period:",
-          selectedPeriod
-        );
 
         // Simulando delay da API
         await new Promise((resolve) => setTimeout(resolve, 800));
@@ -199,6 +193,7 @@ export const AnalyticsTab: React.FC = () => {
         if (isRefresh) setRefreshing(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [patientId, selectedPeriod]
   );
 

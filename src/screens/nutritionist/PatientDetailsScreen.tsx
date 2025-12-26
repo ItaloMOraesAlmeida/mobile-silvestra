@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   Modal,
   Pressable,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +24,11 @@ import {
 import { useMealPlans, MealPlan } from "../../hooks/useMealPlans";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { getPatientGoals } from "../../services/meal-consumption.service";
+import { goalsService } from "../../services/patient-details.service";
+import type { CreateGoalDto, Goal } from "../../types/patient-details.types";
+import { GoalCard } from "../../components/patient/GoalCard";
+import { getGoalTypeLabel } from "../../constants/goalTypes";
 
 interface PatientDetailsScreenProps {
   route: {
@@ -78,6 +84,8 @@ export function PatientDetailsScreen({
   const [measurements, setMeasurements] = useState<BodyMeasurement[]>([]);
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [loadingGoals, setLoadingGoals] = useState(false);
   const layout = useWindowDimensions();
 
   const [index, setIndex] = useState(0);
@@ -85,6 +93,7 @@ export function PatientDetailsScreen({
     { key: "overview", title: "Visão Geral" },
     { key: "assessments", title: "Avaliações" },
     { key: "plans", title: "Planos Alimentares" },
+    { key: "goals", title: "Metas" },
     { key: "workouts", title: "Treinos" },
   ]);
 
@@ -114,6 +123,14 @@ export function PatientDetailsScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patient]);
 
+  // Carregar metas quando a tab Goals for selecionada
+  useEffect(() => {
+    if (patient && routes[index]?.key === "goals") {
+      loadGoals();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patient, index]);
+
   // Recarregar dados quando shouldReload for true
   useEffect(() => {
     if (shouldReload) {
@@ -121,6 +138,7 @@ export function PatientDetailsScreen({
       if (patient) {
         loadMeasurements();
         loadMealPlans();
+        loadGoals(); // Adicionar reload de metas também
       } else {
         loadPatientDetails();
       }
@@ -178,6 +196,23 @@ export function PatientDetailsScreen({
     } catch (err) {
       console.error("Erro ao carregar planos alimentares:", err);
       setMealPlans([]);
+    }
+  };
+
+  // Funções para gerenciar metas
+  const loadGoals = async () => {
+    try {
+      setLoadingGoals(true);
+      const response = await goalsService.findAll(patientId);
+
+      // A API retorna um array de goals diretamente
+      const goalsData = Array.isArray(response) ? response : [];
+      setGoals(goalsData);
+    } catch (error) {
+      console.error("Erro ao carregar metas:", error);
+      setGoals([]);
+    } finally {
+      setLoadingGoals(false);
     }
   };
 
@@ -907,6 +942,83 @@ export function PatientDetailsScreen({
     );
   };
 
+  // Tab: Metas
+  const GoalsTab = () => {
+    if (loadingGoals) {
+      return (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={lightTheme.colors.primary} />
+        </View>
+      );
+    }
+
+    if (goals.length === 0) {
+      return (
+        <View style={styles.placeholderContainer}>
+          <Ionicons
+            name="flag-outline"
+            size={64}
+            color={lightTheme.colors.gray[300]}
+          />
+          <Text style={styles.placeholderTitle}>Sem Metas</Text>
+          <Text style={styles.placeholderText}>
+            Este paciente ainda não possui metas cadastradas
+          </Text>
+          <TouchableOpacity
+            style={styles.addGoalButton}
+            onPress={() =>
+              navigation.navigate("GoalCreate", {
+                patientId,
+                patientName: patient?.name,
+              })
+            }
+            activeOpacity={0.8}
+          >
+            <Ionicons name="add" size={24} color="#fff" />
+            <Text style={styles.addGoalButtonText}>Adicionar Meta</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <>
+        <ScrollView style={styles.tabContent}>
+          <View style={styles.section}>
+            {goals.map((goal: any) => (
+              <GoalCard
+                key={goal.id}
+                goal={goal}
+                onPress={() =>
+                  navigation.navigate("GoalDetails", {
+                    goal,
+                    patientId,
+                    patientName: patient?.name,
+                  })
+                }
+              />
+            ))}
+          </View>
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+
+        {/* FloatingActionButton para adicionar meta */}
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() =>
+            navigation.navigate("GoalCreate", {
+              patientId,
+              patientName: patient?.name,
+            })
+          }
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      </>
+    );
+  };
+
   // Tab: Treinos (Placeholder)
   const WorkoutsTab = () => (
     <View style={styles.placeholderContainer}>
@@ -930,6 +1042,7 @@ export function PatientDetailsScreen({
     overview: OverviewTab,
     assessments: AssessmentsTab,
     plans: PlansTab,
+    goals: GoalsTab,
     workouts: WorkoutsTab,
   });
 
@@ -1838,5 +1951,163 @@ const styles = StyleSheet.create({
     fontSize: lightTheme.typography.fontSize.sm,
     fontWeight: lightTheme.typography.fontWeight.semibold as any,
     color: lightTheme.colors.primary,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  goalCard: {
+    backgroundColor: lightTheme.colors.white,
+    borderRadius: lightTheme.borderRadius.lg,
+    padding: lightTheme.spacing.md,
+    marginBottom: lightTheme.spacing.md,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[200],
+  },
+  goalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: lightTheme.spacing.sm,
+  },
+  goalTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: lightTheme.spacing.xs,
+    flex: 1,
+  },
+  goalTitle: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+    color: lightTheme.colors.gray[900],
+    flex: 1,
+  },
+  goalStatusBadge: {
+    paddingHorizontal: lightTheme.spacing.sm,
+    paddingVertical: 4,
+    borderRadius: lightTheme.borderRadius.sm,
+  },
+  goalStatusActive: {
+    backgroundColor: lightTheme.colors.success + "20",
+  },
+  goalStatusCompleted: {
+    backgroundColor: lightTheme.colors.primary + "20",
+  },
+  goalStatusPending: {
+    backgroundColor: lightTheme.colors.warning + "20",
+  },
+  goalStatusText: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    fontWeight: lightTheme.typography.fontWeight.medium as any,
+  },
+  goalDescription: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
+    marginBottom: lightTheme.spacing.md,
+  },
+  goalValues: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: lightTheme.spacing.md,
+    paddingVertical: lightTheme.spacing.sm,
+    backgroundColor: lightTheme.colors.gray[50],
+    borderRadius: lightTheme.borderRadius.md,
+    paddingHorizontal: lightTheme.spacing.sm,
+  },
+  goalValue: {
+    alignItems: "center",
+  },
+  goalValueLabel: {
+    fontSize: lightTheme.typography.fontSize.xs,
+    color: lightTheme.colors.gray[500],
+    marginBottom: 4,
+  },
+  goalValueText: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+    color: lightTheme.colors.gray[900],
+  },
+  goalDifferencePositive: {
+    color: lightTheme.colors.warning,
+  },
+  goalDifferenceNegative: {
+    color: lightTheme.colors.error,
+  },
+  goalProgressContainer: {
+    marginBottom: lightTheme.spacing.sm,
+  },
+  goalProgressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: lightTheme.spacing.xs,
+  },
+  goalProgressLabel: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
+  },
+  goalProgressPercentage: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+    color: lightTheme.colors.primary,
+  },
+  goalProgressBarContainer: {
+    height: 8,
+    backgroundColor: lightTheme.colors.gray[200],
+    borderRadius: lightTheme.borderRadius.full,
+    overflow: "hidden",
+  },
+  goalProgressBar: {
+    height: "100%",
+    backgroundColor: lightTheme.colors.primary,
+    borderRadius: lightTheme.borderRadius.full,
+  },
+  goalFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: lightTheme.spacing.xs,
+    marginTop: lightTheme.spacing.xs,
+  },
+  goalDeadline: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[500],
+  },
+  // Estilos para FAB e botão de adicionar meta
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: lightTheme.colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  addGoalButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: lightTheme.colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: lightTheme.borderRadius.lg,
+    marginTop: lightTheme.spacing.xl,
+    gap: lightTheme.spacing.sm,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.18,
+    shadowRadius: 1.5,
+  },
+  addGoalButtonText: {
+    color: "#fff",
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
   },
 });

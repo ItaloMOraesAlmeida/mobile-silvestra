@@ -7,3 +7,4 @@ export { tokenService } from "./token.service";
 export { reportService } from "./report.service";
 export { pdfGeneratorService } from "./pdf-generator.service";
 export { analyticsService } from "./api/analyticsService";
+export { formulaService } from "./formula.service";

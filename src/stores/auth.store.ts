@@ -27,6 +27,11 @@ interface User {
   updatedAt: string;
   patientProfile?: {
     id: string;
+    patients?: Array<{
+      id: string;
+      nutritionistId: string;
+      status: string;
+    }>;
   };
   nutritionistProfile?: {
     id: string;
@@ -319,18 +324,7 @@ export const useAuthStore = create<AuthState>()(
 
         const { tokens } = get();
 
-        // Limpar estado local PRIMEIRO, independente da resposta da API
-        set({
-          user: null,
-          tokens: null,
-          isAuthenticated: false,
-          pendingBiometricSetup: null,
-        });
-
-        // Limpa o tokenService
-        tokenService.clearTokens();
-
-        // Tentar notificar a API (mas não bloquear se falhar)
+        // Tentar notificar a API ANTES de limpar os tokens (para incluir autenticação)
         if (tokens?.refreshToken && tokens?.accessToken) {
           try {
             await api.post("/auth/logout", {
@@ -341,6 +335,17 @@ export const useAuthStore = create<AuthState>()(
             // (é normal falhar se a sessão já expirou)
           }
         }
+
+        // Limpar estado local DEPOIS da chamada à API
+        set({
+          user: null,
+          tokens: null,
+          isAuthenticated: false,
+          pendingBiometricSetup: null,
+        });
+
+        // Limpa o tokenService
+        tokenService.clearTokens();
 
         isLoggingOut = false;
       },

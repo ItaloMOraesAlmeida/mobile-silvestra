@@ -32,8 +32,9 @@ export async function searchFoods(
   // Support optional abort signal passed via params.signal
   const response = await api.get<{ success: boolean; data: FoodListResponse }>(
     url,
-    undefined,
-    params.signal
+    {
+      signal: params.signal,
+    }
   );
 
   // API retorna { success: true, data: {...} } por causa do TransformInterceptor
