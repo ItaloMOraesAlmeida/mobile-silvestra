@@ -75,62 +75,79 @@ export const usePatients = () => {
 
   /**
    * Busca lista de pacientes com filtros opcionais
+   * @param filters - Filtros opcionais
+   * @param append - Se true, adiciona ao array existente (para paginação). Se false, substitui
    */
-  const getPatients = useCallback(async (filters?: PatientFilters) => {
-    setLoading(true);
-    setError(null);
+  const getPatients = useCallback(
+    async (filters?: PatientFilters, append: boolean = false) => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const params = new URLSearchParams();
+      try {
+        const params = new URLSearchParams();
 
-      if (filters?.status) params.append("status", filters.status);
-      if (filters?.lastContactBefore)
-        params.append("lastContactBefore", filters.lastContactBefore);
-      if (filters?.lastContactAfter)
-        params.append("lastContactAfter", filters.lastContactAfter);
-      if (filters?.adherenceMin !== undefined)
-        params.append("adherenceMin", filters.adherenceMin.toString());
-      if (filters?.adherenceMax !== undefined)
-        params.append("adherenceMax", filters.adherenceMax.toString());
-      if (filters?.search) params.append("search", filters.search);
-      if (filters?.page) params.append("page", filters.page.toString());
-      if (filters?.limit) params.append("limit", filters.limit.toString());
+        if (filters?.status) params.append("status", filters.status);
+        if (filters?.lastContactBefore)
+          params.append("lastContactBefore", filters.lastContactBefore);
+        if (filters?.lastContactAfter)
+          params.append("lastContactAfter", filters.lastContactAfter);
+        if (filters?.adherenceMin !== undefined)
+          params.append("adherenceMin", filters.adherenceMin.toString());
+        if (filters?.adherenceMax !== undefined)
+          params.append("adherenceMax", filters.adherenceMax.toString());
+        if (filters?.search) params.append("search", filters.search);
+        if (filters?.page) params.append("page", filters.page.toString());
+        if (filters?.limit) params.append("limit", filters.limit.toString());
 
-      const url = `/patients?${params.toString()}`;
+        const url = `/patients?${params.toString()}`;
 
-      const response = await api.get<PatientsResponse>(url);
+        const response = await api.get<PatientsResponse>(url);
 
-      // O api.service retorna o corpo já parseado. Algumas rotas retornam
-      // diretamente o array de pacientes, outras retornam um objeto { data, meta }.
-      // Normalizamos ambos os formatos aqui para evitar que `patients` vire undefined.
-      const resAny: any = response;
+        // O api.service retorna o corpo já parseado. Algumas rotas retornam
+        // diretamente o array de pacientes, outras retornam um objeto { data, meta }.
+        // Normalizamos ambos os formatos aqui para evitar que `patients` vire undefined.
+        const resAny: any = response;
 
-      // A API retorna { success: true, data: { data: [...], meta: {...} } }
-      // Então precisamos acessar resAny.data primeiro
-      const apiData = resAny.data || resAny;
+        // A API retorna { success: true, data: { data: [...], meta: {...} } }
+        // Então precisamos acessar resAny.data primeiro
+        const apiData = resAny.data || resAny;
 
-      if (apiData && apiData.data && Array.isArray(apiData.data)) {
-        setPatients(apiData.data as Patient[]);
-        setMeta(apiData.meta || null);
-      } else if (Array.isArray(apiData)) {
-        setPatients(apiData as Patient[]);
-        setMeta(null);
-      } else {
-        // Caso inesperado: fallback para array vazio
-        setPatients([]);
-        setMeta(null);
+        if (apiData && apiData.data && Array.isArray(apiData.data)) {
+          const newPatients = apiData.data as Patient[];
+          setPatients((prev) =>
+            append ? [...prev, ...newPatients] : newPatients
+          );
+          setMeta(apiData.meta || null);
+        } else if (Array.isArray(apiData)) {
+          const newPatients = apiData as Patient[];
+          setPatients((prev) =>
+            append ? [...prev, ...newPatients] : newPatients
+          );
+          setMeta(null);
+        } else {
+          // Caso inesperado: fallback para array vazio
+          console.warn(
+            "⚠️ [usePatients] Formato de resposta inesperado:",
+            apiData
+          );
+          if (!append) {
+            setPatients([]);
+            setMeta(null);
+          }
+        }
+
+        return response;
+      } catch (err: any) {
+        const errorMessage =
+          err.response?.data?.message || "Erro ao buscar pacientes";
+        setError(errorMessage);
+        throw err;
+      } finally {
+        setLoading(false);
       }
-
-      return response;
-    } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.message || "Erro ao buscar pacientes";
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   /**
    * Busca um paciente específico por ID
@@ -140,7 +157,8 @@ export const usePatients = () => {
     setError(null);
 
     try {
-      const response = await api.get<Patient>(`/patients/${patientId}`);
+      const url = `/patients/${patientId}`;
+      const response = await api.get<Patient>(url);
       return response;
     } catch (err: any) {
       const errorMessage =

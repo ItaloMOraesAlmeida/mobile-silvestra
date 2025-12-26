@@ -23,11 +23,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "../../theme";
 import { useAuthStore } from "../../stores/auth.store";
-import { bodyMeasurementsService } from "../../services/patient-details.service";
+import { useBodyMeasurements } from "../../hooks/useBodyMeasurements";
 import type {
   BodyMeasurement,
   CreateBodyMeasurementDto,
-} from "../../types/patient-details.types";
+} from "../../hooks/useBodyMeasurements";
 
 interface MyMeasurementsScreenProps {
   navigation: any;
@@ -37,21 +37,23 @@ export function MyMeasurementsScreen({
   navigation,
 }: MyMeasurementsScreenProps) {
   const user = useAuthStore((s) => s.user);
-  const patientId = user?.patientProfile?.id;
+  // ID do relacionamento Patient (paciente-nutricionista)
+  const patientId = user?.patientProfile?.patients?.[0]?.id;
+
+  const { listMeasurements, createMeasurement } = useBodyMeasurements();
 
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [measurements, setMeasurements] = React.useState<BodyMeasurement[]>([]);
-  const [latest, setLatest] = React.useState<BodyMeasurement | null>(null);
 
   // Form state
   const [weight, setWeight] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [showForm, setShowForm] = React.useState(false);
 
-  const fetchMeasurements = React.useCallback(async () => {
+  const fetchMeasurements = async () => {
     if (!patientId) {
       setError("Perfil de paciente não encontrado");
       setLoading(false);
@@ -59,39 +61,33 @@ export function MyMeasurementsScreen({
     }
 
     try {
-      const response = await bodyMeasurementsService.findAll(patientId, {
+      const response = await listMeasurements(patientId, {
         limit: 10,
         sortOrder: "desc",
       });
 
-      setMeasurements(response.data || []);
-
-      try {
-        const latestData = await bodyMeasurementsService.findLatest(patientId);
-        setLatest(latestData);
-      } catch {
-        // Sem medições ainda
-        setLatest(null);
-      }
-
+      // O hook retorna { measurements: [], total, page, limit }
+      setMeasurements(response?.measurements || []);
       setError(null);
     } catch (err: any) {
-      console.error("Erro ao buscar medições:", err);
-      setError(err?.response?.data?.message || "Erro ao carregar medições");
+      console.error("❌ [MyMeasurements] Erro ao buscar medições:", err);
+      setError(err?.message || "Erro ao carregar medições");
+      setMeasurements([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [patientId]);
+  };
 
   React.useEffect(() => {
     fetchMeasurements();
-  }, [fetchMeasurements]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientId]);
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = () => {
     setRefreshing(true);
     fetchMeasurements();
-  }, [fetchMeasurements]);
+  };
 
   const handleSubmit = async () => {
     if (!weight.trim()) {
@@ -116,13 +112,16 @@ export function MyMeasurementsScreen({
     setSubmitting(true);
 
     try {
+      // Pegar altura da última medição ou usar padrão
+      const lastHeight = measurements.length > 0 ? measurements[0].height : 170;
+
       const data: CreateBodyMeasurementDto = {
         weight: weightValue,
-        height: latest?.height || 170, // Usa altura da última medição ou padrão
+        height: lastHeight,
         notes: notes.trim() || undefined,
       };
 
-      await bodyMeasurementsService.create(patientId, data);
+      await createMeasurement(patientId, data);
 
       Alert.alert("Sucesso! 🎉", "Peso registrado com sucesso", [
         {
@@ -136,11 +135,8 @@ export function MyMeasurementsScreen({
         },
       ]);
     } catch (err: any) {
-      console.error("Erro ao registrar peso:", err);
-      Alert.alert(
-        "Erro",
-        err?.response?.data?.message || "Erro ao registrar peso"
-      );
+      console.error("❌ [MyMeasurements] Erro ao registrar peso:", err);
+      Alert.alert("Erro", err?.message || "Erro ao registrar peso");
     } finally {
       setSubmitting(false);
     }
@@ -205,29 +201,23 @@ export function MyMeasurementsScreen({
           style={styles.header}
         >
           <View style={styles.headerContent}>
-            <View>
+            <View style={styles.headerTextContainer}>
               <Text style={styles.headerTitle}>Minhas Medições</Text>
               <Text style={styles.headerSubtitle}>Acompanhe sua evolução</Text>
             </View>
-            <View style={styles.headerIcon}>
-              <Ionicons
-                name="analytics-outline"
-                size={32}
-                color={lightTheme.colors.white}
-              />
-            </View>
+            {measurements.length > 0 && (
+              <View style={styles.headerWeightBadge}>
+                <Ionicons
+                  name="scale-outline"
+                  size={20}
+                  color={lightTheme.colors.white}
+                />
+                <Text style={styles.headerWeightValue}>
+                  {measurements[0].weight} kg
+                </Text>
+              </View>
+            )}
           </View>
-
-          {/* Latest Weight Card */}
-          {latest && (
-            <View style={styles.latestCard}>
-              <Text style={styles.latestLabel}>Peso Atual</Text>
-              <Text style={styles.latestValue}>{latest.weight} kg</Text>
-              <Text style={styles.latestDate}>
-                {formatDate(latest.createdAt)}
-              </Text>
-            </View>
-          )}
         </LinearGradient>
 
         {/* Content */}
@@ -360,74 +350,123 @@ export function MyMeasurementsScreen({
               </View>
             ) : (
               <View style={styles.measurementsList}>
-                {measurements.map((measurement, index) => {
-                  const previous = measurements[index + 1];
-                  const diff = previous
-                    ? calculateDifference(measurement.weight, previous.weight)
-                    : null;
+                {Array.isArray(measurements) &&
+                  measurements.map((measurement, index) => {
+                    const previous = measurements[index + 1];
+                    const diff = previous
+                      ? calculateDifference(measurement.weight, previous.weight)
+                      : null;
 
-                  return (
-                    <View key={measurement.id} style={styles.measurementCard}>
-                      <View style={styles.measurementHeader}>
-                        <View style={styles.measurementIcon}>
-                          <Ionicons
-                            name="scale-outline"
-                            size={24}
-                            color={lightTheme.colors.white}
-                          />
-                        </View>
-                        <View style={styles.measurementInfo}>
-                          <View style={styles.measurementTitleRow}>
-                            <Text style={styles.measurementWeight}>
-                              {measurement.weight} kg
+                    return (
+                      <TouchableOpacity
+                        key={measurement.id}
+                        style={styles.measurementCard}
+                        activeOpacity={0.7}
+                        onPress={() =>
+                          navigation.navigate("PatientMeasurementDetails", {
+                            measurement: measurement,
+                          })
+                        }
+                      >
+                        <View style={styles.measurementHighlights}>
+                          <View style={styles.measurementHighlight}>
+                            <Ionicons
+                              name="scale-outline"
+                              size={24}
+                              color={lightTheme.colors.primary}
+                            />
+                            <Text style={styles.measurementValue}>
+                              {measurement.weight?.toFixed(1) || "--"} kg
                             </Text>
-                            {diff && (
-                              <View
-                                style={[
-                                  styles.diffBadge,
-                                  diff.isIncrease && styles.diffBadgeIncrease,
-                                  diff.isDecrease && styles.diffBadgeDecrease,
-                                ]}
-                              >
-                                <Ionicons
-                                  name={
-                                    diff.isIncrease
-                                      ? "trending-up"
-                                      : "trending-down"
-                                  }
-                                  size={12}
-                                  color={
-                                    diff.isIncrease
-                                      ? lightTheme.colors.error
-                                      : lightTheme.colors.success
-                                  }
-                                />
-                                <Text
-                                  style={[
-                                    styles.diffText,
-                                    diff.isIncrease && styles.diffTextIncrease,
-                                    diff.isDecrease && styles.diffTextDecrease,
-                                  ]}
-                                >
-                                  {diff.value} kg
-                                </Text>
-                              </View>
-                            )}
+                            <Text style={styles.measurementLabel}>Peso</Text>
                           </View>
+
+                          {measurement.bmi && (
+                            <View style={styles.measurementHighlight}>
+                              <Ionicons
+                                name="analytics-outline"
+                                size={24}
+                                color={lightTheme.colors.primary}
+                              />
+                              <Text style={styles.measurementValue}>
+                                {measurement.bmi.toFixed(1)}
+                              </Text>
+                              <Text style={styles.measurementLabel}>IMC</Text>
+                            </View>
+                          )}
+
+                          {measurement.bodyFatPercent && (
+                            <View style={styles.measurementHighlight}>
+                              <Ionicons
+                                name="water-outline"
+                                size={24}
+                                color={lightTheme.colors.primary}
+                              />
+                              <Text style={styles.measurementValue}>
+                                {measurement.bodyFatPercent.toFixed(1)}%
+                              </Text>
+                              <Text style={styles.measurementLabel}>
+                                Gordura
+                              </Text>
+                            </View>
+                          )}
+
+                          {measurement.muscleMass && (
+                            <View style={styles.measurementHighlight}>
+                              <Ionicons
+                                name="fitness-outline"
+                                size={24}
+                                color={lightTheme.colors.primary}
+                              />
+                              <Text style={styles.measurementValue}>
+                                {measurement.muscleMass.toFixed(1)} kg
+                              </Text>
+                              <Text style={styles.measurementLabel}>
+                                Músculo
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+
+                        {diff && (
+                          <View style={styles.measurementComparison}>
+                            <Ionicons
+                              name={
+                                diff.isIncrease
+                                  ? "trending-up"
+                                  : "trending-down"
+                              }
+                              size={16}
+                              color={
+                                diff.isIncrease
+                                  ? lightTheme.colors.warning
+                                  : lightTheme.colors.success
+                              }
+                            />
+                            <Text style={styles.measurementComparisonText}>
+                              {diff.value} kg desde a última medição
+                            </Text>
+                          </View>
+                        )}
+
+                        <View style={styles.measurementFooter}>
                           <Text style={styles.measurementDate}>
                             {formatDateTime(measurement.createdAt)}
                           </Text>
+                          <View style={styles.measurementAction}>
+                            <Text style={styles.measurementActionText}>
+                              Ver detalhes
+                            </Text>
+                            <Ionicons
+                              name="chevron-forward"
+                              size={16}
+                              color={lightTheme.colors.primary}
+                            />
+                          </View>
                         </View>
-                      </View>
-
-                      {measurement.notes && (
-                        <Text style={styles.measurementNotes}>
-                          {measurement.notes}
-                        </Text>
-                      )}
-                    </View>
-                  );
-                })}
+                      </TouchableOpacity>
+                    );
+                  })}
               </View>
             )}
           </View>
@@ -444,56 +483,41 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 60,
-    paddingBottom: 24,
-    paddingHorizontal: 24,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
   },
   headerContent: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "bold",
     color: lightTheme.colors.white,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: lightTheme.colors.white,
-    opacity: 0.9,
-  },
-  headerIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  latestCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 16,
-    padding: 20,
-    alignItems: "center",
-  },
-  latestLabel: {
-    fontSize: 14,
-    color: lightTheme.colors.white,
-    opacity: 0.9,
-    marginBottom: 8,
-  },
-  latestValue: {
-    fontSize: 48,
-    fontWeight: "bold",
-    color: lightTheme.colors.white,
-    marginBottom: 4,
-  },
-  latestDate: {
     fontSize: 13,
     color: lightTheme.colors.white,
-    opacity: 0.8,
+    opacity: 0.9,
+  },
+  headerWeightBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  headerWeightValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: lightTheme.colors.white,
   },
   scrollView: {
     flex: 1,
@@ -639,18 +663,69 @@ const styles = StyleSheet.create({
   },
   measurementCard: {
     backgroundColor: lightTheme.colors.white,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 16,
+    padding: 20,
+    ...lightTheme.shadows.md,
   },
-  measurementHeader: {
+  measurementHighlights: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: lightTheme.colors.gray[200],
+  },
+  measurementHighlight: {
+    alignItems: "center",
+    flex: 1,
+    gap: 4,
+  },
+  measurementValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: lightTheme.colors.gray[900],
+  },
+  measurementLabel: {
+    fontSize: 11,
+    color: lightTheme.colors.gray[600],
+    textAlign: "center",
+  },
+  measurementComparison: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 6,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: lightTheme.colors.gray[50],
+    borderRadius: 8,
+  },
+  measurementComparisonText: {
+    fontSize: 13,
+    color: lightTheme.colors.gray[700],
+    fontWeight: "500",
+  },
+  measurementFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: lightTheme.colors.gray[100],
+  },
+  measurementDate: {
+    fontSize: 13,
+    color: lightTheme.colors.gray[600],
+  },
+  measurementAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  measurementActionText: {
+    fontSize: 13,
+    color: lightTheme.colors.primary,
+    fontWeight: "600",
   },
   measurementIcon: {
     width: 48,
@@ -662,62 +737,5 @@ const styles = StyleSheet.create({
   },
   measurementIconPatient: {
     backgroundColor: lightTheme.colors.success,
-  },
-  measurementInfo: {
-    flex: 1,
-  },
-  measurementTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 4,
-  },
-  measurementWeight: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: lightTheme.colors.gray[900],
-  },
-  diffBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  diffBadgeIncrease: {
-    backgroundColor: lightTheme.colors.error + "20",
-  },
-  diffBadgeDecrease: {
-    backgroundColor: lightTheme.colors.success + "20",
-  },
-  diffText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  diffTextIncrease: {
-    color: lightTheme.colors.error,
-  },
-  diffTextDecrease: {
-    color: lightTheme.colors.success,
-  },
-  measurementDate: {
-    fontSize: 14,
-    color: lightTheme.colors.gray[600],
-    marginBottom: 2,
-  },
-  measurementRegisteredBy: {
-    fontSize: 12,
-    color: lightTheme.colors.gray[500],
-    fontStyle: "italic",
-  },
-  measurementNotes: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: lightTheme.colors.gray[200],
-    fontSize: 14,
-    color: lightTheme.colors.gray[600],
-    lineHeight: 20,
   },
 });

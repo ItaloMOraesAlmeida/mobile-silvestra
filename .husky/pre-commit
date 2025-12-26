@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Executa o script interativo de versionamento
+# < /dev/tty é necessário para que o inquirer funcione dentro do hook do git
+node scripts/interactive-bump.js < /dev/tty
+
+# Se quiser rodar testes depois, descomente a linha abaixo:
+# npm test

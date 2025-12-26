@@ -10,11 +10,14 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { lightTheme } from "../../theme";
 import { useAuthStore } from "../../stores/auth.store";
 import { api } from "../../services/api.service";
 import Toast from "react-native-toast-message";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { nutritionistAddressService } from "../../services/nutritionist/address.service";
+import type { NutritionistAddress } from "../../types/nutritionist/address";
 
 interface FormData {
   // Dados básicos (User)
@@ -38,6 +41,8 @@ export function EditProfileScreen() {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const [isSaving, setIsSaving] = useState(false);
+  const [addresses, setAddresses] = useState<NutritionistAddress[]>([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -70,6 +75,29 @@ export function EditProfileScreen() {
   useEffect(() => {
     loadUserData();
   }, [loadUserData]);
+
+  const loadAddresses = React.useCallback(async () => {
+    if (!user?.nutritionistProfile) return;
+
+    try {
+      setLoadingAddresses(true);
+      const data = await nutritionistAddressService.findAll();
+      setAddresses(data);
+    } catch (error) {
+      console.error("Erro ao carregar endereços:", error);
+    } finally {
+      setLoadingAddresses(false);
+    }
+  }, [user]);
+
+  // Recarrega endereços quando a tela ganha foco
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user?.nutritionistProfile) {
+        loadAddresses();
+      }
+    }, [user, loadAddresses])
+  );
 
   const formatDateForDisplay = (isoDate: string): string => {
     try {
@@ -484,6 +512,110 @@ export function EditProfileScreen() {
                 textAlignVertical="top"
               />
             </View>
+
+            {/* Endereços Cadastrados */}
+            {loadingAddresses ? (
+              <View style={styles.addressLoadingContainer}>
+                <ActivityIndicator size="small" color="#8b5a9f" />
+                <Text style={styles.addressLoadingText}>
+                  Carregando endereços...
+                </Text>
+              </View>
+            ) : addresses.length > 0 ? (
+              <View style={styles.addressesSection}>
+                <Text style={styles.addressesSectionTitle}>Meus Endereços</Text>
+                {(() => {
+                  const primaryAddress = addresses.find((a) => a.isPrimary);
+                  const serviceAddress = addresses.find(
+                    (a) => a.isServiceLocation
+                  );
+                  const isSameAddress =
+                    primaryAddress &&
+                    serviceAddress &&
+                    primaryAddress.id === serviceAddress.id;
+
+                  return (
+                    <View style={styles.addressesContainer}>
+                      {primaryAddress && (
+                        <View style={styles.addressCard}>
+                          <View style={styles.addressCardHeader}>
+                            <Ionicons name="home" size={18} color="#8b5a9f" />
+                            <Text style={styles.addressCardTitle}>
+                              {isSameAddress
+                                ? "Endereço Principal e de Atendimento"
+                                : "Endereço Principal"}
+                            </Text>
+                          </View>
+                          <Text style={styles.addressCardText}>
+                            {primaryAddress.street}, {primaryAddress.number}
+                          </Text>
+                          <Text style={styles.addressCardText}>
+                            {primaryAddress.neighborhood} -{" "}
+                            {primaryAddress.city}/{primaryAddress.state}
+                          </Text>
+                          <Text style={styles.addressCardText}>
+                            CEP: {primaryAddress.zipCode}
+                          </Text>
+                        </View>
+                      )}
+
+                      {!isSameAddress && serviceAddress && (
+                        <View style={styles.addressCard}>
+                          <View style={styles.addressCardHeader}>
+                            <Ionicons
+                              name="medical"
+                              size={18}
+                              color="#8b5a9f"
+                            />
+                            <Text style={styles.addressCardTitle}>
+                              Local de Atendimento
+                            </Text>
+                          </View>
+                          <Text style={styles.addressCardText}>
+                            {serviceAddress.street}, {serviceAddress.number}
+                          </Text>
+                          <Text style={styles.addressCardText}>
+                            {serviceAddress.neighborhood} -{" "}
+                            {serviceAddress.city}/{serviceAddress.state}
+                          </Text>
+                          <Text style={styles.addressCardText}>
+                            CEP: {serviceAddress.zipCode}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+              </View>
+            ) : null}
+
+            {/* Gerenciamento de Endereços */}
+            <TouchableOpacity
+              style={styles.manageAddressButton}
+              onPress={() =>
+                navigation.navigate("NutritionistAddressList" as never)
+              }
+              activeOpacity={0.7}
+            >
+              <View style={styles.manageAddressContent}>
+                <View style={styles.manageAddressIconContainer}>
+                  <Ionicons name="location" size={20} color="#ffffff" />
+                </View>
+                <View style={styles.manageAddressTextContainer}>
+                  <Text style={styles.manageAddressTitle}>
+                    Locais de Atendimento
+                  </Text>
+                  <Text style={styles.manageAddressSubtitle}>
+                    {addresses.length > 0
+                      ? `${addresses.length} endereço${
+                          addresses.length > 1 ? "s" : ""
+                        } cadastrado${addresses.length > 1 ? "s" : ""}`
+                      : "Gerencie seus endereços"}
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+            </TouchableOpacity>
           </View>
         )}
 
@@ -602,6 +734,95 @@ const styles = StyleSheet.create({
   radioLabel: {
     fontSize: lightTheme.typography.fontSize.base,
     color: lightTheme.colors.gray[700],
+  },
+  addressLoadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: lightTheme.spacing.lg,
+    backgroundColor: lightTheme.colors.white,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[300],
+    borderRadius: lightTheme.borderRadius.lg,
+    marginTop: lightTheme.spacing.md,
+  },
+  addressLoadingText: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
+  },
+  addressesSection: {
+    marginTop: lightTheme.spacing.md,
+  },
+  addressesSectionTitle: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+    color: lightTheme.colors.gray[900],
+    marginBottom: lightTheme.spacing.sm,
+  },
+  addressesContainer: {
+    gap: lightTheme.spacing.sm,
+  },
+  addressCard: {
+    backgroundColor: lightTheme.colors.white,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[300],
+    borderRadius: lightTheme.borderRadius.lg,
+    padding: lightTheme.spacing.md,
+  },
+  addressCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: lightTheme.spacing.xs,
+  },
+  addressCardTitle: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+    color: lightTheme.colors.primary,
+  },
+  addressCardText: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[700],
+    lineHeight: 20,
+  },
+  manageAddressButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: lightTheme.colors.white,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[300],
+    borderRadius: lightTheme.borderRadius.lg,
+    padding: lightTheme.spacing.lg,
+    marginTop: lightTheme.spacing.md,
+  },
+  manageAddressContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: lightTheme.spacing.md,
+    flex: 1,
+  },
+  manageAddressIconContainer: {
+    width: 40,
+    height: 40,
+    backgroundColor: lightTheme.colors.primaryLight,
+    borderRadius: lightTheme.borderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  manageAddressTextContainer: {
+    flex: 1,
+  },
+  manageAddressTitle: {
+    fontSize: lightTheme.typography.fontSize.base,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+    color: lightTheme.colors.gray[900],
+    marginBottom: 2,
+  },
+  manageAddressSubtitle: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
   },
   saveButton: {
     alignItems: "center",

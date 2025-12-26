@@ -1,6 +1,8 @@
 import React from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
-import { BarChart } from "react-native-chart-kit";
+import Svg, { G, Rect, Line, Text as SvgText } from "react-native-svg";
+import { scaleLinear, scaleBand } from "d3-scale";
+import { max } from "d3-array";
 import { useThemedStyles, useTheme } from "../../hooks/useTheme";
 import type { Theme } from "../../theme";
 
@@ -77,6 +79,27 @@ export const BodyCompositionChart: React.FC<BodyCompositionChartProps> = ({
     fatMassChange = latestData.fatMass - previousData.fatMass;
   }
 
+  // Configurar gráfico D3
+  const chartWidth = screenWidth - 32;
+  const chartHeight = 220;
+  const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+  const innerWidth = chartWidth - padding.left - padding.right;
+  const innerHeight = chartHeight - padding.top - padding.bottom;
+
+  // Escalas
+  const xScale = scaleBand().domain(labels).range([0, innerWidth]).padding(0.3);
+
+  const maxValue = Math.max(
+    max(leanMassData.map((l, i) => l + fatMassData[i])) || 0
+  );
+
+  const yScale = scaleLinear()
+    .domain([0, maxValue])
+    .range([innerHeight, 0])
+    .nice();
+
+  const yTicks = yScale.ticks(5);
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -105,46 +128,114 @@ export const BodyCompositionChart: React.FC<BodyCompositionChartProps> = ({
       </View>
 
       {/* Chart */}
-      <BarChart
-        data={{
-          labels,
-          datasets: [
-            {
-              data: leanMassData,
-              color: () => theme.colors.primary,
-            },
-            {
-              data: fatMassData,
-              color: () => theme.colors.warning,
-            },
-          ],
-        }}
-        width={screenWidth - 32}
-        height={220}
-        yAxisLabel=""
-        yAxisSuffix=" kg"
-        chartConfig={{
-          backgroundColor: theme.colors.card,
-          backgroundGradientFrom: theme.colors.card,
-          backgroundGradientTo: theme.colors.card,
-          decimalPlaces: 1,
-          color: (opacity = 1) => `rgba(0, 0, 0, ${opacity * 0.2})`,
-          labelColor: () => theme.colors.textSecondary,
-          style: {
-            borderRadius: theme.borderRadius.lg,
-          },
-          barPercentage: 0.7,
-          propsForBackgroundLines: {
-            strokeDasharray: "",
-            stroke: theme.colors.border,
-            strokeWidth: 1,
-          },
-        }}
-        style={styles.chart}
-        withInnerLines
-        showValuesOnTopOfBars={false}
-        fromZero
-      />
+      <View style={styles.chartContainer}>
+        <Svg width={chartWidth} height={chartHeight}>
+          <G x={padding.left} y={padding.top}>
+            {/* Grid horizontal */}
+            {yTicks.map((tick) => (
+              <Line
+                key={`grid-${tick}`}
+                x1={0}
+                y1={yScale(tick)}
+                x2={innerWidth}
+                y2={yScale(tick)}
+                stroke={theme.colors.border}
+                strokeWidth={1}
+                opacity={0.2}
+              />
+            ))}
+
+            {/* Barras empilhadas */}
+            {labels.map((label, index) => {
+              const x = xScale(label) || 0;
+              const barWidth = xScale.bandwidth();
+              const leanMassValue = leanMassData[index];
+              const fatMassValue = fatMassData[index];
+              const totalValue = leanMassValue + fatMassValue;
+
+              const leanHeight = innerHeight - yScale(leanMassValue);
+              const fatHeight = innerHeight - yScale(fatMassValue);
+              const leanY = yScale(leanMassValue);
+              const fatY = yScale(totalValue);
+
+              return (
+                <G key={label}>
+                  {/* Barra massa magra (base) */}
+                  <Rect
+                    x={x}
+                    y={leanY}
+                    width={barWidth}
+                    height={leanHeight}
+                    fill={theme.colors.primary}
+                    opacity={0.8}
+                  />
+                  {/* Barra massa gorda (empilhada em cima) */}
+                  <Rect
+                    x={x}
+                    y={fatY}
+                    width={barWidth}
+                    height={fatHeight}
+                    fill={theme.colors.warning}
+                    opacity={0.8}
+                  />
+                </G>
+              );
+            })}
+
+            {/* Eixo Y */}
+            <Line
+              x1={0}
+              y1={0}
+              x2={0}
+              y2={innerHeight}
+              stroke={theme.colors.border}
+              strokeWidth={1}
+            />
+
+            {/* Labels do eixo Y */}
+            {yTicks.map((tick) => (
+              <SvgText
+                key={`label-y-${tick}`}
+                x={-10}
+                y={yScale(tick)}
+                fontSize={10}
+                fill={theme.colors.text}
+                textAnchor="end"
+                alignmentBaseline="middle"
+              >
+                {tick.toFixed(1)} kg
+              </SvgText>
+            ))}
+
+            {/* Eixo X */}
+            <Line
+              x1={0}
+              y1={innerHeight}
+              x2={innerWidth}
+              y2={innerHeight}
+              stroke={theme.colors.border}
+              strokeWidth={1}
+            />
+
+            {/* Labels do eixo X */}
+            {labels.map((label, index) => {
+              const x = (xScale(label) || 0) + xScale.bandwidth() / 2;
+              return (
+                <SvgText
+                  key={`label-x-${label}`}
+                  x={x}
+                  y={innerHeight + 15}
+                  fontSize={10}
+                  fill={theme.colors.text}
+                  textAnchor="middle"
+                >
+                  {label}
+                </SvgText>
+              );
+            })}
+          </G>
+        </Svg>
+      </View>
 
       {/* Current Composition Stats */}
       <View style={styles.currentStats}>
@@ -273,9 +364,8 @@ const createStyles = (theme: Theme) =>
       fontFamily: theme.typography.fontFamily.medium,
       color: theme.colors.textSecondary,
     },
-    chart: {
+    chartContainer: {
       marginVertical: theme.spacing.md,
-      borderRadius: theme.borderRadius.lg,
     },
     currentStats: {
       marginTop: theme.spacing.lg,

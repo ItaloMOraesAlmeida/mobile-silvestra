@@ -14,16 +14,21 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import Svg, { Circle } from "react-native-svg";
 import { lightTheme } from "../../theme";
 import { useAuthStore } from "../../stores/auth.store";
 import {
   getPatientGoals,
+  updateGoalProgress,
+  completeGoal,
   type PatientGoal,
 } from "../../services/meal-consumption.service";
+import { UpdateProgressModal } from "../../components/UpdateProgressModal";
+import { CompleteGoalModal } from "../../components/CompleteGoalModal";
 
 interface MyGoalsScreenProps {
   navigation: any;
@@ -31,22 +36,29 @@ interface MyGoalsScreenProps {
 
 export function MyGoalsScreen({ navigation }: MyGoalsScreenProps) {
   const user = useAuthStore((s) => s.user);
-  const patientId = user?.patientProfile?.id;
+
+  // CORREÇÃO: Usar patientProfile.id (PatientProfile) ao invés de patients[0].id (Patient)
+  const patientProfileId = user?.patientProfile?.id;
 
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [goals, setGoals] = React.useState<PatientGoal[]>([]);
+  const [modalVisible, setModalVisible] = React.useState(false);
+  const [completeModalVisible, setCompleteModalVisible] = React.useState(false);
+  const [selectedGoal, setSelectedGoal] = React.useState<PatientGoal | null>(
+    null
+  );
 
   const fetchGoals = React.useCallback(async () => {
-    if (!patientId) {
+    if (!patientProfileId) {
       setError("Perfil de paciente não encontrado");
       setLoading(false);
       return;
     }
 
     try {
-      const response = await getPatientGoals(patientId);
+      const response = await getPatientGoals(patientProfileId);
       setGoals(response.goals || []);
       setError(null);
     } catch (err: any) {
@@ -56,16 +68,53 @@ export function MyGoalsScreen({ navigation }: MyGoalsScreenProps) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [patientId]);
+  }, [patientProfileId]);
 
-  React.useEffect(() => {
-    fetchGoals();
-  }, [fetchGoals]);
+  // Recarrega as metas toda vez que a tela recebe foco
+  useFocusEffect(
+    React.useCallback(() => {
+      setLoading(true);
+      fetchGoals();
+    }, [fetchGoals])
+  );
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     fetchGoals();
   }, [fetchGoals]);
+
+  const handleUpdateProgress = async (
+    goalId: string,
+    newValue: number,
+    notes?: string
+  ) => {
+    if (!patientProfileId) return;
+
+    try {
+      await updateGoalProgress(patientProfileId, goalId, {
+        current: newValue,
+        notes,
+      });
+      fetchGoals(); // Recarrega as metas após atualização
+    } catch (err: any) {
+      Alert.alert(
+        "Erro",
+        err?.response?.data?.message || "Erro ao atualizar progresso"
+      );
+    }
+  };
+
+  const handleCompleteGoal = async (
+    goalId: string,
+    finalValue: number,
+    notes?: string
+  ) => {
+    if (!patientProfileId) return;
+
+    await completeGoal(patientProfileId, goalId, finalValue);
+    setCompleteModalVisible(false);
+    fetchGoals();
+  };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -91,12 +140,6 @@ export function MyGoalsScreen({ navigation }: MyGoalsScreenProps) {
       default:
         return status;
     }
-  };
-
-  const getProgressColor = (progress: number) => {
-    if (progress >= 80) return lightTheme.colors.success;
-    if (progress >= 50) return lightTheme.colors.warning;
-    return lightTheme.colors.primary;
   };
 
   const formatDate = (dateString?: string) => {
@@ -130,7 +173,7 @@ export function MyGoalsScreen({ navigation }: MyGoalsScreenProps) {
     return daysLeft !== null && daysLeft < 0;
   };
 
-  if (!patientId) {
+  if (!patientProfileId) {
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
@@ -240,150 +283,154 @@ export function MyGoalsScreen({ navigation }: MyGoalsScreenProps) {
                   const isOverdue = isGoalOverdue(goal.deadline);
 
                   return (
-                    <View
+                    <TouchableOpacity
                       key={goal.id}
-                      style={[
-                        styles.goalCard,
-                        isOverdue && styles.goalCardOverdue,
-                      ]}
+                      activeOpacity={0.7}
+                      onPress={() =>
+                        navigation.navigate("PatientGoalDetails", { goal })
+                      }
                     >
-                      {/* Progress Circle */}
-                      <View style={styles.goalHeader}>
-                        <View style={styles.progressCircleContainer}>
-                          <Svg width={80} height={80}>
-                            <Circle
-                              cx={40}
-                              cy={40}
-                              r={32}
-                              stroke={lightTheme.colors.gray[200]}
-                              strokeWidth={6}
-                              fill="none"
+                      <View
+                        style={[
+                          styles.goalCard,
+                          isOverdue && styles.goalCardOverdue,
+                        ]}
+                      >
+                        {/* Goal Header */}
+                        <View style={styles.goalHeader}>
+                          <View style={styles.goalInfo}>
+                            <Text style={styles.goalName} numberOfLines={2}>
+                              {goal.name}
+                            </Text>
+                            <View style={styles.goalValues}>
+                              <View style={styles.valueItem}>
+                                <Text style={styles.valueLabel}>Atual</Text>
+                                <Text style={styles.valueText}>
+                                  {goal.currentValue} {goal.unit}
+                                </Text>
+                              </View>
+                              <Ionicons
+                                name="arrow-forward"
+                                size={16}
+                                color={lightTheme.colors.gray[400]}
+                              />
+                              <View style={styles.valueItem}>
+                                <Text style={styles.valueLabel}>Meta</Text>
+                                <Text style={styles.valueText}>
+                                  {goal.targetValue} {goal.unit}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+
+                        {/* Deadline */}
+                        {goal.deadline && (
+                          <View
+                            style={[
+                              styles.deadlineContainer,
+                              isOverdue && styles.deadlineOverdue,
+                              isNearDeadline && styles.deadlineNear,
+                            ]}
+                          >
+                            <Ionicons
+                              name={
+                                isOverdue
+                                  ? "alert-circle"
+                                  : isNearDeadline
+                                  ? "warning"
+                                  : "calendar-outline"
+                              }
+                              size={16}
+                              color={
+                                isOverdue
+                                  ? lightTheme.colors.error
+                                  : isNearDeadline
+                                  ? lightTheme.colors.warning
+                                  : lightTheme.colors.gray[600]
+                              }
                             />
-                            <Circle
-                              cx={40}
-                              cy={40}
-                              r={32}
-                              stroke={getProgressColor(goal.progress)}
-                              strokeWidth={6}
-                              fill="none"
-                              strokeDasharray={`${
-                                (goal.progress / 100) * 200
-                              } 200`}
-                              strokeLinecap="round"
-                              rotation="-90"
-                              origin="40, 40"
-                            />
-                          </Svg>
-                          <View style={styles.progressTextContainer}>
-                            <Text style={styles.progressPercentage}>
-                              {goal.progress}%
+                            <Text
+                              style={[
+                                styles.deadlineText,
+                                isOverdue && styles.deadlineTextOverdue,
+                                isNearDeadline && styles.deadlineTextNear,
+                              ]}
+                            >
+                              {isOverdue
+                                ? `Atrasado há ${Math.abs(daysLeft!)} dias`
+                                : daysLeft === 0
+                                ? "Prazo é hoje!"
+                                : `${daysLeft} ${
+                                    daysLeft === 1 ? "dia" : "dias"
+                                  } restantes`}
+                            </Text>
+                            <Text style={styles.deadlineDate}>
+                              ({formatDate(goal.deadline)})
+                            </Text>
+                          </View>
+                        )}
+
+                        {/* Footer */}
+                        <View style={styles.goalFooter}>
+                          <Text style={styles.initialValueText}>
+                            Inicial: {goal.initialValue} {goal.unit}
+                          </Text>
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              { backgroundColor: getStatusColor(goal.status) },
+                            ]}
+                          >
+                            <Text style={styles.statusText}>
+                              {getStatusLabel(goal.status)}
                             </Text>
                           </View>
                         </View>
 
-                        <View style={styles.goalInfo}>
-                          <Text style={styles.goalName} numberOfLines={2}>
-                            {goal.name}
-                          </Text>
-                          <View style={styles.goalValues}>
-                            <View style={styles.valueItem}>
-                              <Text style={styles.valueLabel}>Atual</Text>
-                              <Text style={styles.valueText}>
-                                {goal.currentValue} {goal.unit}
+                        {/* Action Buttons */}
+                        {!goal.achieved && !isOverdue && (
+                          <View style={styles.actionButtons}>
+                            <TouchableOpacity
+                              style={styles.actionButton}
+                              onPress={() => {
+                                setSelectedGoal(goal);
+                                setModalVisible(true);
+                              }}
+                            >
+                              <Ionicons
+                                name="create-outline"
+                                size={18}
+                                color="#fff"
+                              />
+                              <Text style={styles.actionButtonText}>
+                                Atualizar
                               </Text>
-                            </View>
-                            <Ionicons
-                              name="arrow-forward"
-                              size={16}
-                              color={lightTheme.colors.gray[400]}
-                            />
-                            <View style={styles.valueItem}>
-                              <Text style={styles.valueLabel}>Meta</Text>
-                              <Text style={styles.valueText}>
-                                {goal.targetValue} {goal.unit}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={[
+                                styles.actionButton,
+                                styles.completeButton,
+                              ]}
+                              onPress={() => {
+                                setSelectedGoal(goal);
+                                setCompleteModalVisible(true);
+                              }}
+                            >
+                              <Ionicons
+                                name="checkmark-circle-outline"
+                                size={18}
+                                color="#fff"
+                              />
+                              <Text style={styles.actionButtonText}>
+                                Concluir
                               </Text>
-                            </View>
+                            </TouchableOpacity>
                           </View>
-                        </View>
+                        )}
                       </View>
-
-                      {/* Deadline */}
-                      {goal.deadline && (
-                        <View
-                          style={[
-                            styles.deadlineContainer,
-                            isOverdue && styles.deadlineOverdue,
-                            isNearDeadline && styles.deadlineNear,
-                          ]}
-                        >
-                          <Ionicons
-                            name={
-                              isOverdue
-                                ? "alert-circle"
-                                : isNearDeadline
-                                ? "warning"
-                                : "calendar-outline"
-                            }
-                            size={16}
-                            color={
-                              isOverdue
-                                ? lightTheme.colors.error
-                                : isNearDeadline
-                                ? lightTheme.colors.warning
-                                : lightTheme.colors.gray[600]
-                            }
-                          />
-                          <Text
-                            style={[
-                              styles.deadlineText,
-                              isOverdue && styles.deadlineTextOverdue,
-                              isNearDeadline && styles.deadlineTextNear,
-                            ]}
-                          >
-                            {isOverdue
-                              ? `Atrasado há ${Math.abs(daysLeft!)} dias`
-                              : daysLeft === 0
-                              ? "Prazo é hoje!"
-                              : `${daysLeft} ${
-                                  daysLeft === 1 ? "dia" : "dias"
-                                } restantes`}
-                          </Text>
-                          <Text style={styles.deadlineDate}>
-                            ({formatDate(goal.deadline)})
-                          </Text>
-                        </View>
-                      )}
-
-                      {/* Progress Bar */}
-                      <View style={styles.progressBarContainer}>
-                        <View
-                          style={[
-                            styles.progressBar,
-                            {
-                              width: `${goal.progress}%`,
-                              backgroundColor: getProgressColor(goal.progress),
-                            },
-                          ]}
-                        />
-                      </View>
-
-                      {/* Footer */}
-                      <View style={styles.goalFooter}>
-                        <Text style={styles.initialValueText}>
-                          Inicial: {goal.initialValue} {goal.unit}
-                        </Text>
-                        <View
-                          style={[
-                            styles.statusBadge,
-                            { backgroundColor: getStatusColor(goal.status) },
-                          ]}
-                        >
-                          <Text style={styles.statusText}>
-                            {getStatusLabel(goal.status)}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </>
@@ -396,27 +443,57 @@ export function MyGoalsScreen({ navigation }: MyGoalsScreenProps) {
                   Metas Alcançadas 🎉
                 </Text>
                 {achievedGoals.map((goal) => (
-                  <View key={goal.id} style={styles.goalCardAchieved}>
-                    <View style={styles.achievedHeader}>
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={48}
-                        color={lightTheme.colors.success}
-                      />
-                      <View style={styles.achievedInfo}>
-                        <Text style={styles.goalName}>{goal.name}</Text>
-                        <Text style={styles.achievedValue}>
-                          {goal.targetValue} {goal.unit} alcançados!
-                        </Text>
+                  <TouchableOpacity
+                    key={goal.id}
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      navigation.navigate("PatientGoalDetails", { goal })
+                    }
+                  >
+                    <View style={styles.goalCardAchieved}>
+                      <View style={styles.achievedHeader}>
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={48}
+                          color={lightTheme.colors.success}
+                        />
+                        <View style={styles.achievedInfo}>
+                          <Text style={styles.goalName}>{goal.name}</Text>
+                          <Text style={styles.achievedValue}>
+                            {goal.targetValue} {goal.unit} alcançados!
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </>
             )}
           </View>
         )}
       </ScrollView>
+
+      {/* Update Progress Modal */}
+      <UpdateProgressModal
+        visible={modalVisible}
+        goal={selectedGoal}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedGoal(null);
+        }}
+        onUpdate={handleUpdateProgress}
+      />
+
+      {/* Complete Goal Modal */}
+      <CompleteGoalModal
+        visible={completeModalVisible}
+        goal={selectedGoal}
+        onClose={() => {
+          setCompleteModalVisible(false);
+          setSelectedGoal(null);
+        }}
+        onComplete={handleCompleteGoal}
+      />
     </View>
   );
 }
@@ -559,29 +636,7 @@ const styles = StyleSheet.create({
     borderColor: lightTheme.colors.error + "40",
   },
   goalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
     marginBottom: 16,
-  },
-  progressCircleContainer: {
-    position: "relative",
-    width: 80,
-    height: 80,
-  },
-  progressTextContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  progressPercentage: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: lightTheme.colors.gray[900],
   },
   goalInfo: {
     flex: 1,
@@ -642,17 +697,6 @@ const styles = StyleSheet.create({
     color: lightTheme.colors.gray[500],
     marginLeft: "auto",
   },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: lightTheme.colors.gray[200],
-    borderRadius: 4,
-    overflow: "hidden",
-    marginBottom: 12,
-  },
-  progressBar: {
-    height: "100%",
-    borderRadius: 4,
-  },
   goalFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -692,5 +736,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: lightTheme.colors.gray[600],
     marginTop: 4,
+  },
+  actionButtons: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: lightTheme.colors.gray[200],
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: lightTheme.colors.primary,
+    borderRadius: 8,
+  },
+  completeButton: {
+    backgroundColor: lightTheme.colors.success,
+  },
+  actionButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#fff",
   },
 });

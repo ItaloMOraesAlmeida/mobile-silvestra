@@ -14,7 +14,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Modal,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
@@ -25,7 +27,11 @@ import {
   getMealConsumptions,
   type MealConsumption,
 } from "../../services/meal-consumption.service";
-import type { MealPlan, Meal } from "../../types/meal-plan.types";
+import type {
+  MealPlan,
+  Meal,
+  FoodNutrition,
+} from "../../types/meal-plan.types";
 
 interface MealPlanDetailsForPatientScreenProps {
   navigation: any;
@@ -38,13 +44,18 @@ export function MealPlanDetailsForPatientScreen({
 }: MealPlanDetailsForPatientScreenProps) {
   const { planId } = route.params;
   const user = useAuthStore((s) => s.user);
-  const patientId = user?.patientProfile?.id;
+  // ID do relacionamento Patient (paciente-nutricionista)
+  const patientId = user?.patientProfile?.patients?.[0]?.id;
 
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [plan, setPlan] = React.useState<MealPlan | null>(null);
   const [consumptions, setConsumptions] = React.useState<MealConsumption[]>([]);
+  const [substitutionModalVisible, setSubstitutionModalVisible] =
+    React.useState(false);
+  const [selectedFoodItem, setSelectedFoodItem] =
+    React.useState<FoodNutrition | null>(null);
 
   const fetchPlanDetails = React.useCallback(async () => {
     if (!planId || !patientId) {
@@ -67,6 +78,8 @@ export function MealPlanDetailsForPatientScreen({
           mealIds.includes(c.mealId)
         );
         setConsumptions(planConsumptions);
+      } else {
+        setConsumptions([]);
       }
 
       setError(null);
@@ -85,10 +98,32 @@ export function MealPlanDetailsForPatientScreen({
     fetchPlanDetails();
   }, [fetchPlanDetails]);
 
+  // Recarregar dados quando a tela receber foco (ex: volta do check-in)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (planId && patientId) {
+        fetchPlanDetails();
+      }
+    }, [planId, patientId, fetchPlanDetails])
+  );
+
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     fetchPlanDetails();
   }, [fetchPlanDetails]);
+
+  const getDayOfWeekLabel = (day: string) => {
+    const labels: { [key: string]: string } = {
+      SUNDAY: "Domingo",
+      MONDAY: "Segunda-feira",
+      TUESDAY: "Terça-feira",
+      WEDNESDAY: "Quarta-feira",
+      THURSDAY: "Quinta-feira",
+      FRIDAY: "Sexta-feira",
+      SATURDAY: "Sábado",
+    };
+    return labels[day] || day;
+  };
 
   const getMealTypeLabel = (type: string) => {
     const labels: { [key: string]: string } = {
@@ -103,6 +138,44 @@ export function MealPlanDetailsForPatientScreen({
       OTHER: "Outro",
     };
     return labels[type] || type;
+  };
+
+  const groupMealsByDay = () => {
+    if (!plan?.meals) return {};
+
+    const daysOrder = [
+      "SUNDAY",
+      "MONDAY",
+      "TUESDAY",
+      "WEDNESDAY",
+      "THURSDAY",
+      "FRIDAY",
+      "SATURDAY",
+    ];
+    const grouped: { [key: string]: Meal[] } = {};
+
+    plan.meals.forEach((meal) => {
+      const day = meal.dayOfWeek || "MONDAY";
+      if (!grouped[day]) {
+        grouped[day] = [];
+      }
+      grouped[day].push(meal);
+    });
+
+    // Ordenar refeições de cada dia por horário
+    Object.keys(grouped).forEach((day) => {
+      grouped[day].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+    });
+
+    // Retornar dias na ordem correta
+    const orderedGrouped: { [key: string]: Meal[] } = {};
+    daysOrder.forEach((day) => {
+      if (grouped[day]) {
+        orderedGrouped[day] = grouped[day];
+      }
+    });
+
+    return orderedGrouped;
   };
 
   const getMealTypeIcon = (type: string): any => {
@@ -120,6 +193,7 @@ export function MealPlanDetailsForPatientScreen({
     return icons[type] || "nutrition-outline";
   };
 
+  // Verifica se a refeição foi consumida HOJE (para o progresso diário)
   const isMealConsumedToday = (mealId: string): boolean => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -134,13 +208,86 @@ export function MealPlanDetailsForPatientScreen({
     });
   };
 
+  // Verifica se a refeição foi consumida NA SEMANA ATUAL no dia específico
+  const isMealConsumedThisWeek = (
+    mealId: string,
+    mealDayOfWeek: string
+  ): boolean => {
+    // Obter início e fim da semana atual
+    const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+    // Calcular o início da semana (Domingo)
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - currentDay);
+    weekStart.setHours(0, 0, 0, 0);
+
+    // Calcular o fim da semana (Sábado)
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    // Mapear dia da semana para índice
+    const daysOfWeek = [
+      "SUNDAY",
+      "MONDAY",
+      "TUESDAY",
+      "WEDNESDAY",
+      "THURSDAY",
+      "FRIDAY",
+      "SATURDAY",
+    ];
+    const mealDayIndex = daysOfWeek.indexOf(mealDayOfWeek);
+
+    if (mealDayIndex === -1) return false;
+
+    // Calcular a data específica da refeição nesta semana
+    const mealDateThisWeek = new Date(weekStart);
+    mealDateThisWeek.setDate(weekStart.getDate() + mealDayIndex);
+    const mealDateStart = new Date(mealDateThisWeek);
+    mealDateStart.setHours(0, 0, 0, 0);
+    const mealDateEnd = new Date(mealDateThisWeek);
+    mealDateEnd.setHours(23, 59, 59, 999);
+
+    // Verificar se há consumo desta refeição no dia específico da semana atual
+    return consumptions.some((c) => {
+      const consumedAt = new Date(c.consumedAt);
+      return (
+        c.mealId === mealId &&
+        consumedAt >= mealDateStart &&
+        consumedAt <= mealDateEnd
+      );
+    });
+  };
+
   const calculateProgress = () => {
     if (!plan?.meals || plan.meals.length === 0) return 0;
-    const totalMeals = plan.meals.length;
-    const consumedMeals = plan.meals.filter((m) =>
+
+    // Obter o dia da semana atual usando getDay() para evitar problemas com Intl no Android
+    const today = new Date();
+    const dayIndex = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const daysOfWeek = [
+      "SUNDAY",
+      "MONDAY",
+      "TUESDAY",
+      "WEDNESDAY",
+      "THURSDAY",
+      "FRIDAY",
+      "SATURDAY",
+    ];
+    const dayOfWeek = daysOfWeek[dayIndex];
+
+    // Filtrar apenas refeições do dia da semana atual
+    const todayMeals = plan.meals.filter((m) => m.dayOfWeek === dayOfWeek);
+
+    if (todayMeals.length === 0) return 0;
+
+    // Contar refeições de hoje que foram consumidas
+    const consumedMeals = todayMeals.filter((m) =>
       isMealConsumedToday(m.id)
     ).length;
-    return Math.round((consumedMeals / totalMeals) * 100);
+
+    return Math.round((consumedMeals / todayMeals.length) * 100);
   };
 
   const progress = plan ? calculateProgress() : 0;
@@ -238,8 +385,26 @@ export function MealPlanDetailsForPatientScreen({
           </View>
 
           <Text style={styles.progressSubtext}>
-            {plan.meals?.filter((m) => isMealConsumedToday(m.id)).length || 0}{" "}
-            de {plan.meals?.length || 0} refeições consumidas hoje
+            {(() => {
+              const today = new Date();
+              const dayIndex = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+              const daysOfWeek = [
+                "SUNDAY",
+                "MONDAY",
+                "TUESDAY",
+                "WEDNESDAY",
+                "THURSDAY",
+                "FRIDAY",
+                "SATURDAY",
+              ];
+              const dayOfWeek = daysOfWeek[dayIndex];
+              const todayMeals =
+                plan.meals?.filter((m) => m.dayOfWeek === dayOfWeek) || [];
+              const consumedToday = todayMeals.filter((m) =>
+                isMealConsumedToday(m.id)
+              ).length;
+              return `${consumedToday} de ${todayMeals.length} refeições consumidas hoje`;
+            })()}
           </Text>
         </LinearGradient>
 
@@ -260,109 +425,303 @@ export function MealPlanDetailsForPatientScreen({
             </View>
           ) : (
             <View style={styles.mealsList}>
-              {plan.meals.map((meal: Meal, index: number) => {
-                const consumed = isMealConsumedToday(meal.id);
-                return (
-                  <TouchableOpacity
-                    key={meal.id}
-                    style={[
-                      styles.mealCard,
-                      consumed && styles.mealCardConsumed,
-                    ]}
-                    onPress={() =>
-                      navigation.navigate("MealCheckIn", {
-                        mealId: meal.id,
-                        mealName: meal.name,
-                        patientId,
-                        planId: plan.id,
-                      })
-                    }
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.mealCardHeader}>
+              {Object.entries(groupMealsByDay()).map(([day, meals]) => (
+                <View key={day} style={styles.daySection}>
+                  <View style={styles.dayHeader}>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={20}
+                      color={lightTheme.colors.primary}
+                    />
+                    <Text style={styles.dayTitle}>
+                      {getDayOfWeekLabel(day)}
+                    </Text>
+                  </View>
+
+                  {meals.map((meal: Meal, index: number) => {
+                    const consumed = isMealConsumedThisWeek(
+                      meal.id,
+                      meal.dayOfWeek || "MONDAY"
+                    );
+                    return (
                       <View
+                        key={meal.id}
                         style={[
-                          styles.mealIconContainer,
-                          consumed && styles.mealIconConsumed,
+                          styles.mealCard,
+                          consumed && styles.mealCardConsumed,
                         ]}
                       >
-                        <Ionicons
-                          name={getMealTypeIcon(meal.type)}
-                          size={24}
-                          color={
-                            consumed
-                              ? lightTheme.colors.white
-                              : lightTheme.colors.primary
-                          }
-                        />
-                      </View>
-                      <View style={styles.mealInfo}>
-                        <View style={styles.mealTitleRow}>
-                          <Text style={styles.mealName} numberOfLines={1}>
-                            {meal.name}
-                          </Text>
+                        <View style={styles.mealCardHeader}>
+                          <View
+                            style={[
+                              styles.mealIconContainer,
+                              consumed && styles.mealIconConsumed,
+                            ]}
+                          >
+                            <Ionicons
+                              name={getMealTypeIcon(meal.type)}
+                              size={24}
+                              color={
+                                consumed
+                                  ? lightTheme.colors.white
+                                  : lightTheme.colors.primary
+                              }
+                            />
+                          </View>
+                          <View style={styles.mealInfo}>
+                            <Text style={styles.mealName} numberOfLines={1}>
+                              {meal.name}
+                            </Text>
+                            <Text style={styles.mealType}>
+                              {getMealTypeLabel(meal.type)}
+                              {meal.time && ` • ${meal.time}`}
+                            </Text>
+                            {meal.nutrition && (
+                              <Text style={styles.mealCalories}>
+                                {Math.round(meal.nutrition.totalCalories)} kcal
+                              </Text>
+                            )}
+                          </View>
                           {consumed && (
-                            <View style={styles.consumedBadge}>
-                              <Ionicons
-                                name="checkmark-circle"
-                                size={20}
-                                color={lightTheme.colors.success}
-                              />
-                            </View>
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={28}
+                              color={lightTheme.colors.success}
+                            />
                           )}
                         </View>
-                        <Text style={styles.mealType}>
-                          {getMealTypeLabel(meal.type)}
-                          {meal.time && ` • ${meal.time}`}
-                        </Text>
-                        {meal.nutrition && (
-                          <Text style={styles.mealCalories}>
-                            {Math.round(meal.nutrition.totalCalories)} kcal
-                          </Text>
+
+                        {/* Alimentos */}
+                        {meal.items && meal.items.length > 0 && (
+                          <View style={styles.foodItemsContainer}>
+                            <Text style={styles.foodItemsTitle}>
+                              Alimentos:
+                            </Text>
+                            {meal.items.map((item: any, idx: number) => {
+                              let quantityText = "";
+                              if (item.measurementUnit?.gramsEquivalent) {
+                                const units =
+                                  item.quantity /
+                                  item.measurementUnit.gramsEquivalent;
+                                quantityText = `${units.toFixed(1)} ${
+                                  item.measurementUnit.abbreviation
+                                } (${item.quantity}g)`;
+                              } else {
+                                quantityText = `${item.quantity}g`;
+                              }
+
+                              const hasSubstitutions =
+                                item.substitutions &&
+                                item.substitutions.length > 0;
+
+                              return (
+                                <View
+                                  key={item.id || idx}
+                                  style={styles.foodItemRow}
+                                >
+                                  <View style={styles.foodItemContent}>
+                                    <Text style={styles.foodItemBullet}>•</Text>
+                                    <View style={styles.foodItemTextContainer}>
+                                      <Text style={styles.foodItemName}>
+                                        {item.name}
+                                      </Text>
+                                      <Text style={styles.foodItemQuantity}>
+                                        {quantityText}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                  {hasSubstitutions && (
+                                    <TouchableOpacity
+                                      style={styles.substitutionButton}
+                                      onPress={() => {
+                                        setSelectedFoodItem(item);
+                                        setSubstitutionModalVisible(true);
+                                      }}
+                                      activeOpacity={0.7}
+                                    >
+                                      <Ionicons
+                                        name="swap-horizontal"
+                                        size={18}
+                                        color={lightTheme.colors.primary}
+                                      />
+                                      <Text
+                                        style={styles.substitutionButtonText}
+                                      >
+                                        {item.substitutions.length}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  )}
+                                </View>
+                              );
+                            })}
+                          </View>
+                        )}
+
+                        {meal.observation && (
+                          <View style={styles.observationContainer}>
+                            <Ionicons
+                              name="information-circle-outline"
+                              size={16}
+                              color={lightTheme.colors.gray[600]}
+                            />
+                            <Text
+                              style={styles.mealObservation}
+                              numberOfLines={2}
+                            >
+                              {meal.observation}
+                            </Text>
+                          </View>
+                        )}
+
+                        {!consumed && (
+                          <TouchableOpacity
+                            style={styles.checkInButton}
+                            onPress={() =>
+                              navigation.navigate("MealCheckIn", {
+                                mealId: meal.id,
+                                mealName: meal.name,
+                                patientId,
+                                planId: plan.id,
+                              })
+                            }
+                          >
+                            <Ionicons
+                              name="checkmark-circle-outline"
+                              size={20}
+                              color={lightTheme.colors.primary}
+                            />
+                            <Text style={styles.checkInButtonText}>
+                              Marcar como consumida
+                            </Text>
+                          </TouchableOpacity>
                         )}
                       </View>
-                      <Ionicons
-                        name="chevron-forward"
-                        size={24}
-                        color={lightTheme.colors.gray[400]}
-                      />
-                    </View>
-
-                    {meal.observation && (
-                      <Text style={styles.mealObservation} numberOfLines={2}>
-                        {meal.observation}
-                      </Text>
-                    )}
-
-                    {!consumed && (
-                      <TouchableOpacity
-                        style={styles.checkInButton}
-                        onPress={() =>
-                          navigation.navigate("MealCheckIn", {
-                            mealId: meal.id,
-                            mealName: meal.name,
-                            patientId,
-                            planId: plan.id,
-                          })
-                        }
-                      >
-                        <Ionicons
-                          name="checkmark-circle-outline"
-                          size={20}
-                          color={lightTheme.colors.primary}
-                        />
-                        <Text style={styles.checkInButtonText}>
-                          Marcar como consumida
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
+                    );
+                  })}
+                </View>
+              ))}
             </View>
           )}
         </View>
       </ScrollView>
+
+      {/* Modal de Substituições */}
+      <Modal
+        visible={substitutionModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setSubstitutionModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Substituições</Text>
+              <TouchableOpacity
+                onPress={() => setSubstitutionModalVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={lightTheme.colors.gray[700]}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScrollView}>
+              <View style={styles.originalFoodContainer}>
+                <Text style={styles.originalFoodLabel}>Alimento original:</Text>
+                <Text style={styles.originalFoodName}>
+                  {selectedFoodItem?.name}
+                </Text>
+                <Text style={styles.originalFoodQuantity}>
+                  {selectedFoodItem?.measurementUnit?.gramsEquivalent
+                    ? `${(
+                        selectedFoodItem.quantity /
+                        selectedFoodItem.measurementUnit.gramsEquivalent
+                      ).toFixed(1)} ${
+                        selectedFoodItem.measurementUnit.abbreviation
+                      } (${selectedFoodItem.quantity}g)`
+                    : `${selectedFoodItem?.quantity}g`}
+                </Text>
+              </View>
+
+              <Text style={styles.substitutionsTitle}>
+                Você pode substituir por:
+              </Text>
+
+              {selectedFoodItem?.substitutions?.map(
+                (sub: any, index: number) => {
+                  let subQuantityText = "";
+                  if (sub.measurementUnit?.gramsEquivalent) {
+                    const units =
+                      sub.quantity / sub.measurementUnit.gramsEquivalent;
+                    subQuantityText = `${units.toFixed(1)} ${
+                      sub.measurementUnit.abbreviation
+                    } (${sub.quantity}g)`;
+                  } else {
+                    subQuantityText = `${sub.quantity}g`;
+                  }
+
+                  return (
+                    <View key={sub.id || index} style={styles.substitutionItem}>
+                      <View style={styles.substitutionHeader}>
+                        <Ionicons
+                          name="swap-horizontal"
+                          size={20}
+                          color={lightTheme.colors.primary}
+                        />
+                        <Text style={styles.substitutionName}>{sub.name}</Text>
+                      </View>
+                      <Text style={styles.substitutionQuantity}>
+                        {subQuantityText}
+                      </Text>
+                      <View style={styles.substitutionNutrition}>
+                        <View style={styles.nutritionItem}>
+                          <Text style={styles.nutritionLabel}>Calorias:</Text>
+                          <Text style={styles.nutritionValue}>
+                            {Math.round(sub.calories)} kcal
+                          </Text>
+                        </View>
+                        <View style={styles.nutritionItem}>
+                          <Text style={styles.nutritionLabel}>Proteína:</Text>
+                          <Text style={styles.nutritionValue}>
+                            {sub.protein.toFixed(1)}g
+                          </Text>
+                        </View>
+                        <View style={styles.nutritionItem}>
+                          <Text style={styles.nutritionLabel}>Carbo:</Text>
+                          <Text style={styles.nutritionValue}>
+                            {sub.carbs.toFixed(1)}g
+                          </Text>
+                        </View>
+                        <View style={styles.nutritionItem}>
+                          <Text style={styles.nutritionLabel}>Gordura:</Text>
+                          <Text style={styles.nutritionValue}>
+                            {sub.fat.toFixed(1)}g
+                          </Text>
+                        </View>
+                      </View>
+                      {sub.observation && (
+                        <Text style={styles.substitutionObservation}>
+                          Obs: {sub.observation}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                }
+              )}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.modalCloseButtonBottom}
+              onPress={() => setSubstitutionModalVisible(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -495,12 +854,28 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   mealsList: {
-    gap: 12,
+    gap: 16,
+  },
+  daySection: {
+    marginBottom: 8,
+  },
+  dayHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+    paddingLeft: 4,
+  },
+  dayTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: lightTheme.colors.gray[900],
   },
   mealCard: {
     backgroundColor: lightTheme.colors.white,
     borderRadius: 12,
     padding: 16,
+    marginBottom: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -508,9 +883,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   mealCardConsumed: {
-    backgroundColor: lightTheme.colors.success + "10",
-    borderWidth: 1,
-    borderColor: lightTheme.colors.success + "40",
+    opacity: 0.6,
   },
   mealCardHeader: {
     flexDirection: "row",
@@ -578,5 +951,193 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: lightTheme.colors.primary,
+  },
+  foodItemsContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: lightTheme.colors.gray[200],
+  },
+  foodItemsTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: lightTheme.colors.gray[700],
+    marginBottom: 8,
+  },
+  foodItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  foodItemContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  foodItemBullet: {
+    fontSize: 16,
+    color: lightTheme.colors.gray[600],
+    marginTop: 2,
+  },
+  foodItemTextContainer: {
+    flex: 1,
+  },
+  foodItemName: {
+    fontSize: 14,
+    color: lightTheme.colors.gray[800],
+    fontWeight: "500",
+  },
+  foodItemQuantity: {
+    fontSize: 13,
+    color: lightTheme.colors.gray[600],
+    marginTop: 2,
+  },
+  substitutionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: lightTheme.colors.primary + "15",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.primary + "30",
+  },
+  substitutionButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: lightTheme.colors.primary,
+  },
+  observationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: lightTheme.colors.gray[200],
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: lightTheme.colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "80%",
+    paddingTop: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: lightTheme.colors.gray[200],
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: lightTheme.colors.gray[900],
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalScrollView: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  originalFoodContainer: {
+    backgroundColor: lightTheme.colors.gray[100],
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  originalFoodLabel: {
+    fontSize: 12,
+    color: lightTheme.colors.gray[600],
+    marginBottom: 4,
+  },
+  originalFoodName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: lightTheme.colors.gray[900],
+    marginBottom: 4,
+  },
+  originalFoodQuantity: {
+    fontSize: 14,
+    color: lightTheme.colors.gray[700],
+  },
+  substitutionsTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: lightTheme.colors.gray[800],
+    marginBottom: 16,
+  },
+  substitutionItem: {
+    backgroundColor: lightTheme.colors.white,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: lightTheme.colors.gray[200],
+  },
+  substitutionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  substitutionName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: lightTheme.colors.gray[900],
+    flex: 1,
+  },
+  substitutionQuantity: {
+    fontSize: 14,
+    color: lightTheme.colors.gray[700],
+    marginBottom: 12,
+  },
+  substitutionNutrition: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  nutritionItem: {
+    flex: 1,
+    minWidth: "45%",
+  },
+  nutritionLabel: {
+    fontSize: 12,
+    color: lightTheme.colors.gray[600],
+  },
+  nutritionValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: lightTheme.colors.gray[900],
+  },
+  substitutionObservation: {
+    marginTop: 12,
+    fontSize: 13,
+    color: lightTheme.colors.gray[600],
+    fontStyle: "italic",
+  },
+  modalCloseButtonBottom: {
+    margin: 20,
+    padding: 16,
+    backgroundColor: lightTheme.colors.primary,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  modalCloseButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: lightTheme.colors.white,
   },
 });

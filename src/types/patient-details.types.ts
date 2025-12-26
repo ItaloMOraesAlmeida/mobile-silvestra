@@ -233,6 +233,7 @@ export interface UpdateHealthInfoSectionDto {
 export interface Goal {
   id: string;
   patientId: string;
+  name: string;
   type: GoalType;
   target: number;
   current: number | null;
@@ -246,6 +247,7 @@ export interface Goal {
 }
 
 export interface CreateGoalDto {
+  name: string;
   type: GoalType;
   target: number;
   current?: number;

@@ -21,6 +21,7 @@ interface CustomHeaderProps {
   showBackButton?: boolean;
   backTo?: string; // Nome da tela para onde voltar (opcional)
   onBackPress?: () => boolean; // Callback para interceptar o botão voltar - retorna true para continuar, false para cancelar
+  headerRight?: React.ReactNode; // Botão customizado no lado direito
 }
 
 export function CustomHeader({
@@ -30,6 +31,7 @@ export function CustomHeader({
   showBackButton = false,
   backTo,
   onBackPress,
+  headerRight,
 }: CustomHeaderProps) {
   const route = useRoute();
   const toggleDrawer = () => {
@@ -137,8 +139,8 @@ export function CustomHeader({
           {/* Título */}
           <Text style={styles.headerTitle}>{title}</Text>
 
-          {/* Espaço vazio para centralizar o título */}
-          <View style={styles.menuButton} />
+          {/* Botão direito customizado ou espaço vazio */}
+          {headerRight ? headerRight : <View style={styles.menuButton} />}
         </View>
       </LinearGradient>
     </>

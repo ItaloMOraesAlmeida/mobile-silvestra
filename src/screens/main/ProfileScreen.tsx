@@ -12,13 +12,15 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { lightTheme } from "../../theme";
 import { useAuthStore } from "../../stores/auth.store";
 import { useAvatar } from "../../hooks/use-avatar";
 import * as ImagePicker from "expo-image-picker";
 import { api } from "../../services/api.service";
 import Toast from "react-native-toast-message";
+import { nutritionistAddressService } from "../../services/nutritionist/address.service";
+import type { NutritionistAddress } from "../../types/nutritionist/address";
 
 type PermissionModalType = "camera" | "gallery" | null;
 
@@ -30,6 +32,8 @@ export function ProfileScreen() {
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [showPermissionModal, setShowPermissionModal] =
     useState<PermissionModalType>(null);
+  const [addresses, setAddresses] = useState<NutritionistAddress[]>([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
 
   const getAvatarKey = (): string | null => {
     return user?.avatarUrl || null;
@@ -277,6 +281,29 @@ export function ProfileScreen() {
     return name.substring(0, 2).toUpperCase();
   };
 
+  const loadAddresses = React.useCallback(async () => {
+    if (!user?.nutritionistProfile) return;
+
+    try {
+      setLoadingAddresses(true);
+      const data = await nutritionistAddressService.findAll();
+      setAddresses(data);
+    } catch (error) {
+      console.error("Erro ao carregar endereços:", error);
+    } finally {
+      setLoadingAddresses(false);
+    }
+  }, [user]);
+
+  // Recarrega endereços quando a tela ganha foco
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user?.nutritionistProfile) {
+        loadAddresses();
+      }
+    }, [user, loadAddresses])
+  );
+
   const profileSections = [
     {
       title: "Informações Pessoais",
@@ -417,6 +444,96 @@ export function ProfileScreen() {
           </View>
         </View>
       ))}
+
+      {/* Endereços (apenas para nutricionistas) */}
+      {user?.nutritionistProfile && (
+        <>
+          {loadingAddresses ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Meus Endereços</Text>
+              <View style={styles.addressLoadingContainer}>
+                <ActivityIndicator
+                  size="small"
+                  color={lightTheme.colors.primary}
+                />
+                <Text style={styles.addressLoadingText}>
+                  Carregando endereços...
+                </Text>
+              </View>
+            </View>
+          ) : addresses.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Meus Endereços</Text>
+              {(() => {
+                const primaryAddress = addresses.find((a) => a.isPrimary);
+                const serviceAddress = addresses.find(
+                  (a) => a.isServiceLocation
+                );
+                const isSameAddress =
+                  primaryAddress &&
+                  serviceAddress &&
+                  primaryAddress.id === serviceAddress.id;
+
+                return (
+                  <View style={styles.addressesContainer}>
+                    {primaryAddress && (
+                      <View style={styles.addressCard}>
+                        <View style={styles.addressCardHeader}>
+                          <Ionicons
+                            name="home"
+                            size={18}
+                            color={lightTheme.colors.primary}
+                          />
+                          <Text style={styles.addressCardTitle}>
+                            {isSameAddress
+                              ? "Endereço Principal e de Atendimento"
+                              : "Endereço Principal"}
+                          </Text>
+                        </View>
+                        <Text style={styles.addressCardText}>
+                          {primaryAddress.street}, {primaryAddress.number}
+                        </Text>
+                        <Text style={styles.addressCardText}>
+                          {primaryAddress.neighborhood} - {primaryAddress.city}/
+                          {primaryAddress.state}
+                        </Text>
+                        <Text style={styles.addressCardText}>
+                          CEP: {primaryAddress.zipCode}
+                        </Text>
+                      </View>
+                    )}
+
+                    {!isSameAddress && serviceAddress && (
+                      <View style={styles.addressCard}>
+                        <View style={styles.addressCardHeader}>
+                          <Ionicons
+                            name="medical"
+                            size={18}
+                            color={lightTheme.colors.primary}
+                          />
+                          <Text style={styles.addressCardTitle}>
+                            Local de Atendimento
+                          </Text>
+                        </View>
+                        <Text style={styles.addressCardText}>
+                          {serviceAddress.street}, {serviceAddress.number}
+                        </Text>
+                        <Text style={styles.addressCardText}>
+                          {serviceAddress.neighborhood} - {serviceAddress.city}/
+                          {serviceAddress.state}
+                        </Text>
+                        <Text style={styles.addressCardText}>
+                          CEP: {serviceAddress.zipCode}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })()}
+            </View>
+          ) : null}
+        </>
+      )}
 
       {/* Statistics (Placeholder) */}
       <View style={styles.section}>
@@ -767,6 +884,45 @@ const styles = StyleSheet.create({
     fontSize: lightTheme.typography.fontSize.base,
     fontWeight: lightTheme.typography.fontWeight.medium as any,
     color: lightTheme.colors.gray[800],
+  },
+  addressLoadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: lightTheme.spacing.lg,
+    backgroundColor: lightTheme.colors.white,
+    borderRadius: lightTheme.borderRadius.lg,
+    ...lightTheme.shadows.sm,
+  },
+  addressLoadingText: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[600],
+  },
+  addressesContainer: {
+    gap: lightTheme.spacing.sm,
+  },
+  addressCard: {
+    backgroundColor: lightTheme.colors.white,
+    borderRadius: lightTheme.borderRadius.lg,
+    padding: lightTheme.spacing.md,
+    ...lightTheme.shadows.sm,
+  },
+  addressCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: lightTheme.spacing.xs,
+  },
+  addressCardTitle: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    fontWeight: lightTheme.typography.fontWeight.semibold as any,
+    color: lightTheme.colors.primary,
+  },
+  addressCardText: {
+    fontSize: lightTheme.typography.fontSize.sm,
+    color: lightTheme.colors.gray[700],
+    lineHeight: 20,
   },
   statsContainer: {
     flexDirection: "row",

@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
-import { PieChart } from "react-native-chart-kit";
+import Svg, { G, Path, Text as SvgText } from "react-native-svg";
+import { pie, arc } from "d3-shape";
 import { useThemedStyles, useTheme } from "../../hooks/useTheme";
 import type { Theme } from "../../theme";
 
@@ -83,6 +84,23 @@ export const GoalsDistributionChart: React.FC<GoalsDistributionChartProps> = ({
     return ((value / total) * 100).toFixed(1);
   };
 
+  // Configurar gráfico D3
+  const chartWidth = screenWidth - 32;
+  const chartHeight = 220;
+  const radius = Math.min(chartWidth, chartHeight) / 2.5;
+  const centerX = chartWidth / 2;
+  const centerY = chartHeight / 2;
+
+  // Criar gerador de pizza D3
+  const pieGenerator = pie<(typeof chartData)[0]>()
+    .value((d) => d.population)
+    .sort(null);
+
+  // Criar gerador de arco D3
+  const arcGenerator = arc<any>().innerRadius(0).outerRadius(radius);
+
+  const pieData = pieGenerator(chartData);
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -92,19 +110,48 @@ export const GoalsDistributionChart: React.FC<GoalsDistributionChartProps> = ({
       </View>
 
       {/* Chart */}
-      <PieChart
-        data={chartData}
-        width={screenWidth - 32}
-        height={220}
-        chartConfig={{
-          color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-        }}
-        accessor="population"
-        backgroundColor="transparent"
-        paddingLeft="15"
-        absolute // Mostrar valores absolutos ao invés de percentuais
-        hasLegend={false} // Vamos criar nossa própria legenda
-      />
+      <View style={styles.chartContainer}>
+        <Svg width={chartWidth} height={chartHeight}>
+          <G x={centerX} y={centerY}>
+            {/* Fatias do gráfico de pizza */}
+            {pieData.map((slice, index) => {
+              const pathData = arcGenerator(slice as any);
+              return (
+                <Path
+                  key={`slice-${index}`}
+                  d={pathData || ""}
+                  fill={slice.data.color}
+                  opacity={0.9}
+                />
+              );
+            })}
+
+            {/* Labels de valor */}
+            {pieData.map((slice, index) => {
+              const labelArc = arc<any>()
+                .innerRadius(radius * 0.6)
+                .outerRadius(radius * 0.6);
+
+              const [x, y] = labelArc.centroid(slice as any);
+
+              return (
+                <SvgText
+                  key={`label-${index}`}
+                  x={x}
+                  y={y}
+                  fontSize={14}
+                  fontWeight="bold"
+                  fill={theme.colors.card}
+                  textAnchor="middle"
+                  alignmentBaseline="middle"
+                >
+                  {slice.data.population}
+                </SvgText>
+              );
+            })}
+          </G>
+        </Svg>
+      </View>
 
       {/* Custom Legend with Stats */}
       <View style={styles.statsContainer}>
@@ -236,6 +283,10 @@ const createStyles = (theme: Theme) =>
       fontFamily: theme.typography.fontFamily.medium,
       color: theme.colors.textSecondary,
       marginTop: theme.spacing.xs,
+    },
+    chartContainer: {
+      alignItems: "center",
+      justifyContent: "center",
     },
     statsContainer: {
       marginTop: theme.spacing.lg,

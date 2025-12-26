@@ -581,7 +581,6 @@ export const useMealPlansStore = create<MealPlansState>((set, get) => ({
         );
         // A API retorna { success, data: { patient: { name } } }
         patientName = response?.data?.patient?.name;
-        console.log("✅ Nome do paciente carregado:", patientName);
       } catch (err) {
         console.error("⚠️ Erro ao carregar nome do paciente:", err);
       }

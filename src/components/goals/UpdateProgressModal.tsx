@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,9 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useThemedStyles, useTheme } from "../../hooks/useTheme";
 import type { Theme } from "../../theme";
 
@@ -20,8 +23,31 @@ interface UpdateProgressModalProps {
   unit: string;
   goalType: string;
   onClose: () => void;
-  onUpdate: (newValue: number) => Promise<void>;
+  onUpdate: (newValue: number, notes?: string) => Promise<void>;
 }
+
+// Schema de validação Zod
+const createProgressSchema = (targetValue: number, unit: string) =>
+  z.object({
+    value: z
+      .string()
+      .min(1, "Por favor, insira um valor")
+      .refine((val) => !isNaN(Number(val)), {
+        message: "Por favor, insira um valor numérico válido",
+      })
+      .refine((val) => Number(val) >= 0, {
+        message: "O valor não pode ser negativo",
+      })
+      .refine((val) => Number(val) <= targetValue * 2, {
+        message: `O valor parece muito alto. Meta: ${targetValue} ${unit}`,
+      }),
+    notes: z.string().max(500).optional(),
+  });
+
+type ProgressFormData = {
+  value: string;
+  notes?: string;
+};
 
 /**
  * Modal para atualizar o progresso de uma meta
@@ -38,38 +64,45 @@ export const UpdateProgressModal: React.FC<UpdateProgressModalProps> = ({
 }) => {
   const styles = useThemedStyles(createStyles);
   const theme = useTheme();
-  const [value, setValue] = useState(currentValue?.toString() || "");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleUpdate = async () => {
-    const numericValue = parseFloat(value);
+  const progressSchema = createProgressSchema(targetValue, unit);
 
-    // Validações
-    if (isNaN(numericValue)) {
-      setError("Por favor, insira um valor numérico válido");
-      return;
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    watch,
+  } = useForm<ProgressFormData>({
+    resolver: zodResolver(progressSchema),
+    mode: "onChange",
+    defaultValues: {
+      value: "",
+      notes: "",
+    },
+  });
+
+  const valueWatch = watch("value");
+
+  // Reset form quando o modal abrir
+  useEffect(() => {
+    if (visible) {
+      reset({ value: "", notes: "" });
     }
+  }, [visible, reset]);
 
-    if (numericValue < 0) {
-      setError("O valor não pode ser negativo");
-      return;
-    }
-
-    if (numericValue > targetValue * 2) {
-      setError(`O valor parece muito alto. Meta: ${targetValue} ${unit}`);
-      return;
-    }
+  const handleUpdate = async (data: ProgressFormData) => {
+    const numericValue = parseFloat(data.value);
 
     try {
       setLoading(true);
-      setError(null);
-      await onUpdate(numericValue);
-      setValue("");
+      await onUpdate(numericValue, data.notes);
+      reset();
       onClose();
     } catch (err) {
       console.error("Error updating progress:", err);
-      setError("Erro ao atualizar progresso. Tente novamente.");
+      // Erro já é tratado no componente pai
     } finally {
       setLoading(false);
     }
@@ -77,15 +110,14 @@ export const UpdateProgressModal: React.FC<UpdateProgressModalProps> = ({
 
   const handleClose = () => {
     if (!loading) {
-      setValue("");
-      setError(null);
+      reset();
       onClose();
     }
   };
 
   // Calcula progresso
   const calculateProgress = () => {
-    const numericValue = parseFloat(value);
+    const numericValue = parseFloat(valueWatch);
     if (isNaN(numericValue)) return 0;
     return Math.min((numericValue / targetValue) * 100, 100);
   };
@@ -159,22 +191,46 @@ export const UpdateProgressModal: React.FC<UpdateProgressModalProps> = ({
           {/* Input */}
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Novo valor ({unit})</Text>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                value={value}
-                onChangeText={setValue}
-                keyboardType="decimal-pad"
-                placeholder={`Ex: ${targetValue.toFixed(1)}`}
-                placeholderTextColor={theme.colors.textSecondary}
-                editable={!loading}
-                autoFocus
-              />
-              <Text style={styles.unitText}>{unit}</Text>
-            </View>
+            <Controller
+              control={control}
+              name="value"
+              render={({ field: { onChange, value, onBlur } }) => (
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    errors.value && styles.inputWrapperError,
+                  ]}
+                >
+                  <TextInput
+                    style={styles.input}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    keyboardType="decimal-pad"
+                    placeholder={`Ex: ${targetValue.toFixed(1)}`}
+                    placeholderTextColor={theme.colors.textSecondary}
+                    editable={!loading}
+                    autoFocus
+                  />
+                  <Text style={styles.unitText}>{unit}</Text>
+                </View>
+              )}
+            />
+
+            {/* Mensagem de erro */}
+            {errors.value && (
+              <View style={styles.errorContainer}>
+                <Ionicons
+                  name="alert-circle"
+                  size={16}
+                  color={theme.colors.error}
+                />
+                <Text style={styles.errorText}>{errors.value.message}</Text>
+              </View>
+            )}
 
             {/* Preview do progresso */}
-            {value && !isNaN(parseFloat(value)) && (
+            {valueWatch && !isNaN(parseFloat(valueWatch)) && !errors.value && (
               <View style={styles.progressPreview}>
                 <View style={styles.progressBarContainer}>
                   <View
@@ -198,14 +254,37 @@ export const UpdateProgressModal: React.FC<UpdateProgressModalProps> = ({
               </View>
             )}
 
-            {error && (
+            {/* Campo de observações */}
+            <Controller
+              control={control}
+              name="notes"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <View style={styles.notesContainer}>
+                  <Text style={styles.notesLabel}>Observações (opcional)</Text>
+                  <TextInput
+                    style={styles.notesInput}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    placeholder="Adicione observações sobre o progresso..."
+                    placeholderTextColor={theme.colors.textSecondary}
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    editable={!loading}
+                  />
+                </View>
+              )}
+            />
+
+            {errors.notes && (
               <View style={styles.errorContainer}>
                 <Ionicons
                   name="alert-circle"
                   size={16}
                   color={theme.colors.error}
                 />
-                <Text style={styles.errorText}>{error}</Text>
+                <Text style={styles.errorText}>{errors.notes.message}</Text>
               </View>
             )}
           </View>
@@ -222,10 +301,11 @@ export const UpdateProgressModal: React.FC<UpdateProgressModalProps> = ({
             <TouchableOpacity
               style={[
                 styles.updateButton,
-                (loading || !value || error) && styles.updateButtonDisabled,
+                (loading || !valueWatch || !!errors.value) &&
+                  styles.updateButtonDisabled,
               ]}
-              onPress={handleUpdate}
-              disabled={loading || !value || !!error}
+              onPress={handleSubmit(handleUpdate)}
+              disabled={loading || !valueWatch || !!errors.value}
             >
               {loading ? (
                 <Text style={styles.updateButtonText}>Atualizando...</Text>
@@ -339,6 +419,10 @@ const createStyles = (theme: Theme) =>
       borderColor: theme.colors.border,
       paddingHorizontal: theme.spacing.md,
     },
+    inputWrapperError: {
+      borderColor: theme.colors.error,
+      backgroundColor: `${theme.colors.error}05`,
+    },
     input: {
       flex: 1,
       fontSize: 24,
@@ -424,5 +508,26 @@ const createStyles = (theme: Theme) =>
       fontSize: 16,
       fontWeight: "600",
       color: theme.colors.white,
+    },
+    notesContainer: {
+      marginTop: theme.spacing.md,
+    },
+    notesLabel: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    notesInput: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: theme.colors.border,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.md,
+      fontSize: 14,
+      color: theme.colors.text,
+      minHeight: 100,
+      textAlignVertical: "top",
     },
   });

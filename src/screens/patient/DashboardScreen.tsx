@@ -16,7 +16,8 @@ import Svg, { Path, Rect } from "react-native-svg";
 export function PatientDashboardScreen({ navigation }: { navigation: any }) {
   const user = useAuthStore((s) => s.user);
   const name = user?.name || "";
-  const patientId = user?.patientProfile?.id;
+  // ID do relacionamento Patient (paciente-nutricionista)
+  const patientId = user?.patientProfile?.patients?.[0]?.id;
 
   const { getPatientDashboard } = usePatients();
 
