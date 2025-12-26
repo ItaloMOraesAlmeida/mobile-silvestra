@@ -292,7 +292,11 @@ export default function WaterHistoryScreen() {
         {stats.bestDay && (
           <View style={styles.bestDayCard}>
             <View style={styles.bestDayIcon}>
-              <Ionicons name="trophy" size={32} color={lightTheme.colors.warning} />
+              <Ionicons
+                name="trophy"
+                size={32}
+                color={lightTheme.colors.warning}
+              />
             </View>
             <View style={styles.bestDayInfo}>
               <Text style={styles.bestDayLabel}>Melhor Dia</Text>
