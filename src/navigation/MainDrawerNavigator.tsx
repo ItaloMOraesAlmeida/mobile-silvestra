@@ -74,6 +74,12 @@ import {
 import { NutritionistAddressListScreen } from "../screens/nutritionist/profile/NutritionistAddressListScreen";
 import { NutritionistAddressFormScreen } from "../screens/nutritionist/profile/NutritionistAddressFormScreen";
 
+// Módulo 3 - Sistema de Hidratação
+import WaterDashboardScreen from "../screens/water/WaterDashboardScreen";
+import WaterHistoryScreen from "../screens/water/WaterHistoryScreen";
+import WaterSettingsScreen from "../screens/water/WaterSettingsScreen";
+import WaterNotificationTestScreen from "../screens/water/WaterNotificationTestScreen";
+
 export type MainDrawerParamList = {
   Home: undefined;
   Patients:
@@ -179,9 +185,14 @@ export type MainDrawerParamList = {
   MyMeasurements: undefined;
   MyGoals: undefined;
   PatientGoalDetails: {
-    goal: any;
+    goalId: string;
   };
-  // Módulo 5 - Sistema de Agendamentos (Nutricionista)
+  // Módulo 3 - Sistema de Hidratação
+  WaterDashboard: undefined;
+  WaterHistory: undefined;
+  WaterSettings: undefined;
+  WaterNotificationTest: undefined;
+  // Módulo 5 - Sistema de Agendamentos
   AppointmentCalendar: undefined;
   AvailabilityConfig: undefined;
   WeeklySchedule: undefined;
@@ -695,6 +706,62 @@ export function MainDrawerNavigator() {
         }
         options={{
           title: "Detalhes da Meta",
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+
+      {/* Módulo 3 - Sistema de Hidratação */}
+      <Drawer.Screen
+        name="WaterDashboard"
+        component={
+          createScreenWithHeader(
+            WaterDashboardScreen as any,
+            "Controle de Hidratação"
+          ) as any
+        }
+        options={{
+          title: "Hidratação",
+        }}
+      />
+      <Drawer.Screen
+        name="WaterHistory"
+        component={
+          createScreenWithHeader(
+            WaterHistoryScreen as any,
+            "Histórico de Hidratação",
+            true,
+            "WaterDashboard"
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="WaterSettings"
+        component={
+          createScreenWithHeader(
+            WaterSettingsScreen as any,
+            "Configurações de Hidratação",
+            true,
+            "WaterDashboard"
+          ) as any
+        }
+        options={{
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="WaterNotificationTest"
+        component={
+          createScreenWithHeader(
+            WaterNotificationTestScreen as any,
+            "Teste de Notificações",
+            true,
+            "WaterDashboard"
+          ) as any
+        }
+        options={{
           drawerItemStyle: { display: "none" },
         }}
       />

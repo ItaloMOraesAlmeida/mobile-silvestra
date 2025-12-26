@@ -10,7 +10,10 @@ import {
   Dimensions,
   Text,
 } from "react-native";
-import { LineChart } from "react-native-chart-kit";
+import Svg, { G, Path, Circle, Line, Text as SvgText } from "react-native-svg";
+import { scaleLinear, scalePoint } from "d3-scale";
+import { line, curveMonotoneX } from "d3-shape";
+import { max } from "d3-array";
 import { lightTheme } from "../../theme";
 import { PerformanceData, DashboardPeriod } from "../../types/dashboard";
 
@@ -34,23 +37,6 @@ export default function PerformanceChart({
     { key: DashboardPeriod.MONTH, label: "Mês" },
   ];
 
-  const chartConfig = {
-    backgroundColor: colors.card,
-    backgroundGradientFrom: colors.card,
-    backgroundGradientTo: colors.card,
-    decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(139, 92, 246, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-    style: {
-      borderRadius: 16,
-    },
-    propsForDots: {
-      r: "4",
-      strokeWidth: "2",
-      stroke: "#8B5CF6",
-    },
-  };
-
   // Preparar labels baseado no período
   const getLabels = (): string[] => {
     // A API já retorna os labels corretos para o período selecionado
@@ -62,6 +48,36 @@ export default function PerformanceChart({
     // A API já retorna os valores corretos para o período selecionado
     return data.values || [];
   };
+
+  // Configurar gráfico D3
+  const chartWidth = screenWidth - 64;
+  const chartHeight = 220;
+  const chartPadding = { top: 20, right: 20, bottom: 30, left: 40 };
+  const innerWidth = chartWidth - chartPadding.left - chartPadding.right;
+  const innerHeight = chartHeight - chartPadding.top - chartPadding.bottom;
+
+  const chartData = prepareChartData();
+  const labels = getLabels();
+
+  // Escalas
+  const xScale = scalePoint()
+    .domain(labels.map((_, i) => i.toString()))
+    .range([0, innerWidth]);
+
+  const yScale = scaleLinear()
+    .domain([0, Math.max(max(chartData) || 100, 100)])
+    .range([innerHeight, 0])
+    .nice();
+
+  const yTicks = yScale.ticks(4);
+
+  // Gerador de linha D3
+  const lineGenerator = line<number>()
+    .x((_, i) => xScale(i.toString()) || 0)
+    .y((d) => yScale(d))
+    .curve(curveMonotoneX);
+
+  const linePath = lineGenerator(chartData);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.card }]}>
@@ -135,29 +151,97 @@ export default function PerformanceChart({
 
       {/* Gráfico */}
       <View style={styles.chartContainer}>
-        <LineChart
-          data={{
-            labels: getLabels(),
-            datasets: [
-              {
-                data: prepareChartData(),
-              },
-            ],
-          }}
-          width={screenWidth - 64}
-          height={220}
-          chartConfig={chartConfig}
-          bezier
-          style={styles.chart}
-          withInnerLines={false}
-          withOuterLines={true}
-          withVerticalLines={false}
-          withHorizontalLines={true}
-          withDots={true}
-          withShadow={false}
-          fromZero
-          segments={4}
-        />
+        <Svg width={chartWidth} height={chartHeight}>
+          <G x={chartPadding.left} y={chartPadding.top}>
+            {/* Grid horizontal */}
+            {yTicks.map((tick) => (
+              <Line
+                key={`grid-${tick}`}
+                x1={0}
+                y1={yScale(tick)}
+                x2={innerWidth}
+                y2={yScale(tick)}
+                stroke={colors.border}
+                strokeWidth={1}
+                opacity={0.2}
+              />
+            ))}
+
+            {/* Linha de performance */}
+            {linePath && (
+              <Path d={linePath} stroke="#8B5CF6" strokeWidth={2} fill="none" />
+            )}
+
+            {/* Pontos */}
+            {chartData.map((value, index) => {
+              const x = xScale(index.toString()) || 0;
+              const y = yScale(value);
+              return (
+                <Circle
+                  key={`dot-${index}`}
+                  cx={x}
+                  cy={y}
+                  r={4}
+                  fill="#8B5CF6"
+                  stroke="#FFFFFF"
+                  strokeWidth={2}
+                />
+              );
+            })}
+
+            {/* Eixo Y */}
+            <Line
+              x1={0}
+              y1={0}
+              x2={0}
+              y2={innerHeight}
+              stroke={colors.border}
+              strokeWidth={1}
+            />
+
+            {/* Labels do eixo Y */}
+            {yTicks.map((tick) => (
+              <SvgText
+                key={`label-y-${tick}`}
+                x={-10}
+                y={yScale(tick)}
+                fontSize={10}
+                fill={colors.text}
+                textAnchor="end"
+                alignmentBaseline="middle"
+              >
+                {tick}
+              </SvgText>
+            ))}
+
+            {/* Eixo X */}
+            <Line
+              x1={0}
+              y1={innerHeight}
+              x2={innerWidth}
+              y2={innerHeight}
+              stroke={colors.border}
+              strokeWidth={1}
+            />
+
+            {/* Labels do eixo X */}
+            {labels.map((label, index) => {
+              const x = xScale(index.toString()) || 0;
+              return (
+                <SvgText
+                  key={`label-x-${index}`}
+                  x={x}
+                  y={innerHeight + 15}
+                  fontSize={10}
+                  fill={colors.text}
+                  textAnchor="middle"
+                >
+                  {label}
+                </SvgText>
+              );
+            })}
+          </G>
+        </Svg>
       </View>
 
       {/* Legenda */}
@@ -224,9 +308,6 @@ const styles = StyleSheet.create({
   chartContainer: {
     alignItems: "center",
     marginVertical: 8,
-  },
-  chart: {
-    borderRadius: 16,
   },
   legend: {
     flexDirection: "row",

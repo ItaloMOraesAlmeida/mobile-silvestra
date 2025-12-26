@@ -517,6 +517,32 @@ export function CustomDrawerContent(props: DrawerContentComponentProps) {
                 Minhas Metas
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.groupItem,
+                isRouteActive("WaterDashboard") && styles.drawerItemActive,
+              ]}
+              onPress={() => props.navigation.navigate("WaterDashboard")}
+            >
+              <Ionicons
+                name="water"
+                size={18}
+                color={
+                  isRouteActive("WaterDashboard")
+                    ? lightTheme.colors.primary
+                    : lightTheme.colors.gray[500]
+                }
+                style={styles.drawerIcon}
+              />
+              <Text
+                style={[
+                  styles.drawerLabel,
+                  isRouteActive("WaterDashboard") && styles.drawerLabelActive,
+                ]}
+              >
+                Hidratação
+              </Text>
+            </TouchableOpacity>
           </>
         )}
 

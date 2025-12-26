@@ -1,6 +1,9 @@
 import React from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
-import { LineChart } from "react-native-chart-kit";
+import Svg, { G, Path, Circle, Line, Text as SvgText } from "react-native-svg";
+import { scaleLinear, scalePoint } from "d3-scale";
+import { line, curveMonotoneX } from "d3-shape";
+import { max, min } from "d3-array";
 import { useThemedStyles, useTheme } from "../../hooks/useTheme";
 import type { Theme } from "../../theme";
 
@@ -75,31 +78,57 @@ export const WeightEvolutionChart: React.FC<WeightEvolutionChartProps> = ({
   const bmis = showBMI ? data.map((point) => point.bmi || 0) : [];
 
   // Calcular valores min/max para melhor visualização
-  // Datasets
-  const datasets: any[] = [
-    {
-      data: weights,
-      color: () => theme.colors.primary,
-      strokeWidth: 3,
-    },
-  ];
+  const allValues = [...weights];
+  if (showGoal && goals.length > 0)
+    allValues.push(...goals.filter((g) => g > 0));
+  if (showBMI && bmis.length > 0) allValues.push(...bmis.filter((b) => b > 0));
 
-  if (showGoal && goals.some((g) => g > 0)) {
-    datasets.push({
-      data: goals,
-      color: () => theme.colors.success,
-      strokeWidth: 2,
-      strokeDasharray: [5, 5], // Linha tracejada
-    });
-  }
+  const minValue = min(allValues) || 0;
+  const maxValue = max(allValues) || 100;
+  const padding = (maxValue - minValue) * 0.1;
 
-  if (showBMI && bmis.some((b) => b > 0)) {
-    datasets.push({
-      data: bmis,
-      color: () => theme.colors.warning,
-      strokeWidth: 2,
-    });
-  }
+  // Configurar gráfico D3
+  const chartWidth = screenWidth - 32;
+  const chartHeight = 220;
+  const chartPadding = { top: 20, right: 20, bottom: 40, left: 50 };
+  const innerWidth = chartWidth - chartPadding.left - chartPadding.right;
+  const innerHeight = chartHeight - chartPadding.top - chartPadding.bottom;
+
+  // Escalas
+  const xScale = scalePoint()
+    .domain(labels.map((_, i) => i.toString()))
+    .range([0, innerWidth]);
+
+  const yScale = scaleLinear()
+    .domain([minValue - padding, maxValue + padding])
+    .range([innerHeight, 0])
+    .nice();
+
+  const yTicks = yScale.ticks(4);
+
+  // Geradores de linha D3
+  const lineGenerator = line<number>()
+    .x((_, i) => xScale(i.toString()) || 0)
+    .y((d) => yScale(d))
+    .curve(curveMonotoneX);
+
+  const weightPath = lineGenerator(weights);
+  const goalPath =
+    showGoal && goals.some((g) => g > 0)
+      ? lineGenerator(
+          goals.filter((g) => g > 0).length === goals.length
+            ? goals
+            : weights.map((_, i) => goals[i] || 0)
+        )
+      : null;
+  const bmiPath =
+    showBMI && bmis.some((b) => b > 0)
+      ? lineGenerator(
+          bmis.filter((b) => b > 0).length === bmis.length
+            ? bmis
+            : weights.map((_, i) => bmis[i] || 0)
+        )
+      : null;
 
   return (
     <View style={styles.container}>
@@ -142,41 +171,126 @@ export const WeightEvolutionChart: React.FC<WeightEvolutionChartProps> = ({
       </View>
 
       {/* Chart */}
-      <LineChart
-        data={{
-          labels,
-          datasets,
-        }}
-        width={screenWidth - 32}
-        height={220}
-        chartConfig={{
-          backgroundColor: theme.colors.card,
-          backgroundGradientFrom: theme.colors.card,
-          backgroundGradientTo: theme.colors.card,
-          decimalPlaces: 1,
-          color: (opacity = 1) => `rgba(0, 0, 0, ${opacity * 0.2})`,
-          labelColor: () => theme.colors.textSecondary,
-          style: {
-            borderRadius: theme.borderRadius.lg,
-          },
-          propsForDots: {
-            r: "4",
-            strokeWidth: "2",
-            stroke: theme.colors.card,
-          },
-          propsForBackgroundLines: {
-            strokeDasharray: "", // Linha sólida
-            stroke: theme.colors.border,
-            strokeWidth: 1,
-          },
-        }}
-        bezier // Curva suave
-        style={styles.chart}
-        fromZero={false}
-        yAxisSuffix=" kg"
-        yAxisInterval={1}
-        segments={4}
-      />
+      <View style={styles.chartContainer}>
+        <Svg width={chartWidth} height={chartHeight}>
+          <G x={chartPadding.left} y={chartPadding.top}>
+            {/* Grid horizontal */}
+            {yTicks.map((tick) => (
+              <Line
+                key={`grid-${tick}`}
+                x1={0}
+                y1={yScale(tick)}
+                x2={innerWidth}
+                y2={yScale(tick)}
+                stroke={theme.colors.border}
+                strokeWidth={1}
+                opacity={0.2}
+              />
+            ))}
+
+            {/* Linha de peso atual */}
+            {weightPath && (
+              <Path
+                d={weightPath}
+                stroke={theme.colors.primary}
+                strokeWidth={3}
+                fill="none"
+              />
+            )}
+
+            {/* Linha de meta (tracejada) */}
+            {goalPath && (
+              <Path
+                d={goalPath}
+                stroke={theme.colors.success}
+                strokeWidth={2}
+                fill="none"
+                strokeDasharray="5,5"
+              />
+            )}
+
+            {/* Linha de IMC */}
+            {bmiPath && (
+              <Path
+                d={bmiPath}
+                stroke={theme.colors.warning}
+                strokeWidth={2}
+                fill="none"
+              />
+            )}
+
+            {/* Pontos do peso atual */}
+            {weights.map((weight, index) => {
+              const x = xScale(index.toString()) || 0;
+              const y = yScale(weight);
+              return (
+                <Circle
+                  key={`dot-${index}`}
+                  cx={x}
+                  cy={y}
+                  r={4}
+                  fill={theme.colors.primary}
+                  stroke={theme.colors.card}
+                  strokeWidth={2}
+                />
+              );
+            })}
+
+            {/* Eixo Y */}
+            <Line
+              x1={0}
+              y1={0}
+              x2={0}
+              y2={innerHeight}
+              stroke={theme.colors.border}
+              strokeWidth={1}
+            />
+
+            {/* Labels do eixo Y */}
+            {yTicks.map((tick) => (
+              <SvgText
+                key={`label-y-${tick}`}
+                x={-10}
+                y={yScale(tick)}
+                fontSize={10}
+                fill={theme.colors.text}
+                textAnchor="end"
+                alignmentBaseline="middle"
+              >
+                {tick.toFixed(1)} kg
+              </SvgText>
+            ))}
+
+            {/* Eixo X */}
+            <Line
+              x1={0}
+              y1={innerHeight}
+              x2={innerWidth}
+              y2={innerHeight}
+              stroke={theme.colors.border}
+              strokeWidth={1}
+            />
+
+            {/* Labels do eixo X */}
+            {labels.map((label, index) => {
+              if (!label) return null;
+              const x = xScale(index.toString()) || 0;
+              return (
+                <SvgText
+                  key={`label-x-${index}`}
+                  x={x}
+                  y={innerHeight + 15}
+                  fontSize={10}
+                  fill={theme.colors.text}
+                  textAnchor="middle"
+                >
+                  {label}
+                </SvgText>
+              );
+            })}
+          </G>
+        </Svg>
+      </View>
 
       {/* Stats Summary */}
       <View style={styles.stats}>
@@ -257,9 +371,8 @@ const createStyles = (theme: Theme) =>
       fontFamily: theme.typography.fontFamily.medium,
       color: theme.colors.textSecondary,
     },
-    chart: {
+    chartContainer: {
       marginVertical: theme.spacing.md,
-      borderRadius: theme.borderRadius.lg,
     },
     stats: {
       flexDirection: "row",
